@@ -1,0 +1,3 @@
+[submodule "CircoCore.js"]
+	path = CircoCore.js
+	url = https://github.com/Circo-dev/CircoCore.js
