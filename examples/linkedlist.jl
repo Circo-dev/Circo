@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: LGPL-3.0-only
 
-# This CircoCore sample creates a linked list of actors holding float values,
+# This Circo sample creates a linked list of actors holding float values,
 # and calculates the sum of them over and over again.
-# It demonstrates Infoton optimization, CircoCore's novel approach to solve the
+# It demonstrates Infoton optimization, Circo's novel approach to solve the
 # data locality problem
 
 #include("utils/loggerconfig.jl")
@@ -15,8 +15,7 @@ const PARALLELISM = 50 # Number of parallel Reduce operations (firstly started i
 const SCHEDULER_TARGET_ACTORCOUNT = 180.0 # Schedulers will push away their actors if they have more than this
 const AUTO_START = false
 
-using CircoCore, CircoCore.Debug, Dates, Random, LinearAlgebra
-import CircoCore: onmessage, onschedule, monitorextra, monitorprojection, check_migration
+using Circo, Circo.Debug, Dates, Random, LinearAlgebra
 
 # Test coordinator: Creates the list and sends the reduce operations to it to calculate the sum
 mutable struct Coordinator <: AbstractActor
@@ -32,13 +31,13 @@ end
 
 boxof(addr) = !isnothing(addr) ? addr.box : nothing # Helper
 
-# Implement monitorextra() to publish part of an actor's state
-monitorextra(me::Coordinator)  = (
+# Implement Circo.monitorextra() to publish part of an actor's state
+Circo.monitorextra(me::Coordinator)  = (
     me.itemcount,
     me.avgreducetime,
     list = boxof(me.list)
 )
-monitorprojection(::Type{Coordinator}) = JS("{
+Circo.monitorprojection(::Type{Coordinator}) = JS("{
     geometry: new THREE.SphereBufferGeometry(25, 7, 7),
     color: 0xcb3c33
 }")
@@ -50,7 +49,7 @@ mutable struct LinkedList <: AbstractActor
     LinkedList(head) = new(head)
 end
 
-monitorprojection(::Type{LinkedList}) = JS("{
+Circo.monitorprojection(::Type{LinkedList}) = JS("{
     geometry: new THREE.BoxBufferGeometry(20, 20, 20),
     color: 0x9558B2
 }")
@@ -63,12 +62,12 @@ mutable struct ListItem{TData} <: AbstractActor
     core::CoreState
     ListItem(data) = new{typeof(data)}(data)
 end
-monitorextra(me::ListItem) = (
+Circo.monitorextra(me::ListItem) = (
     data = isdefined(me, :data) ? me.data : "undefined",
     next = isdefined(me, :next) && !isnothing(me.next) ? boxof(me.next) : nothing
 )
 
-monitorprojection(::Type{ListItem{TData}}) where TData = JS("{
+Circo.monitorprojection(::Type{ListItem{TData}}) where TData = JS("{
     geometry: new THREE.BoxBufferGeometry(10, 10, 10)
 }")
 
@@ -118,7 +117,7 @@ struct Ack end
 Sum() = Reduce(+, 0)
 Mul() = Reduce(*, 1)
 
-function onmessage(me::LinkedList, message::Append, service)
+function Circo.onmessage(me::LinkedList, message::Append, service)
     send(service, me, message.item, SetNext(me.head))
     send(service, me, me.head, SetPrev(message.item))
     send(service, me, message.replyto, Appended(token(message)))
@@ -126,7 +125,7 @@ function onmessage(me::LinkedList, message::Append, service)
     me.length += 1
 end
 
-function onschedule(me::Coordinator, service)
+function Circo.onschedule(me::Coordinator, service)
     cluster = getname(service, "cluster")
     @info "Coordinator scheduled on cluster: $cluster Building list of $LIST_LENGTH actors"
     list = LinkedList(addr(me))
@@ -142,7 +141,7 @@ function appenditem(me::Coordinator, service)
     send(service, me, me.list, Append(addr(me), addr(item)))
 end
 
-function onmessage(me::Coordinator, message::Appended, service)
+function Circo.onmessage(me::Coordinator, message::Appended, service)
     me.core.pos = nullpos
     me.itemcount += 1
     if me.itemcount < LIST_LENGTH
@@ -159,7 +158,7 @@ function onmessage(me::Coordinator, message::Appended, service)
 end
 
 
-function onmessage(me::Coordinator, message::Run, service)
+function Circo.onmessage(me::Coordinator, message::Run, service)
     @info "Got message: Run"
     if !me.isrunning
         me.isrunning = true
@@ -168,25 +167,25 @@ function onmessage(me::Coordinator, message::Run, service)
     end
 end
 
-function onmessage(me::Coordinator, message::Stop, service)
+function Circo.onmessage(me::Coordinator, message::Stop, service)
     @info "Got message: Stop"
     me.isrunning = false
 end
 
-onmessage(me::ListItem, message::SetNext, service) = me.next = message.value
+Circo.onmessage(me::ListItem, message::SetNext, service) = me.next = message.value
 
-onmessage(me::ListItem, message::SetPrev, service) = me.prev = message.value
+Circo.onmessage(me::ListItem, message::SetPrev, service) = me.prev = message.value
 
-onmessage(me::LinkedList, message::Reduce, service) = send(service, me, me.head, message)
+Circo.onmessage(me::LinkedList, message::Reduce, service) = send(service, me, me.head, message)
 
-function onmessage(me::Coordinator, message::RecipientMoved, service)
+function Circo.onmessage(me::Coordinator, message::RecipientMoved, service)
     if me.list == message.oldaddress
         me.list = message.newaddress
     end
     send(service, me, message.newaddress, message.originalmessage)
 end
 
-function onmessage(me::LinkedList, message::RecipientMoved, service) # TODO a default implementation like this
+function Circo.onmessage(me::LinkedList, message::RecipientMoved, service) # TODO a default implementation like this
     if me.head == message.oldaddress
         @debug "RM List: head: $(me.head) msg: $message"
         me.head = message.newaddress
@@ -197,7 +196,7 @@ function onmessage(me::LinkedList, message::RecipientMoved, service) # TODO a de
     end
 end
 
-function onmessage(me::ListItem, message::Reduce, service)
+function Circo.onmessage(me::ListItem, message::Reduce, service)
     newresult = message.op(message.result, me.data)
     send(service, me, me.next, Reduce(message.op, newresult))
     #if isdefined(me, :prev)
@@ -205,9 +204,9 @@ function onmessage(me::ListItem, message::Reduce, service)
     #end
 end
 
-onmessage(me::ListItem, message::Ack, service) = nothing
+Circo.onmessage(me::ListItem, message::Ack, service) = nothing
 
-function onmessage(me::ListItem, message::RecipientMoved, service)
+function Circo.onmessage(me::ListItem, message::RecipientMoved, service)
     if me.next == message.oldaddress
         @debug "RM: next: $(me.next) msg: $message"
         me.next = message.newaddress
@@ -239,7 +238,7 @@ function mullist(me::Coordinator, service)
 end
 
 const alpha = 1e-3
-function onmessage(me::Coordinator, message::Reduce, service)
+function Circo.onmessage(me::Coordinator, message::Reduce, service)
     me.core.pos = Pos(300, 100, 100)
     ts = time_ns()
     reducetime = ts - me.lastreducets
