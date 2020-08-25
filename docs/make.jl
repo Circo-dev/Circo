@@ -2,16 +2,23 @@ using Documenter, Circo
 
 makedocs(
     modules = [Circo],
-    format = Documenter.HTML(; prettyurls = get(ENV, "CI", nothing) == "true"),
+    format = Documenter.HTML(; prettyurls = true),
     authors = "Schaffer Krisztian",
-    sitename = "Circo.jl",
-    pages = Any["index.md"]
+    sitename = "Circo",
+    pages = Any[
+        "index.md",
+        "install.md",
+        "tutorial.md",
+        "infotons.md",
+        "reference.md",
+        "troubleshooting.md",
+    ]
     # strict = true,
     # clean = true,
     # checkdocs = :exports,
 )
 
 deploydocs(
-    repo = "github.com/tisztamo/Circo.jl.git",
+    repo = "github.com/Circo-dev/Circo.git",
     push_preview = true
 )
