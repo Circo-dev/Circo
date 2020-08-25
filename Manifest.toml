@@ -5,9 +5,7 @@ uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 
 [[CircoCore]]
 deps = ["DataStructures", "Dates", "Documenter", "HTTP", "LinearAlgebra", "Logging", "MsgPack", "Plugins", "Serialization", "Sockets", "StaticArrays", "TypeParsers"]
-git-tree-sha1 = "5b45ab21480a3d581a34e71aa03b521a92fffd16"
-repo-rev = "master"
-repo-url = "../CircoCore.jl"
+path = "../CircoCore"
 uuid = "b491a1cf-f6eb-411b-8d19-79c73dc191e5"
 version = "0.2.0"
 
@@ -19,9 +17,9 @@ version = "3.14.0"
 
 [[DataStructures]]
 deps = ["Compat", "InteractiveUtils", "OrderedCollections"]
-git-tree-sha1 = "d00f02a7616fdcc63a156e13c641678c70e5c412"
+git-tree-sha1 = "88a93640bb3345436284ff089b383c34427f4117"
 uuid = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
-version = "0.18.1"
+version = "0.18.2"
 
 [[Dates]]
 deps = ["Printf"]
@@ -139,6 +137,12 @@ uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 [[Random]]
 deps = ["Serialization"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+
+[[Reexport]]
+deps = ["Pkg"]
+git-tree-sha1 = "7b1d07f411bc8ddb7977ec7f377b97b158514fe0"
+uuid = "189a3867-3050-52da-a836-e630ba90ab69"
+version = "0.2.0"
 
 [[SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"

@@ -5,6 +5,7 @@ version = "0.1.0"
 
 [deps]
 CircoCore = "b491a1cf-f6eb-411b-8d19-79c73dc191e5"
+Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 
 [compat]
 julia = "^1"
