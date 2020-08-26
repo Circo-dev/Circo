@@ -4,8 +4,8 @@
 # Starts a Circo node. For more info, call with -h
 
 BOOT_SCRIPT=$(cat <<-END
-    using CircoCore
-    using CircoCore.cli
+    using Circo
+    using Circo.cli
     
     # TODO Move this functionality to CircoCore.cli (needs some code-loading gimmick)
     args = parse_args(ARGS)

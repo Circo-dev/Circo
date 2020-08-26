@@ -71,12 +71,12 @@ Circo.monitorprojection(::Type{ListItem{TData}}) where TData = JS("{
     geometry: new THREE.BoxBufferGeometry(10, 10, 10)
 }")
 
-@inline function CircoCore.scheduler_infoton(scheduler, actor::AbstractActor)
+@inline function Circo.scheduler_infoton(scheduler, actor::AbstractActor)
     energy = (SCHEDULER_TARGET_ACTORCOUNT - scheduler.actorcount) * 4e-2
     return Infoton(scheduler.pos, energy)
 end
 
-@inline CircoCore.check_migration(me::Union{ListItem, LinkedList, Coordinator}, alternatives::MigrationAlternatives, service) = begin
+@inline Circo.check_migration(me::Union{ListItem, LinkedList, Coordinator}, alternatives::MigrationAlternatives, service) = begin
     migrate_to_nearest(me, alternatives, service, 0.01)
 end
 

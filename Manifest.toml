@@ -5,7 +5,7 @@ uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 
 [[CircoCore]]
 deps = ["DataStructures", "Dates", "Documenter", "HTTP", "LinearAlgebra", "Logging", "MsgPack", "Plugins", "Serialization", "Sockets", "StaticArrays", "TypeParsers"]
-path = "../CircoCore"
+path = "../CircoCore.jl"
 uuid = "b491a1cf-f6eb-411b-8d19-79c73dc191e5"
 version = "0.2.0"
 
@@ -45,6 +45,9 @@ git-tree-sha1 = "fb1ff838470573adc15c71ba79f8d31328f035da"
 uuid = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 version = "0.25.2"
 
+[[FileWatching]]
+uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
+
 [[HTTP]]
 deps = ["Base64", "Dates", "IniFile", "MbedTLS", "Sockets"]
 git-tree-sha1 = "2ac03263ce44be4222342bca1c51c36ce7566161"
@@ -66,6 +69,12 @@ deps = ["Dates", "Mmap", "Parsers", "Unicode"]
 git-tree-sha1 = "b34d7cef7b337321e97d22242c3c2b91f476748e"
 uuid = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 version = "0.21.0"
+
+[[Jive]]
+deps = ["Distributed", "FileWatching", "Pkg", "Printf", "REPL", "Test"]
+git-tree-sha1 = "b1d7e8499a40013bb3c7c299950dc61087d12e52"
+uuid = "ba5e3d4b-8524-549f-bc71-e76ad9e9deed"
+version = "0.2.9"
 
 [[LibGit2]]
 deps = ["Printf"]

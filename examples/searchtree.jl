@@ -4,8 +4,7 @@
 
 module SearchTreeTest
 
-using CircoCore, CircoCore.Debug, DataStructures, LinearAlgebra
-import CircoCore: onmessage, onschedule, monitorextra, monitorprojection, check_migration
+using Circo, DataStructures, LinearAlgebra
 
 # Infoton optimization parameters
 const TARGET_DISTANCE = 150.0
@@ -35,13 +34,13 @@ mutable struct Coordinator <: AbstractActor
 end
 
 # Implement monitorextra() to publish part of an actor's state on the UI
-monitorextra(me::Coordinator)  = (
+Circo.monitorextra(me::Coordinator)  = (
     runmode=me.runmode,
     size = me.size,
     root =!isnothing(me.root) ? me.root.box : nothing
 )
 
-# Non-standard Debug messages handled by the Coordinator (See also module CircoCore.Debug)
+# Non-standard Debug messages handled by the Coordinator (See also module Circo.Debug)
 struct RunSlow a::UInt8 end# TODO fix MsgPack to allow empty structs
 registermsg(RunSlow; ui=true)
 
@@ -65,14 +64,14 @@ mutable struct TreeNode{TValue} <: AbstractActor
     core::CoreState
     TreeNode(values) = new{eltype(values)}(SortedSet(values), length(values), nothing, nothing, nothing, nothing)
 end
-monitorextra(me::TreeNode) =
+Circo.monitorextra(me::TreeNode) =
 (left = isnothing(me.left) ? nothing : me.left.box,
  right = isnothing(me.right) ? nothing : me.right.box,
  sibling = isnothing(me.sibling) ? nothing : me.sibling.box,
  splitval = me.splitvalue,
  size = me.size)
 
- monitorprojection(::Type{TreeNode{TValue}}) where TValue = JS("{
+ Circo.monitorprojection(::Type{TreeNode{TValue}}) where TValue = JS("{
     geometry: new THREE.TetrahedronBufferGeometry(10, 2),
     scale: function(actor) {
         if (actor.extra.left) {
@@ -97,9 +96,9 @@ monitorextra(me::TreeNode) =
     return Infoton(scheduler.pos, energy)
 end
 
-CircoCore.scheduler_infoton(scheduler, actor::AbstractActor) = actorcount_scheduler_infoton(scheduler, actor)
+Circo.scheduler_infoton(scheduler, actor::AbstractActor) = actorcount_scheduler_infoton(scheduler, actor)
 
-@inline CircoCore.check_migration(me::Union{TreeNode, Coordinator}, alternatives::MigrationAlternatives, service) = begin
+@inline Circo.check_migration(me::Union{TreeNode, Coordinator}, alternatives::MigrationAlternatives, service) = begin
     if length(alternatives) < 5 && rand(UInt8) == 0
         @debug "Only $(length(alternatives)) alternatives at $(box(me)) : $alternatives"
     end
@@ -114,7 +113,7 @@ CircoCore.scheduler_infoton(scheduler, actor::AbstractActor) = actorcount_schedu
     return nothing
 end
 
-@inline CircoCore.apply_infoton(targetactor::AbstractActor, infoton::Infoton) = begin
+@inline Circo.apply_infoton(targetactor::AbstractActor, infoton::Infoton) = begin
     diff = infoton.sourcepos - targetactor.core.pos
     difflen = norm(diff)
     energy = infoton.energy
@@ -154,7 +153,7 @@ end
 genvalue() = rand(UInt32)
 nearpos(pos::Pos=nullpos, maxdistance=10.0) = pos + Pos(rand() * maxdistance, rand() * maxdistance, rand() * maxdistance)
 
-function onschedule(me::Coordinator, service)
+function Circo.onschedule(me::Coordinator, service)
     @debug "onschedule: $me"
     me.core.pos = nearpos(nullpos, 100.0)
     me.root = createnode(Array{UInt32}(undef, 0), service, nearpos(me.core.pos))
@@ -193,7 +192,7 @@ function startround(me::Coordinator, service, parallel = 1)
     end
 end
 
-function onmessage(me::Coordinator, message::SearchResult, service)
+function Circo.onmessage(me::Coordinator, message::SearchResult, service)
     me.core.pos = Pos(0, 0, 0)
     me.resultcount += 1
     if time_ns() > me.lastreportts + 10_000_000_000
@@ -206,7 +205,7 @@ end
 
 # When a message comes back as RecipientMoved, the locally stored address of the moved actor has to be updated
 # and the message forwarded manually
-function onmessage(me::Coordinator, message::RecipientMoved, service) # TODO a default implementation like this
+function Circo.onmessage(me::Coordinator, message::RecipientMoved, service) # TODO a default implementation like this
     if !isnothing(me.root) && box(me.root) === box(message.oldaddress)
         me.root = message.newaddress
     else
@@ -215,29 +214,29 @@ function onmessage(me::Coordinator, message::RecipientMoved, service) # TODO a d
     send(service, me, message.newaddress, message.originalmessage)
 end
 
-function onmessage(me::Coordinator, message::Stop, service)
+function Circo.onmessage(me::Coordinator, message::Debug.Stop, service)
     me.runmode = STOP
 end
 
-function onmessage(me::Coordinator, message::RunMedium, service)
+function Circo.onmessage(me::Coordinator, message::RunMedium, service)
     oldmode = me.runmode
     me.runmode = MEDIUM
     oldmode == STOP && startround(me, service, 80)
 end
 
-function onmessage(me::Coordinator, message::RunSlow, service)
+function Circo.onmessage(me::Coordinator, message::RunSlow, service)
     oldmode = me.runmode
     me.runmode = SLOW
     oldmode == STOP && startround(me, service)
 end
 
-function onmessage(me::Coordinator, message::Run, service)
+function Circo.onmessage(me::Coordinator, message::Debug.Run, service)
     oldmode = me.runmode
     me.runmode = FULLSPEED
     oldmode == STOP && startround(me, service, FULLSPEED_PARALLELISM)
 end
 
-function onmessage(me::Coordinator, message::Step, service)
+function Circo.onmessage(me::Coordinator, message::Debug.Step, service)
     oldmode = me.runmode
     me.runmode = STEP
     oldmode == STOP && startround(me, service)
@@ -274,7 +273,7 @@ function split(me::TreeNode, service)
     empty!(me.values)
 end
 
-function onmessage(me::TreeNode, message::Add, service)
+function Circo.onmessage(me::TreeNode, message::Add, service)
     me.size += 1
     if isnothing(me.splitvalue)
         push!(me.values, message.value)
@@ -290,7 +289,7 @@ function onmessage(me::TreeNode, message::Add, service)
     end
 end
 
-function onmessage(me::TreeNode, message::RecipientMoved, service) # TODO a default implementation like this
+function Circo.onmessage(me::TreeNode, message::RecipientMoved, service) # TODO a default implementation like this
     oldbox = box(message.oldaddress)
     if !isnothing(me.left) && box(me.left) === oldbox
         me.left = message.newaddress
@@ -302,7 +301,7 @@ function onmessage(me::TreeNode, message::RecipientMoved, service) # TODO a defa
     send(service, me, message.newaddress, message.originalmessage)
 end
 
-function onmessage(me::TreeNode, message::Search, service)
+function Circo.onmessage(me::TreeNode, message::Search, service)
     if isnothing(me.splitvalue)
         if message.value in me.values
             send(service, me, message.searcher, SearchResult(message.value, true))
@@ -318,7 +317,7 @@ function onmessage(me::TreeNode, message::Search, service)
     end
 end
 
-function onmessage(me::TreeNode, message::SetSibling, service)
+function Circo.onmessage(me::TreeNode, message::SetSibling, service)
     me.sibling = message.value
 end
 
