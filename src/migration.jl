@@ -69,9 +69,12 @@ function Plugins.setup!(migration::MigrationService, scheduler)
 end
 
 function Circo.onschedule(me::MigrationHelper, service)
-    @debug "cluster: $(getname(service, "cluster"))"
+    cluster = getname(service, "cluster")
+    if isnothing(cluster)
+        error("Migration depends on cluster, but the name 'cluster' is not registered. Please install ClusterService before MigrationService.")
+    end
     registername(service, "migration", me)
-    send(service, me, getname(service, "cluster"), Subscribe{PeerListUpdated}(addr(me)))
+    send(service, me, cluster, Subscribe{PeerListUpdated}(addr(me)))
 end
 
 function Circo.onmessage(me::MigrationHelper, message::PeerListUpdated, service)
@@ -91,21 +94,30 @@ function migrate!(scheduler::AbstractActorScheduler, actor::AbstractActor, topos
     if topostcode == postcode(scheduler)
         return false
     end
+    migration = scheduler.plugins[:migration]
+    if isnothing(migration)
+        @debug "Migration plugins not loaded, skipping migrate!"
+        return false
+    end
     send(postoffice(scheduler), Msg(addr(scheduler),
         Addr(topostcode, 0),
         MigrationRequest(actor),
         Infoton(nullpos)))
     unschedule!(scheduler, actor)
-    scheduler.plugins[:migration].movingactors[id(actor)] = MovingActor(actor)
+    migration.movingactors[id(actor)] = MovingActor(actor)
     return true
 end
 
 function Circo.handle_special!(scheduler::AbstractActorScheduler, message::Msg{MigrationRequest})
     @debug "Migration request: $(message)"
+    migration = scheduler.plugins[:migration]
+    if isnothing(migration)
+        @info "Migration Plugin not installed, dropping $message"
+        return nothing
+    end
     actor = body(message).actor
     actorbox = box(addr(actor))
     fromaddress = addr(actor)
-    migration = scheduler.plugins[:migration]
     if haskey(migration.movingactors, actorbox)
         @error "TODO Handle fast back-and forth moving when the request comes earlier than the previous response"
     end
@@ -116,6 +128,7 @@ function Circo.handle_special!(scheduler::AbstractActorScheduler, message::Msg{M
         Msg(actor,
         Addr(postcode(fromaddress), 0),
         MigrationResponse(fromaddress, addr(actor), true)))
+    return nothing
 end
 
 function Circo.handle_special!(scheduler::AbstractActorScheduler, message::Msg{MigrationResponse})

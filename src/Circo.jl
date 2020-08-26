@@ -7,7 +7,7 @@ using Plugins
 
 export MonitorService, Debug, cli, Host, JS,
     ClusterService, ClusterActor, NodeInfo, Joined, PeerListUpdated,
-    MigrationService, migrate_to_nearest, MigrationAlternatives,
+    MigrationService, migrate_to_nearest, MigrationAlternatives, RecipientMoved,
     WebsocketService
 
 const actor_activity_sparse = CircoCore.actor_activity_sparse
