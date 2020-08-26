@@ -1,6 +1,6 @@
 #!/bin/bash
 # Uses globally installed local-web-server (npm i local-web-server -g)
 
-julia --project make.jl
+julia --project docs/make.jl
 
-cd build && ws -p 8001
+cd docs/build && ws -p 8001
