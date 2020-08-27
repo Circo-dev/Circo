@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-3.0-only
-using Logging, Dates
+using Logging
 
 const NAME = "cluster"
 const MAX_JOINREQUEST_COUNT = 10
@@ -124,7 +124,7 @@ function sendjoinrequest(me::ClusterActor, root::PostCode, service)
     rootaddr = Addr(root)
     if CircoCore.isbaseaddress(rootaddr)
         @debug "$(addr(me)) : Querying name 'cluster'"
-        send(service, me, Addr(root), NameQuery("cluster");timeout=Second(10))
+        send(service, me, Addr(root), NameQuery("cluster");timeout=10.0)
     else
         @info "Got direct root address: $root"
         send(service, me, rootaddr, JoinRequest(me.myinfo))

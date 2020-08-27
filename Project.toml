@@ -6,7 +6,6 @@ version = "0.1.0"
 [deps]
 CircoCore = "b491a1cf-f6eb-411b-8d19-79c73dc191e5"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
-Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
 Jive = "ba5e3d4b-8524-549f-bc71-e76ad9e9deed"
