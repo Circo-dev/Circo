@@ -104,7 +104,7 @@ function migrate!(scheduler::AbstractActorScheduler, actor::AbstractActor, topos
         MigrationRequest(actor),
         Infoton(nullpos)))
     unschedule!(scheduler, actor)
-    migration.movingactors[id(actor)] = MovingActor(actor)
+    migration.movingactors[box(actor)] = MovingActor(actor)
     return true
 end
 
