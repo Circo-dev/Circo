@@ -186,7 +186,7 @@ end
 
 @inline check_migration(me::AbstractActor, alternatives::MigrationAlternatives, service) = nothing
 
-@inline function CircoCore.actor_activity_sparse(migration::MigrationService, scheduler, actor::AbstractActor)
+@inline function CircoCore.actor_activity_sparse256(migration::MigrationService, scheduler, actor::AbstractActor)
     check_migration(actor, migration.alternatives, scheduler.service)
 end
 

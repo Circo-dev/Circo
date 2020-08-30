@@ -297,7 +297,7 @@ function Circo.onmessage(me::ClusterActor, message::UnfriendRequest, service)
 end
 
 # TODO: update peers
-#@inline function CircoCore.actor_activity_sparse(cluster::ClusterService, scheduler, actor::AbstractActor)
+#@inline function CircoCore.actor_activity_sparse256(cluster::ClusterService, scheduler, actor::AbstractActor)
 #   if rand(UInt8) == 0
 #
 #    end

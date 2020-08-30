@@ -10,7 +10,8 @@ export MonitorService, Debug, cli, Host, JS,
     MigrationService, migrate_to_nearest, MigrationAlternatives, RecipientMoved,
     WebsocketService
 
-const actor_activity_sparse = CircoCore.actor_activity_sparse
+const actor_activity_sparse16 = CircoCore.actor_activity_sparse16
+const actor_activity_sparse256 = CircoCore.actor_activity_sparse256
 const handle_special! = CircoCore.handle_special!
 const letin_remote = CircoCore.letin_remote
 const localdelivery = CircoCore.localdelivery
