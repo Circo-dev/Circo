@@ -2,7 +2,7 @@
 using DataStructures, LinearAlgebra
 import Base.length
 
-const DEFAULT_TOLERANCE = 1e-2
+const AUTOMIGRATE_TOLERANCE = 1e-2
 
 struct MigrationRequest
     actor::AbstractActor
@@ -49,7 +49,7 @@ mutable struct MigrationService <: Plugin
     movingactors::Dict{ActorId,MovingActor}
     movedactors::Dict{ActorId,Addr}
     alternatives::MigrationAlternatives
-    helperactor::Addr
+    helperactor::Any
     MigrationService(;options = NamedTuple()) = new(Dict([]),Dict([]), MigrationAlternatives([]))
 end
 
@@ -64,8 +64,8 @@ Circo.monitorprojection(::Type{MigrationHelper}) = JS("projections.nonimportant"
 Plugins.symbol(::MigrationService) = :migration
 
 function Plugins.setup!(migration::MigrationService, scheduler)
-    helper = MigrationHelper(migration)
-    migration.helperactor = spawn(scheduler.service, helper)
+    migration.helperactor = MigrationHelper(migration)
+    spawn(scheduler.service, migration.helperactor)
 end
 
 function Circo.onschedule(me::MigrationHelper, service)
@@ -84,7 +84,6 @@ end
 """
     migrate(service, actor::AbstractActor, topostcode::PostCode)
 
-
 """
 @inline function migrate(service::ActorService, actor::AbstractActor, topostcode::PostCode)
     return migrate!(service.scheduler, actor, topostcode)
@@ -99,10 +98,8 @@ function migrate!(scheduler::AbstractActorScheduler, actor::AbstractActor, topos
         @debug "Migration plugins not loaded, skipping migrate!"
         return false
     end
-    send(postoffice(scheduler), Msg(addr(scheduler),
-        Addr(topostcode, 0),
-        MigrationRequest(actor),
-        Infoton(nullpos)))
+    migration::MigrationService
+    send(scheduler.service, migration.helperactor, Addr(topostcode, 0), MigrationRequest(actor))
     unschedule!(scheduler, actor)
     migration.movingactors[box(actor)] = MovingActor(actor)
     return true
@@ -115,6 +112,7 @@ function Circo.handle_special!(scheduler::AbstractActorScheduler, message::Msg{M
         @info "Migration Plugin not installed, dropping $message"
         return nothing
     end
+    migration::MigrationService
     actor = body(message).actor
     actorbox = box(addr(actor))
     fromaddress = addr(actor)
@@ -124,10 +122,7 @@ function Circo.handle_special!(scheduler::AbstractActorScheduler, message::Msg{M
     delete!(migration.movedactors, actorbox)
     schedule!(scheduler, actor)
     onmigrate(actor, scheduler.service)
-    send(scheduler.postoffice,
-        Msg(actor,
-        Addr(postcode(fromaddress), 0),
-        MigrationResponse(fromaddress, addr(actor), true)))
+    send(scheduler.service, actor, Addr(postcode(fromaddress), 0), MigrationResponse(fromaddress, addr(actor), true))
     return nothing
 end
 
@@ -168,17 +163,12 @@ function Circo.localroutes(migration::MigrationService, scheduler::AbstractActor
             )
             @debug "Forwarding message $message"
             @debug "forwarding as $msg"
-            send(scheduler.postoffice, msg)
+            send(scheduler.service, migration.helperactor, newaddress, body(message))
         else # Do not forward normal messages but send back a RecipientMoved
             recipientmoved = RecipientMoved(target(message), newaddress, body(message))
             @debug "Recipient Moved: $recipientmoved"
             #@debug "$(migration.movedactors)"
-            send(scheduler.postoffice, Msg(
-                addr(scheduler),
-                sender(message),
-                recipientmoved,
-                Infoton(nullpos)
-            ))
+            send(scheduler.service, migration.helperactor, sender(message), recipientmoved)
         end
         return true
     end
@@ -207,7 +197,7 @@ end
     return found
 end
 
-@inline function migrate_to_nearest(me::AbstractActor, alternatives::MigrationAlternatives, service, tolerance=DEFAULT_TOLERANCE)
+@inline function migrate_to_nearest(me::AbstractActor, alternatives::MigrationAlternatives, service, tolerance=AUTOMIGRATE_TOLERANCE)
     nearest = find_nearest(pos(me), alternatives)
     if isnothing(nearest) return nothing end
     if box(nearest.addr) === box(addr(me)) return nothing end

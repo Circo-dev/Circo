@@ -76,7 +76,12 @@ function handlemsg(service::WebsocketService, msg::Msg{RegistrationRequest}, ws,
 end
 
 function handlemsg(service::WebsocketService, query::Msg{NameQuery}, ws, scheduler)
-    namehandler = getname(scheduler.registry, body(query).name)
+    registry = get(scheduler.plugins, :registry, nothing)
+    if isnothing(registry)
+        @info "No registry plugin installed, dropping $query"
+        return nothing
+    end
+    namehandler = getname(registry, body(query).name)
     if isnothing(namehandler)
         @info "No handler for $(body(query))"
     end
@@ -128,7 +133,9 @@ function handle_connection(service::WebsocketService, ws, scheduler)
             @info "Field of type $(e.args[1]) was not found while unmarshaling type $(readtypename_safely(buf))"
             @debug "Erroneous websocket frame: ", buf
         else
-            @error "Exception while handling websocket frame" exception=(e, catch_backtrace())
+            @error "Exception while handling websocket frame: $e"
+            # TODO this causes segfault on 1.5.0 with multithreading
+            # @error "Exception while handling websocket frame" exception=(e, catch_backtrace())
         end
     end
     @debug "Websocket closed", ws
