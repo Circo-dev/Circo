@@ -14,8 +14,7 @@ struct Registered
     accepted::Bool
 end
 
-println("Please ignore the following warning about method redefinition:")
-MsgPack.msgpack_type(::Type) = MsgPack.StructType() # TODO this drops the warning "incremental compilation may be fatally broken for this module"
+MsgPack.msgpack_type(::DataType) = MsgPack.StructType() # TODO use StructTypes.jl or an abstract type 
 
 MsgPack.msgpack_type(::Type{ActorId}) = MsgPack.StringType()
 MsgPack.to_msgpack(::MsgPack.StringType, id::ActorId) = string(id, base=16)
@@ -166,7 +165,6 @@ function unmarshal(registry::TypeRegistry, buf)
     end
     return nothing
 end
-
 
 function Plugins.shutdown!(service::WebsocketService, scheduler)
 end
