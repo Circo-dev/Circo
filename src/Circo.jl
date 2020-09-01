@@ -21,6 +21,7 @@ const schedule_stop = CircoCore.schedule_stop
 const scheduler_infoton = CircoCore.scheduler_infoton
 const apply_infoton = CircoCore.apply_infoton
 
+include("profiles.jl")
 include("host.jl")
 include("monitor.jl")
 include("cluster/cluster.jl")

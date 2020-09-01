@@ -30,7 +30,7 @@ end
 
 function migratetoremote(targetpostcode, resultsholder_address)
     migrant = Migrant()
-    scheduler = ActorScheduler([migrant]; plugins=[ClusterService(), MigrationService(), CircoCore.core_plugins()...])
+    scheduler = ActorScheduler([migrant]; userplugins=[ClusterService(), MigrationService()])
     stayer = Stayer(addr(migrant), Addr(resultsholder_address))
     schedule!(scheduler, stayer)
     cmd = MigrateCommand(targetpostcode, addr(stayer))

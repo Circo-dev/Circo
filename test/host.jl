@@ -129,6 +129,7 @@ end
         @test pinger.pings_sent > 1e5
         @test pinger.pongs_got > 1e5
         shutdown!(host)
+        sleep(0.001)
         endpingcount = pinger.pings_sent
         sleep(0.1)
         @test pinger.pongs_got in [pinger.pings_sent, pinger.pings_sent - 1]

@@ -256,3 +256,4 @@ end
 
 zygote() = LinkedListTest.Coordinator()
 plugins() = [Debug.MsgStats()]
+profile() = Circo.Profiles.EmptyProfile

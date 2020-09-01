@@ -76,11 +76,15 @@ function parse_args(args)
     return parsed
 end
 
-function circonode(zygote, userplugins::Union{Function, Nothing} = () -> [];kvargs...)
+function circonode(
+    zygote;
+    userpluginsfn::Union{Function, Nothing} = () -> [],
+    profile = DefaultProfile(),
+    kvargs...)
     try
         args = merge(parse_args(ARGS), kvargs)
-        if isnothing(userplugins)
-            userplugins = () -> []
+        if isnothing(userpluginsfn)
+            userpluginsfn = () -> []
         end
         roots = []
         rootsfilename = nothing
@@ -104,9 +108,9 @@ function circonode(zygote, userplugins::Union{Function, Nothing} = () -> [];kvar
             zygoteresult = zygoteresult isa AbstractArray ? zygoteresult : [zygoteresult]
         end
         if isempty(roots)
-            startfirstnode(rootsfilename, threads, zygoteresult, userplugins)
+            startfirstnode(rootsfilename, threads, zygoteresult, userpluginsfn)
         else
-            startnodeandconnect(roots, threads, zygoteresult, userplugins; rootsfilename=rootsfilename, addmetoroots=addmetoroots)
+            startnodeandconnect(roots, threads, zygoteresult, userpluginsfn; rootsfilename=rootsfilename, addmetoroots=addmetoroots)
         end
     catch e
         e isa String ? (println(stderr, e);return -1) : rethrow()
@@ -141,7 +145,7 @@ function appendpostcode(filename, po)
 end
 
 function plugins(;options=NamedTuple())
-    retval = CircoCore.core_plugins(; options=options)
+    retval = []
     push!(retval, ClusterService(;options = options), WebsocketService(;options = options), MigrationService(;options = options))
     if isdefined(options, :userplugins)
         if !(options.userplugins isa Function)
@@ -153,8 +157,8 @@ function plugins(;options=NamedTuple())
     return retval
 end
 
-function startfirstnode(rootsfilename=nothing, threads=1, zygote=[], userplugins = () -> [])
-    host = Host(threads, plugins; options=(userplugins = userplugins, zygote = zygote))
+function startfirstnode(rootsfilename=nothing, threads=1, zygote=[], userpluginsfn = () -> [])
+    host = Host(threads, plugins; options=(userplugins = userpluginsfn, zygote = zygote))
     scheduler = host.schedulers[1]
     root = getname(scheduler.service, "cluster")
     println("First node started. To add nodes to this cluster, run:")
@@ -167,8 +171,8 @@ function startfirstnode(rootsfilename=nothing, threads=1, zygote=[], userplugins
     host()
 end
 
-function startnodeandconnect(roots, threads=1, zygote=[], userplugins = () -> []; rootsfilename=nothing, addmetoroots=false)
-    host = Host(threads, plugins; options=(userplugins = userplugins, zygote = zygote, roots = roots))
+function startnodeandconnect(roots, threads=1, zygote=[], userpluginsfn = () -> []; rootsfilename=nothing, addmetoroots=false)
+    host = Host(threads, plugins; options=(userplugins = userpluginsfn, zygote = zygote, roots = roots))
     scheduler = host.schedulers[1]
     root = getname(scheduler.service, "cluster")
     if addmetoroots

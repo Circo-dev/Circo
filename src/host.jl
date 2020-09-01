@@ -89,20 +89,20 @@ struct Host
     schedulers::Array{ActorScheduler}
 end
 
-function Host(threadcount::Int, pluginsfun = CircoCore.core_plugins; options=NamedTuple())
-    schedulers = create_schedulers(threadcount, pluginsfun, options)
+function Host(threadcount::Int, userpluginsfn = (;options) -> []; options = NamedTuple())
+    schedulers = create_schedulers(threadcount, userpluginsfn, options)
     hostservices = [scheduler.plugins[:host] for scheduler in schedulers]
     addpeers(hostservices, schedulers)
     return Host(schedulers)
 end
 
-function create_schedulers(threadcount::Number, pluginsfun, options)
+function create_schedulers(threadcount::Number, userpluginsfn, options)
     zygote = get(options, :zygote, [])
     schedulers = []
     for i = 1:threadcount
         iamzygote = i == 1
         myzygote = iamzygote ? zygote : nothing
-        scheduler = ActorScheduler(myzygote;plugins=[HostService(;options=(iamzygote = iamzygote, options...)), pluginsfun(;options=options)...])
+        scheduler = ActorScheduler(myzygote; userplugins = [HostService(;options=(iamzygote = iamzygote, options...)), userpluginsfn(;options=options)...])
         push!(schedulers, scheduler)
     end
     return schedulers

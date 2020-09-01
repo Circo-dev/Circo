@@ -33,7 +33,7 @@ end
 
 @testset "Migration" begin
     resultsholder = ResultsHolder()
-    scheduler = ActorScheduler([resultsholder]; plugins=[ClusterService(), MigrationService(), CircoCore.core_plugins()...])
+    scheduler = ActorScheduler([resultsholder]; userplugins=[ClusterService(), MigrationService()])
     startsource(postcode(scheduler),addr(resultsholder))
     scheduler(;exit_when_done=true)
     println("Resultsholder Exited")
