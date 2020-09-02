@@ -18,7 +18,7 @@ mutable struct HostService <: Plugin
     peers::Dict{PostCode, HostService}
     helper::Addr
     postcode::PostCode
-    HostService(;options=NamedTuple()) = new(
+    HostService(;options...) = new(
         Deque{Any}(),#get(options, :buffer_size, MSG_BUFFER_SIZE)
         SpinLock(),
         get(options, :iamzygote, false),
@@ -89,20 +89,24 @@ struct Host
     schedulers::Array{ActorScheduler}
 end
 
-function Host(threadcount::Int, userpluginsfn = (;options) -> []; options = NamedTuple())
-    schedulers = create_schedulers(threadcount, userpluginsfn, options)
+function Host(threadcount::Int; options...) # userpluginsfn = (;options...) -> []
+    schedulers = create_schedulers(threadcount; options...)
     hostservices = [scheduler.plugins[:host] for scheduler in schedulers]
     addpeers(hostservices, schedulers)
     return Host(schedulers)
 end
 
-function create_schedulers(threadcount::Number, userpluginsfn, options)
+function create_schedulers(threadcount::Number = 1; options...)
     zygote = get(options, :zygote, [])
+    profile = get(options, :profile, Profiles.DefaultProfile(;options...))
+    userpluginsfn =  get(options, :userpluginsfn, (;options...) -> [])
     schedulers = []
     for i = 1:threadcount
         iamzygote = i == 1
         myzygote = iamzygote ? zygote : nothing
-        scheduler = ActorScheduler(myzygote; userplugins = [HostService(;options=(iamzygote = iamzygote, options...)), userpluginsfn(;options=options)...])
+        scheduler = ActorScheduler(myzygote;
+            profile = profile,
+            userplugins = [HostService(;iamzygote = iamzygote, options...), userpluginsfn()...])
         push!(schedulers, scheduler)
     end
     return schedulers

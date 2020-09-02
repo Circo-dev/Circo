@@ -85,7 +85,7 @@ end
 
     @testset "Inter-thread Ping-Pong inside Host" begin
         pinger = PingPonger(nothing)
-        host = Host(2, Circo.cli.plugins; options = (zygote=[pinger],))
+        host = Host(2, Circo.cli.plugins; zygote=[pinger])
         hosttask = @async host(Msg(addr(pinger), CreatePeer(postcode(host.schedulers[end]))))
         @info "Sleeping to allow ping-pong to start."
         sleep(8.0)
@@ -111,7 +111,7 @@ end
 
     @testset "In-thread Ping-Pong inside Host" begin
         pinger = PingPonger(nothing)
-        host = Host(1, Circo.cli.plugins; options = (zygote=[pinger],))
+        host = Host(1, Circo.cli.plugins; zygote=[pinger])
 
         hosttask = @async host(Msg(addr(pinger), CreatePeer(nothing)); process_external = false, exit_when_done = true)
 

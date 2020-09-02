@@ -141,7 +141,7 @@ end
 mutable struct MonitorService <: Plugin
     actor::MonitorActor
     scheduler::CircoCore.AbstractActorScheduler
-    MonitorService(;options = NamedTuple()) = new()
+    MonitorService(;options...) = new()
 end
 
 function Plugins.setup!(monitor::MonitorService, scheduler)

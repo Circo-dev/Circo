@@ -10,7 +10,7 @@ const MIN_FRIEND_COUNT = 3
 mutable struct ClusterService <: Plugin
     roots::Array{PostCode}
     helper::Addr
-    ClusterService(;options = NamedTuple()) = new(get(options, :roots, []))
+    ClusterService(;options...) = new(get(options, :roots, []))
 end
 Plugins.symbol(::ClusterService) = :cluster
 Plugins.setup!(cluster::ClusterService, scheduler) = begin

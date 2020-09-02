@@ -50,7 +50,7 @@ mutable struct MigrationService <: Plugin
     movedactors::Dict{ActorId,Addr}
     alternatives::MigrationAlternatives
     helperactor::Any
-    MigrationService(;options = NamedTuple()) = new(Dict([]),Dict([]), MigrationAlternatives([]))
+    MigrationService(;options...) = new(Dict([]),Dict([]), MigrationAlternatives([]))
 end
 
 mutable struct MigrationHelper <: AbstractActor

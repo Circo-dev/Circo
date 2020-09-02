@@ -14,7 +14,7 @@ struct Registered
     accepted::Bool
 end
 
-MsgPack.msgpack_type(::DataType) = MsgPack.StructType() # TODO use StructTypes.jl or an abstract type 
+MsgPack.msgpack_type(::DataType) = MsgPack.StructType() # TODO use StructTypes.jl or an abstract type
 
 MsgPack.msgpack_type(::Type{ActorId}) = MsgPack.StringType()
 MsgPack.to_msgpack(::MsgPack.StringType, id::ActorId) = string(id, base=16)
@@ -28,7 +28,7 @@ mutable struct WebsocketService <: Plugin
     actor_connections::Dict{ActorId, IO}
     typeregistry::TypeRegistry
     socket
-    WebsocketService(;options = NamedTuple()) = new(Dict(), TypeRegistry())
+    WebsocketService(;options...) = new(Dict(), TypeRegistry())
 end
 
 Plugins.symbol(plugin::WebsocketService) = :websocket

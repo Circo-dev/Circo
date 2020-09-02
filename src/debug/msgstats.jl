@@ -5,7 +5,7 @@ using LinearAlgebra
 mutable struct MsgStats <: Plugin
     typefrequencies::IdDict{Any, Int}
     helper::Addr
-    MsgStats() = begin
+    MsgStats(;options...) = begin
         return new(IdDict())
     end
 end
@@ -13,7 +13,7 @@ end
 mutable struct MsgStatsHelper <: AbstractActor
     stats::MsgStats
     core::CoreState
-    MsgStatsHelper(stats) = new(stats)
+    MsgStatsHelper(stats;options...) = new(stats)
 end
 
 struct ResetStats

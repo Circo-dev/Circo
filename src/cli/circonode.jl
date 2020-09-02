@@ -79,12 +79,15 @@ end
 function circonode(
     zygote;
     userpluginsfn::Union{Function, Nothing} = () -> [],
-    profile = DefaultProfile(),
-    kvargs...)
+    profile = nothing,
+    kwargs...)
     try
-        args = merge(parse_args(ARGS), kvargs)
+        args = merge(parse_args(ARGS), kwargs)
         if isnothing(userpluginsfn)
             userpluginsfn = () -> []
+        end
+        if isnothing(profile)
+            profile = Circo.Profiles.ClusterProfile()
         end
         roots = []
         rootsfilename = nothing
@@ -108,9 +111,9 @@ function circonode(
             zygoteresult = zygoteresult isa AbstractArray ? zygoteresult : [zygoteresult]
         end
         if isempty(roots)
-            startfirstnode(rootsfilename, threads, zygoteresult, userpluginsfn)
+            startfirstnode(;profile = profile, rootsfilename = rootsfilename, threads = threads, zygote = zygoteresult, userpluginsfn = userpluginsfn)
         else
-            startnodeandconnect(roots, threads, zygoteresult, userpluginsfn; rootsfilename=rootsfilename, addmetoroots=addmetoroots)
+            startnodeandconnect(;profile = profile, roots = roots, threads = threads, zygote = zygoteresult, userpluginsfn = userpluginsfn, rootsfilename=rootsfilename, addmetoroots=addmetoroots)
         end
     catch e
         e isa String ? (println(stderr, e);return -1) : rethrow()
@@ -144,21 +147,26 @@ function appendpostcode(filename, po)
     end
 end
 
-function plugins(;options=NamedTuple())
-    retval = []
-    push!(retval, ClusterService(;options = options), WebsocketService(;options = options), MigrationService(;options = options))
-    if isdefined(options, :userplugins)
-        if !(options.userplugins isa Function)
-            error("options.userplugins must be a Function, not $(typeof(options.userplugins))")
-        end
-        push!(retval, (options.userplugins())...)
-    end
-    push!(retval, MonitorService(;options=options))
-    return retval
+# function plugins(;options...)
+#     retval = []
+#     push!(retval, ClusterService(;options...), WebsocketService(;options...), MigrationService(;options...))
+#     if isdefined(options, :userplugins)
+#         if !(options.userplugins isa Function)
+#             error("options.userplugins must be a Function, not $(typeof(options.userplugins))")
+#         end
+#         push!(retval, (options.userplugins())...)
+#     end
+#     push!(retval, MonitorService(;options...))
+#     return retval
+# end
+
+function extend_userpluginsfn(userpluginsfn)
+    return (;options...) -> [userpluginsfn(;options...)..., MonitorService(;options...)]
 end
 
-function startfirstnode(rootsfilename=nothing, threads=1, zygote=[], userpluginsfn = () -> [])
-    host = Host(threads, plugins; options=(userplugins = userpluginsfn, zygote = zygote))
+function startfirstnode(;profile, userpluginsfn, rootsfilename=nothing, threads=1, zygote=[])
+    ext_userpluginsfn = extend_userpluginsfn(userpluginsfn)
+    host = Host(threads; profile = profile, userplugins = ext_userpluginsfn, zygote = zygote)
     scheduler = host.schedulers[1]
     root = getname(scheduler.service, "cluster")
     println("First node started. To add nodes to this cluster, run:")
@@ -171,8 +179,9 @@ function startfirstnode(rootsfilename=nothing, threads=1, zygote=[], userplugins
     host()
 end
 
-function startnodeandconnect(roots, threads=1, zygote=[], userpluginsfn = () -> []; rootsfilename=nothing, addmetoroots=false)
-    host = Host(threads, plugins; options=(userplugins = userpluginsfn, zygote = zygote, roots = roots))
+function startnodeandconnect(;roots, profile, threads=1, zygote=[], userpluginsfn=() -> [], rootsfilename=nothing, addmetoroots=false)
+    ext_userpluginsfn = extend_userpluginsfn(userpluginsfn)
+    host = Host(threads; profile = profile, userplugins = ext_userpluginsfn, zygote = zygote, roots = roots)
     scheduler = host.schedulers[1]
     root = getname(scheduler.service, "cluster")
     if addmetoroots
