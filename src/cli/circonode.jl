@@ -147,26 +147,8 @@ function appendpostcode(filename, po)
     end
 end
 
-# function plugins(;options...)
-#     retval = []
-#     push!(retval, ClusterService(;options...), WebsocketService(;options...), MigrationService(;options...))
-#     if isdefined(options, :userplugins)
-#         if !(options.userplugins isa Function)
-#             error("options.userplugins must be a Function, not $(typeof(options.userplugins))")
-#         end
-#         push!(retval, (options.userplugins())...)
-#     end
-#     push!(retval, MonitorService(;options...))
-#     return retval
-# end
-
-function extend_userpluginsfn(userpluginsfn)
-    return (;options...) -> [userpluginsfn(;options...)..., MonitorService(;options...)]
-end
-
 function startfirstnode(;profile, userpluginsfn, rootsfilename=nothing, threads=1, zygote=[])
-    ext_userpluginsfn = extend_userpluginsfn(userpluginsfn)
-    host = Host(threads; profile = profile, userplugins = ext_userpluginsfn, zygote = zygote)
+    host = Host(threads; profile = profile, userpluginsfn = userpluginsfn, zygote = zygote)
     scheduler = host.schedulers[1]
     root = getname(scheduler.service, "cluster")
     println("First node started. To add nodes to this cluster, run:")
@@ -180,8 +162,7 @@ function startfirstnode(;profile, userpluginsfn, rootsfilename=nothing, threads=
 end
 
 function startnodeandconnect(;roots, profile, threads=1, zygote=[], userpluginsfn=() -> [], rootsfilename=nothing, addmetoroots=false)
-    ext_userpluginsfn = extend_userpluginsfn(userpluginsfn)
-    host = Host(threads; profile = profile, userplugins = ext_userpluginsfn, zygote = zygote, roots = roots)
+    host = Host(threads; profile = profile, userpluginsfn = userpluginsfn, zygote = zygote, roots = roots)
     scheduler = host.schedulers[1]
     root = getname(scheduler.service, "cluster")
     if addmetoroots

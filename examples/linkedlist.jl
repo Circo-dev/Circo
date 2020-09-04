@@ -256,4 +256,5 @@ end
 
 zygote() = LinkedListTest.Coordinator()
 plugins(;options...) = [Debug.MsgStats(;options...)]
-#profile() = Circo.Profiles.ClusterProfile
+
+# profile(;options...) = Circo.Profiles.MinimalProfile(;options...)

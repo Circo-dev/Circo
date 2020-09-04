@@ -22,6 +22,7 @@ END
 )
 ROOTS_FILE=${ROOTS_FILE:-roots.txt}
 export JULIA_NUM_THREADS=${JULIA_NUM_THREADS:-10000}
+export JULIA_EXECUTABLE=${JULIA_EXECUTABLE:-julia}
 
 # JULIA_EXCLUSIVE is needed as a workaround to a crash at websocket disconnection
-JULIA_EXCLUSIVE=1 julia --project -e "$BOOT_SCRIPT" -- "$@"
+JULIA_EXCLUSIVE=1 $JULIA_EXECUTABLE --project -e "$BOOT_SCRIPT" -- "$@"
