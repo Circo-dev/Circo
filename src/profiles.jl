@@ -2,6 +2,7 @@ module Profiles
 using ..Circo
 import CircoCore
 
+const AbstractProfile = CircoCore.Profiles.AbstractProfile
 const core_plugins = CircoCore.Profiles.core_plugins
 const MinimalProfile = CircoCore.Profiles.MinimalProfile
 const EmptyProfile = CircoCore.Profiles.EmptyProfile

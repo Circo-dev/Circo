@@ -76,18 +76,24 @@ function parse_args(args)
     return parsed
 end
 
+iszygote(args) = isinteractive() ? get(args, :zygote, true) : haskey(args, :zygote)
+
 function circonode(
-    zygote;
+    zygotefn_or_instance;
     userpluginsfn::Union{Function, Nothing} = () -> [],
-    profile = nothing,
+    profile::Union{Function, Circo.Profiles.AbstractProfile, Nothing} = nothing,
     kwargs...)
     try
         args = merge(parse_args(ARGS), kwargs)
         if isnothing(userpluginsfn)
             userpluginsfn = () -> []
         end
-        if isnothing(profile)
-            profile = Circo.Profiles.ClusterProfile()
+        if profile isa Function
+            profile = profile()
+        else
+            if isnothing(profile)
+                profile = Circo.Profiles.ClusterProfile()
+            end
         end
         roots = []
         rootsfilename = nothing
@@ -106,8 +112,8 @@ function circonode(
         if haskey(args, :threads)
             threads = args[:threads] isa Int ? args[:threads] : parse(Int, args[:threads])
         end
-        if haskey(args, :zygote)
-            zygoteresult = zygote isa Function ? zygote() : zygote
+        if iszygote(args)
+            zygoteresult = zygotefn_or_instance isa Function ? zygotefn_or_instance() : zygotefn_or_instance
             zygoteresult = zygoteresult isa AbstractArray ? zygoteresult : [zygoteresult]
         end
         if isempty(roots)
