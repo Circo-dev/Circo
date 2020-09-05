@@ -117,9 +117,9 @@ function circonode(
             zygoteresult = zygoteresult isa AbstractArray ? zygoteresult : [zygoteresult]
         end
         if isempty(roots)
-            startfirstnode(;profile = profile, rootsfilename = rootsfilename, threads = threads, zygote = zygoteresult, userpluginsfn = userpluginsfn)
+            return create_first_node(;profile = profile, rootsfilename = rootsfilename, threads = threads, zygote = zygoteresult, userpluginsfn = userpluginsfn)
         else
-            startnodeandconnect(;profile = profile, roots = roots, threads = threads, zygote = zygoteresult, userpluginsfn = userpluginsfn, rootsfilename=rootsfilename, addmetoroots=addmetoroots)
+            return create_connecting_node(;profile = profile, roots = roots, threads = threads, zygote = zygoteresult, userpluginsfn = userpluginsfn, rootsfilename=rootsfilename, addmetoroots=addmetoroots)
         end
     catch e
         e isa String ? (println(stderr, e);return -1) : rethrow()
@@ -153,7 +153,7 @@ function appendpostcode(filename, po)
     end
 end
 
-function startfirstnode(;profile, userpluginsfn, rootsfilename=nothing, threads=1, zygote=[])
+function create_first_node(;profile, userpluginsfn, rootsfilename=nothing, threads=1, zygote=[])
     host = Host(threads; profile = profile, userpluginsfn = userpluginsfn, zygote = zygote)
     scheduler = host.schedulers[1]
     root = getname(scheduler.service, "cluster")
@@ -164,10 +164,10 @@ function startfirstnode(;profile, userpluginsfn, rootsfilename=nothing, threads=
         appendpostcode(rootsfilename, postcode(root))
         println("bin/circonode.sh --rootsfile $rootsfilename")
     end
-    host()
+    return host
 end
 
-function startnodeandconnect(;roots, profile, threads=1, zygote=[], userpluginsfn=() -> [], rootsfilename=nothing, addmetoroots=false)
+function create_connecting_node(;roots, profile, threads=1, zygote=[], userpluginsfn=() -> [], rootsfilename=nothing, addmetoroots=false)
     host = Host(threads; profile = profile, userpluginsfn = userpluginsfn, zygote = zygote, roots = roots)
     scheduler = host.schedulers[1]
     root = getname(scheduler.service, "cluster")
@@ -175,7 +175,7 @@ function startnodeandconnect(;roots, profile, threads=1, zygote=[], userpluginsf
         appendpostcode(rootsfilename, root)
     end
     @info "Node started. Postcode of this node$(addmetoroots ? " (added to $rootsfilename)" : ""): $(postcode(root))"
-    host()
+    return host
 end
 
 export circonode, parse_args
