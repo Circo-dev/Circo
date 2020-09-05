@@ -8,6 +8,7 @@
 [![Documentation](https://img.shields.io/badge/docs-master-blue.svg)](https://Circo-dev.github.io/Circo.jl/dev)
 -->
 
+Note: Circo and CircoCore are under registration in the General Julia Registry. Documentation will be published when the process is finished.
 
 a decentralized actor system which is
 
@@ -16,4 +17,4 @@ a decentralized actor system which is
 - extensible with plugins
 
 
-Documentation: https://circo-dev.github.io/
+<!-- Documentation: https://circo-dev.github.io/ -->
