@@ -17,7 +17,7 @@ BOOT_SCRIPT=$(cat <<-END
             @error "Cannot open \$(initscript)"
         end
     end
-    node = circonode(@isdefined(zygote) ? zygote : nothing; userpluginsfn = @isdefined(plugins) ? plugins : nothing, profile = @isdefined(profile) ? profile() : nothing)
+    node = circonode(@isdefined(zygote) ? zygote : nothing; userpluginsfn = @isdefined(plugins) ? plugins : nothing, profile = @isdefined(profile) ? profile : nothing)
     nodetask = @async node()
     try
         while true

@@ -10,7 +10,7 @@
 module LinkedListTest
 
 const LIST_LENGTH = 1000
-const PARALLELISM = 50 # Number of parallel Reduce operations (firstly started in a single batch, but later they smooth out)
+const PARALLELISM = 200 # Number of parallel Reduce operations (firstly started in a single batch, but later they smooth out)
 
 const SCHEDULER_TARGET_ACTORCOUNT = 180.0 # Schedulers will push away their actors if they have more than this
 const AUTO_START = false
@@ -33,8 +33,8 @@ boxof(addr) = !isnothing(addr) ? addr.box : nothing # Helper
 
 # Implement Circo.monitorextra() to publish part of an actor's state
 Circo.monitorextra(me::Coordinator)  = (
-    me.itemcount,
-    me.avgreducetime,
+    itemcount = me.itemcount,
+    avgreducetime = me.avgreducetime,
     list = boxof(me.list)
 )
 Circo.monitorprojection(::Type{Coordinator}) = JS("{
@@ -257,4 +257,4 @@ end
 zygote() = LinkedListTest.Coordinator()
 plugins(;options...) = [Debug.MsgStats(;options...)]
 
-# profile(;options...) = Circo.Profiles.MinimalProfile(;options...)
+profile(;options...) = Circo.Profiles.ClusterProfile(;options...)

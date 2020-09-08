@@ -2,7 +2,6 @@
 using Test
 using Circo
 import Circo:onmessage, onmigrate
-import CircoCore
 
 include("migrate-base.jl")
 
@@ -37,7 +36,7 @@ end
     startsource(postcode(scheduler),addr(resultsholder))
     scheduler(;exit_when_done=true)
     println("Resultsholder Exited")
-    CircoCore.shutdown!(scheduler)
+    Circo.shutdown!(scheduler)
     stayer = resultsholder.results.stayer
     @test stayer.responsereceived == 1
     @test isdefined(stayer, :newaddress_recepientmoved)

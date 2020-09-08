@@ -2,7 +2,6 @@
 include("migrate-base.jl")
 using Test
 using Circo
-import CircoCore
 
 function Circo.onmessage(me::Migrant, message::MigrateCommand, service)
     @debug "MigrateCommand"
@@ -37,5 +36,5 @@ function migratetoremote(targetpostcode, resultsholder_address)
     message = Msg(addr(migrant), cmd)
     scheduler(message; process_external=true)
     println("Source Exited")
-    CircoCore.shutdown!(scheduler)
+    Circo.shutdown!(scheduler)
 end

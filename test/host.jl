@@ -73,19 +73,19 @@ function onmessage(me::PingPonger, message::RecipientMoved, service)
 end
 
 @testset "Host" begin
-    # @testset "Empty host creation and run" begin
-    #     host = Host(3)
-    #     @test length(host.schedulers) == 3
-    #     for i in 1:3
-    #         @test length(host.schedulers[i].plugins[:host].peers) == 2
-    #     end
-    #     host(;exit_when_done=true)
-    #     shutdown!(host)
-    # end
+    @testset "Empty host creation and run" begin
+        host = Host(3)
+        @test length(host.schedulers) == 3
+        for i in 1:3
+            @test length(host.schedulers[i].plugins[:host].peers) == 2
+        end
+        host(;exit_when_done=true)
+        shutdown!(host)
+    end
 
     @testset "Inter-thread Ping-Pong inside Host" begin
         pinger = PingPonger(nothing)
-        host = Host(2, Circo.cli.plugins; zygote=[pinger])
+        host = Host(2; zygote=[pinger])
         hosttask = @async host(Msg(addr(pinger), CreatePeer(postcode(host.schedulers[end]))))
         @info "Sleeping to allow ping-pong to start."
         sleep(8.0)
@@ -111,7 +111,7 @@ end
 
     @testset "In-thread Ping-Pong inside Host" begin
         pinger = PingPonger(nothing)
-        host = Host(1, Circo.cli.plugins; zygote=[pinger])
+        host = Host(1; zygote=[pinger])
 
         hosttask = @async host(Msg(addr(pinger), CreatePeer(nothing)); process_external = false, exit_when_done = true)
 

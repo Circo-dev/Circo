@@ -2,7 +2,6 @@
 using Test
 using Circo
 import Circo:onmessage, onmigrate
-import CircoCore
 
 const PEER_COUNT = 5
 const ROOT_COUNT = 3
@@ -30,7 +29,7 @@ const ROOT_COUNT = 3
         #end
     end
     scheduler(;process_external=false)
-    CircoCore.shutdown!(scheduler)
+    Circo.shutdown!(scheduler)
     avgpeers = sum([length(node.peers) for node in cluster]) / length(cluster)
     maxpeerupdates = maximum([node.peerupdate_count for node in cluster])
     avgpeerupdate = sum([node.peerupdate_count for node in cluster]) / length(cluster)

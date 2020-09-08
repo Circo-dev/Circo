@@ -89,7 +89,7 @@ struct Host
     schedulers::Array{ActorScheduler}
 end
 
-function Host(threadcount::Int; options...) # userpluginsfn = (;options...) -> []
+function Host(threadcount::Int; options...)
     schedulers = create_schedulers(threadcount; options...)
     hostservices = [scheduler.plugins[:host] for scheduler in schedulers]
     addpeers(hostservices, schedulers)
@@ -103,10 +103,10 @@ function create_schedulers(threadcount::Number = 1; options...)
     schedulers = []
     for i = 1:threadcount
         iamzygote = i == 1
-        myzygote = iamzygote ? zygote : nothing
+        myzygote = iamzygote ? zygote : []
         scheduler = ActorScheduler(myzygote;
             profile = profile,
-            userplugins = [HostService(;iamzygote = iamzygote, options...), userpluginsfn()...])
+            userplugins = [userpluginsfn()..., HostService(;iamzygote = iamzygote, options...)])
         push!(schedulers, scheduler)
     end
     return schedulers
@@ -150,7 +150,7 @@ function (host::Host)(message::AbstractMsg;process_external=true, exit_when_done
     return nothing
 end
 
-function shutdown!(host::Host)
+function Circo.shutdown!(host::Host)
     for scheduler in host.schedulers
         CircoCore.shutdown!(scheduler)
     end

@@ -88,13 +88,6 @@ function circonode(
         if isnothing(userpluginsfn)
             userpluginsfn = () -> []
         end
-        if profile isa Function
-            profile = profile()
-        else
-            if isnothing(profile)
-                profile = Circo.Profiles.ClusterProfile()
-            end
-        end
         roots = []
         rootsfilename = nothing
         addmetoroots = false
@@ -111,6 +104,13 @@ function circonode(
         end
         if haskey(args, :threads)
             threads = args[:threads] isa Int ? args[:threads] : parse(Int, args[:threads])
+        end
+        if profile isa Function
+            profile = profile(;args..., roots=roots, threads=threads)
+        else
+            if isnothing(profile)
+                profile = Circo.Profiles.ClusterProfile(;args..., roots=roots, threads=threads)
+            end
         end
         if iszygote(args)
             zygoteresult = zygotefn_or_instance isa Function ? zygotefn_or_instance() : zygotefn_or_instance
@@ -157,12 +157,12 @@ function create_first_node(;profile, userpluginsfn, rootsfilename=nothing, threa
     host = Host(threads; profile = profile, userpluginsfn = userpluginsfn, zygote = zygote)
     scheduler = host.schedulers[1]
     root = getname(scheduler.service, "cluster")
-    println("First node started. To add nodes to this cluster, run:")
+    @info "First node started. To add nodes to this cluster, run:"
     if isnothing(rootsfilename)
-        println("bin/circonode.sh --roots $(postcode(root))")
+        @info "bin/circonode.sh --roots $(postcode(root))"
     else
         appendpostcode(rootsfilename, postcode(root))
-        println("bin/circonode.sh --rootsfile $rootsfilename")
+        @info "bin/circonode.sh --rootsfile $rootsfilename"
     end
     return host
 end

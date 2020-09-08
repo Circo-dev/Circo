@@ -14,6 +14,7 @@ mutable struct ClusterService <: Plugin
 end
 Plugins.symbol(::ClusterService) = :cluster
 Plugins.setup!(cluster::ClusterService, scheduler) = begin
+    @debug "Cluster node with roots $(cluster.roots) starting"
     helper = ClusterActor(;roots=cluster.roots)
     cluster.helper = spawn(scheduler.service, helper)
 end
