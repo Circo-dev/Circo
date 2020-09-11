@@ -24,6 +24,9 @@ end
 
 function onschedule(me::PingPonger, service)
     if !isnothing(me.target_postcode)
+        if isnothing(plugin(service, :migration))
+            error("Migration plugin not installed")
+        end
         @debug "Migrating to $(me.target_postcode)"
         migrate(service, me, me.target_postcode)
     end
@@ -84,56 +87,66 @@ end
     end
 
     @testset "Inter-thread Ping-Pong inside Host" begin
-        pinger = PingPonger(nothing)
-        host = Host(2; zygote=[pinger])
-        hosttask = @async host(Msg(addr(pinger), CreatePeer(postcode(host.schedulers[end]))))
+        pingers = [PingPonger(nothing) for i=1:25]
+        host = Host(2; zygote=pingers, profile=Circo.Profiles.ClusterProfile())
+        msgs = [Msg(addr(pinger), CreatePeer(postcode(host.schedulers[end]))) for pinger in pingers]
+        hosttask = @async host(msgs)
         @info "Sleeping to allow ping-pong to start."
-        sleep(8.0)
-        @test pinger.pings_sent > 10
-        @test pinger.pongs_got > 10
+        sleep(10.0)
+        for pinger in pingers
+            @test pinger.pings_sent > 1
+            @test pinger.pongs_got > 1
+        end
 
         @info "Measuring inter-thread ping-pong performance"
-        startpingcount = pinger.pings_sent
+        startpingcounts = [pinger.pings_sent for pinger in pingers]
         startts = Base.time_ns()
         sleep(3.0)
-        rounds_made = pinger.pings_sent - startpingcount
+        rounds_made = sum([pingers[i].pings_sent - startpingcounts[i] for i=1:length(pingers)])
         wall_time_used = Base.time_ns() - startts
-        @test pinger.pings_sent > 1e2
-        @test pinger.pongs_got > 1e2
+        @test pingers[1].pings_sent > 1e2
+        @test pingers[1].pongs_got > 1e2
         shutdown!(host)
         sleep(0.1)
-        endpingcount = pinger.pings_sent
-        @test pinger.pongs_got in [pinger.pings_sent, pinger.pings_sent - 1]
+        endpingcount = pingers[1].pings_sent
+        @test pingers[1].pongs_got in [pingers[1].pings_sent, pingers[1].pings_sent - 1]
         sleep(0.1)
-        @test endpingcount === pinger.pings_sent
+        @test endpingcount === pingers[1].pings_sent
         @printf "Inter-thread ping-pong performance: %f rounds/sec\n" (rounds_made / wall_time_used * 1e9)
     end
 
     @testset "In-thread Ping-Pong inside Host" begin
-        pinger = PingPonger(nothing)
-        host = Host(1; zygote=[pinger])
+        pingers = [PingPonger(nothing) for i=1:3]
+        host = Host(1; zygote=pingers)
 
-        hosttask = @async host(Msg(addr(pinger), CreatePeer(nothing)); process_external = false, exit_when_done = true)
+        msgs = [Msg(addr(pinger), CreatePeer(nothing)) for pinger in pingers]
+        hosttask = @async host(msgs; process_external = false, exit_when_done = true)
 
         @info "Sleeping to allow ping-pong to start."
         sleep(8.0)
-        @test pinger.pings_sent > 1e4
-        @test pinger.pongs_got > 1e4
+        for pinger in pingers
+            @test pinger.pings_sent > 1e3
+            @test pinger.pongs_got > 1e3
+        end
 
         @info "Measuring in-thread ping-pong performance (10 secs)"
-        startpingcount = pinger.pings_sent
+        startpingcounts = [pinger.pings_sent for pinger in pingers]
         startts = Base.time_ns()
         sleep(10.0)
-        rounds_made = pinger.pings_sent - startpingcount
+        rounds_made = sum([pingers[i].pings_sent - startpingcounts[i] for i=1:length(pingers)])
         wall_time_used = Base.time_ns() - startts
-        @test pinger.pings_sent > 1e5
-        @test pinger.pongs_got > 1e5
+        for pinger in pingers
+            @test pinger.pings_sent > 1e3
+            @test pinger.pongs_got > 1e3
+        end
         shutdown!(host)
         sleep(0.001)
-        endpingcount = pinger.pings_sent
+        endpingcounts = [pinger.pings_sent for pinger in pingers]
         sleep(0.1)
-        @test pinger.pongs_got in [pinger.pings_sent, pinger.pings_sent - 1]
-        @test endpingcount === pinger.pings_sent
+        for i = 1:length(pingers)
+            @test pingers[i].pongs_got in [pingers[i].pings_sent, pingers[i].pings_sent - 1]
+            @test endpingcounts[i] === pingers[i].pings_sent
+        end
         @printf "In-thread ping-pong performance: %f rounds/sec\n" (rounds_made / wall_time_used * 1e9)
     end
 

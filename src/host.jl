@@ -148,8 +148,13 @@ function (ts::Host)(;process_external=true, exit_when_done=false)
     return nothing
 end
 
-function (host::Host)(message::AbstractMsg;process_external=true, exit_when_done=false)
-    deliver!(host.schedulers[1], message)
+function (host::Host)(messages::Union{Array, AbstractMsg};process_external=true, exit_when_done=false)
+    if messages isa AbstractMsg
+        messages = [messages]
+    end
+    for message in messages
+        deliver!(host.schedulers[1], message)
+    end
     host(;process_external=process_external,exit_when_done=exit_when_done)
     return nothing
 end

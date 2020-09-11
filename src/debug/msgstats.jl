@@ -1,10 +1,9 @@
-using Plugins
 using Circo
 using LinearAlgebra
 
 mutable struct MsgStats <: Plugin
     typefrequencies::IdDict{Any, Int}
-    helper::Addr
+    helper::AbstractActor
     MsgStats(;options...) = begin
         return new(IdDict())
     end
@@ -31,13 +30,15 @@ Circo.monitorprojection(::Type{MsgStatsHelper}) = JS("{
     geometry: new THREE.BoxBufferGeometry(10, 10, 10)
 }")
 
-Plugins.symbol(::MsgStats) = :msgstats
+Circo.symbol(::MsgStats) = :msgstats
 
-Plugins.setup!(stats::MsgStats, scheduler) = begin
-    helper = MsgStatsHelper(stats)
-    stats.helper = spawn(scheduler, helper)
-    newpos = pos(scheduler) == nullpos ? nullpos : pos(scheduler) - (pos(scheduler) * (1 / norm(pos(scheduler))) * 15.0)
-    helper.core.pos = newpos
+Circo.setup!(stats::MsgStats, scheduler) = begin
+    stats.helper = MsgStatsHelper(stats)
+    spawn(scheduler, stats.helper)
+end
+
+Circo.schedule_start(stats::MsgStats, scheduler) = begin
+    stats.helper.core.pos = pos(scheduler) == nullpos ? nullpos : pos(scheduler) - (pos(scheduler) * (1 / norm(pos(scheduler))) * 15.0)
 end
 
 @inline function Circo.localdelivery(stats::MsgStats, scheduler, msg::Circo.Msg{T}, targetactor) where T
