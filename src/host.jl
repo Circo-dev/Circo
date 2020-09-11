@@ -15,6 +15,7 @@ mutable struct HostService <: Plugin
     in_msg::Deque
     in_lock::SpinLock
     iamzygote
+    hostid
     peers::Dict{PostCode, HostService}
     helper::Addr
     postcode::PostCode
@@ -22,6 +23,7 @@ mutable struct HostService <: Plugin
         Deque{Any}(),#get(options, :buffer_size, MSG_BUFFER_SIZE)
         SpinLock(),
         get(options, :iamzygote, false),
+        get(options, :hostid, 0),
         Dict()
     )
 end
@@ -87,16 +89,18 @@ end
 
 struct Host
     schedulers::Array{ActorScheduler}
+    id::UInt64
 end
 
 function Host(threadcount::Int; options...)
-    schedulers = create_schedulers(threadcount; options...)
+    hostid = rand(UInt64)
+    schedulers = create_schedulers(threadcount, hostid; options...)
     hostservices = [scheduler.plugins[:host] for scheduler in schedulers]
     addpeers(hostservices, schedulers)
-    return Host(schedulers)
+    return Host(schedulers, hostid)
 end
 
-function create_schedulers(threadcount::Number = 1; options...)
+function create_schedulers(threadcount, hostid; options...)
     zygote = get(options, :zygote, [])
     profile = get(options, :profile, Profiles.DefaultProfile(;options...))
     userpluginsfn =  get(options, :userpluginsfn, (;options...) -> [])
@@ -106,7 +110,7 @@ function create_schedulers(threadcount::Number = 1; options...)
         myzygote = iamzygote ? zygote : []
         scheduler = ActorScheduler(myzygote;
             profile = profile,
-            userplugins = [userpluginsfn()..., HostService(;iamzygote = iamzygote, options...)])
+            userplugins = [userpluginsfn()..., HostService(;iamzygote = iamzygote, hostid = hostid, options...)])
         push!(schedulers, scheduler)
     end
     return schedulers

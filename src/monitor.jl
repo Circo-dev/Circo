@@ -117,7 +117,7 @@ monitorextra(actor::MonitorActor)= (
 
 monitorprojection(::Type{MonitorActor{TMonitor}}) where TMonitor = JS("
 {
-    geometry: new THREE.BoxBufferGeometry(5, 5, 5),
+    geometry: new THREE.BoxBufferGeometry(15, 15, 15),
     scale: me => {
         const plussize = me.extra.actorcount * 0.00002
         // Works only for origo-centered setups:
