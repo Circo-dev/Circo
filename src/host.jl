@@ -1,5 +1,4 @@
 # SPDX-License-Identifier: LGPL-3.0-only
-using Base.Threads
 using DataStructures
 
 const MSG_BUFFER_SIZE = 100_000
@@ -13,7 +12,7 @@ monitorprojection(::Type{HostActor}) = JS("projections.nonimportant")
 
 mutable struct HostService <: Plugin
     in_msg::Deque
-    in_lock::SpinLock
+    in_lock::Threads.SpinLock
     iamzygote
     hostid
     peers::Dict{PostCode, HostService}
@@ -21,7 +20,7 @@ mutable struct HostService <: Plugin
     postcode::PostCode
     HostService(;options...) = new(
         Deque{Any}(),#get(options, :buffer_size, MSG_BUFFER_SIZE)
-        SpinLock(),
+        Threads.SpinLock(),
         get(options, :iamzygote, false),
         get(options, :hostid, 0),
         Dict()
@@ -100,6 +99,10 @@ function Host(threadcount::Int; options...)
     return Host(schedulers, hostid)
 end
 
+Base.show(io::IO, ::MIME"text/plain", host::Host) = begin
+    print(io, "Circo.Host with $(length(host.schedulers)) schedulers")
+end
+
 function create_schedulers(threadcount, hostid; options...)
     zygote = get(options, :zygote, [])
     profile = get(options, :profile, Profiles.DefaultProfile(;options...))
@@ -136,11 +139,11 @@ end
 
 function (ts::Host)(;process_external=true, exit_when_done=false)
     tasks = []
-    next_threadid = min(nthreads(), 2)
+    next_threadid = min(Threads.nthreads(), 2)
     for scheduler in ts.schedulers
         sleep(length(tasks) in (4:length(ts.schedulers) - 4)  ? 0.1 : 1.0) # TODO sleeping is a workaround for a bug in cluster.jl
         push!(tasks, onthread(next_threadid) do; scheduler(;process_external=process_external, exit_when_done=exit_when_done); end)
-        next_threadid = next_threadid == nthreads() ? 1 : next_threadid + 1
+        next_threadid = next_threadid == Threads.nthreads() ? 1 : next_threadid + 1
     end
     for task in tasks
         wait(task)

@@ -2,6 +2,7 @@ module Circo
 
 using Reexport
 using Plugins
+import Base: show
 
 @reexport using CircoCore
 
