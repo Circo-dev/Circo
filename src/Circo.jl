@@ -13,10 +13,10 @@ export MonitorService, Debug, cli, Host, JS,
 
 const actor_activity_sparse16 = CircoCore.actor_activity_sparse16
 const actor_activity_sparse256 = CircoCore.actor_activity_sparse256
-const handle_special! = CircoCore.handle_special!
 const letin_remote = CircoCore.letin_remote
 const localdelivery = CircoCore.localdelivery
 const localroutes = CircoCore.localroutes
+const specialmsg = CircoCore.specialmsg
 const schedule_start = CircoCore.schedule_start
 const schedule_stop = CircoCore.schedule_stop
 const scheduler_infoton = CircoCore.scheduler_infoton

@@ -45,7 +45,7 @@ mutable struct Friend
 end
 Base.isless(a::Friend,b::Friend) = Base.isless(a.score, b.score)
 
-mutable struct ClusterActor <: AbstractActor
+mutable struct ClusterActor{TCore} <: AbstractActor{TCore}
     myinfo::NodeInfo
     roots::Array{PostCode}
     joined::Bool
@@ -56,13 +56,14 @@ mutable struct ClusterActor <: AbstractActor
     peerupdate_count::UInt
     servicename::String
     eventdispatcher::Addr
-    core::CoreState
-    ClusterActor(myinfo, roots) = new(myinfo, roots, false, 0, Dict(), Dict(), Set(), 0, NAME)
-    ClusterActor(myinfo::NodeInfo) = ClusterActor(myinfo, [])
-    ClusterActor(;roots=[]) = ClusterActor(NodeInfo("unnamed"), roots)
+    core::TCore
+    ClusterActor(myinfo::NodeInfo, roots, core) = new{typeof(core)}(myinfo, roots, false, 0, Dict(), Dict(), Set(), 0, NAME, core)
 end
+ClusterActor(myinfo::NodeInfo, core) = ClusterActor(myinfo, [], core)
+ClusterActor(;roots=[]) = ClusterActor(NodeInfo("unnamed"), roots, core)
+
 Circo.monitorextra(me::ClusterActor) = (myinfo=me.myinfo, peers=values(me.peers))
-Circo.monitorprojection(::Type{ClusterActor}) = JS("projections.nonimportant")
+Circo.monitorprojection(::Type{<:ClusterActor}) = JS("projections.nonimportant")
 
 struct JoinRequest
     info::NodeInfo

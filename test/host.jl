@@ -5,14 +5,14 @@ using Test, Printf
 using Circo
 import Circo:onschedule, onmessage, onmigrate
 
-mutable struct PingPonger <: AbstractActor
+mutable struct PingPonger{TCore} <: AbstractActor{TCore}
     peer::Union{Addr, Nothing}
     target_postcode::Union{PostCode, Nothing}
     pings_sent::Int64
     pongs_got::Int64
-    core::CoreState
-    PingPonger(peer) = new(peer, nothing, 0, 0)
-    PingPonger(peer, target_postcode) = new(peer, target_postcode, 0, 0)
+    core::TCore
+    PingPonger(peer, core) = new(peer, nothing, 0, 0, core)
+    PingPonger(peer, target_postcode, core) = new(peer, target_postcode, 0, 0, core)
 end
 
 struct Ping end
@@ -46,7 +46,7 @@ function sendpong(service, me::PingPonger)
 end
 
 function onmessage(me::PingPonger, message::CreatePeer, service)
-    peer = PingPonger(addr(me), message.target_postcode)
+    peer = PingPonger(addr(me), message.target_postcode, emptycore(service))
     me.peer =  spawn(service, peer)
     sendping(service, me)
 end

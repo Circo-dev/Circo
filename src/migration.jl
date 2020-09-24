@@ -53,10 +53,9 @@ mutable struct MigrationService <: Plugin
     MigrationService(;options...) = new(Dict([]),Dict([]), MigrationAlternatives([]))
 end
 
-mutable struct MigrationHelper <: AbstractActor
+mutable struct MigrationHelper{TCore} <: AbstractActor{TCore}
     service::MigrationService
-    core::CoreState
-    MigrationHelper(migration) = new(migration)
+    core::TCore
 end
 
 Circo.monitorprojection(::Type{MigrationHelper}) = JS("projections.nonimportant")
@@ -64,7 +63,7 @@ Circo.monitorprojection(::Type{MigrationHelper}) = JS("projections.nonimportant"
 Plugins.symbol(::MigrationService) = :migration
 
 function Plugins.setup!(migration::MigrationService, scheduler)
-    migration.helperactor = MigrationHelper(migration)
+    migration.helperactor = MigrationHelper(migration, emptycore(scheduler.service))
     spawn(scheduler.service, migration.helperactor)
 end
 
@@ -89,7 +88,7 @@ end
     return migrate!(service.scheduler, actor, topostcode)
 end
 
-function migrate!(scheduler::AbstractActorScheduler, actor::AbstractActor, topostcode::PostCode)
+function migrate!(scheduler, actor::AbstractActor, topostcode::PostCode)
     if topostcode == postcode(scheduler)
         return false
     end
@@ -105,14 +104,9 @@ function migrate!(scheduler::AbstractActorScheduler, actor::AbstractActor, topos
     return true
 end
 
-function Circo.handle_special!(scheduler::AbstractActorScheduler, message::Msg{MigrationRequest})
+specialmsg(::MigrationService, scheduler, message) = false
+specialmsg(migration::MigrationService, scheduler, message::AbstractMsg{MigrationRequest}) = begin
     @debug "Migration request: $(message)"
-    migration = scheduler.plugins[:migration]
-    if isnothing(migration)
-        @info "Migration Plugin not installed, dropping $message"
-        return nothing
-    end
-    migration::MigrationService
     actor = body(message).actor
     actorbox = box(addr(actor))
     fromaddress = addr(actor)
@@ -123,12 +117,11 @@ function Circo.handle_special!(scheduler::AbstractActorScheduler, message::Msg{M
     schedule!(scheduler, actor)
     onmigrate(actor, scheduler.service)
     send(scheduler.service, actor, Addr(postcode(fromaddress), 0), MigrationResponse(fromaddress, addr(actor), true))
-    return nothing
+    return true
 end
 
-function Circo.handle_special!(scheduler::AbstractActorScheduler, message::Msg{MigrationResponse})
+specialmsg(migration::MigrationService, scheduler, message::AbstractMsg{MigrationResponse}) = begin
     @debug("Migration response: at $(postcode(scheduler)): $(message)")
-    migration = scheduler.plugins[:migration]
     response = body(message)
     movingactor = pop!(migration.movingactors, box(response.to))
     if response.success
@@ -142,7 +135,7 @@ function Circo.handle_special!(scheduler::AbstractActorScheduler, message::Msg{M
     end
 end
 
-function Circo.localroutes(migration::MigrationService, scheduler::AbstractActorScheduler, message::AbstractMsg)::Bool
+Circo.localroutes(migration::MigrationService, scheduler, message::AbstractMsg)::Bool = begin
     newaddress = get(migration.movedactors, box(target(message)), nothing)
     if isnothing(newaddress)
         movingactor = get(migration.movingactors, box(target(message)), nothing)
@@ -176,7 +169,7 @@ end
 
 @inline check_migration(me::AbstractActor, alternatives::MigrationAlternatives, service) = nothing
 
-@inline function CircoCore.actor_activity_sparse256(migration::MigrationService, scheduler, actor::AbstractActor)
+@inline CircoCore.actor_activity_sparse256(migration::MigrationService, scheduler, actor::AbstractActor) = begin
     check_migration(actor, migration.alternatives, scheduler.service)
 end
 

@@ -5,8 +5,8 @@ using Circo
 
 const SAMPLE_COUNT = 1000
 
-mutable struct StatsTester <: AbstractActor
-    core::CoreState
+mutable struct StatsTester <: AbstractActor{Any}
+    core
     StatsTester() = new()
 end
 
@@ -29,13 +29,16 @@ function Circo.onmessage(me::StatsTester, msg::Sample, service)
     send(service, me, addr(me), Ack())
 end
 
+stats = Debug.MsgStats()
+ctx = CircoContext(;userpluginsfn=() -> [stats])
+
 @testset "Debug" begin
     tester = StatsTester()
-    stats = Debug.MsgStats()
-    scheduler = ActorScheduler([tester];userplugins=[stats])
-    scheduler(Msg(tester, addr(tester), Start()))
+    scheduler = ActorScheduler(ctx, [tester])
+    deliver!(scheduler, addr(tester), Start())
+    scheduler(;process_external = false, exit_when_done = true)
     @show stats
-    @test stats.typefrequencies[Ack] == SAMPLE_COUNT #scheduler.plugins[:msgstats]
+    @test stats.typefrequencies[Ack] == SAMPLE_COUNT
 end
 
 end

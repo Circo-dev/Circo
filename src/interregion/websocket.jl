@@ -20,9 +20,10 @@ MsgPack.msgpack_type(::Type{ActorId}) = MsgPack.StringType()
 MsgPack.to_msgpack(::MsgPack.StringType, id::ActorId) = string(id, base=16)
 MsgPack.from_msgpack(::Type{ActorId}, str::AbstractString) = parse(ActorId, str;base=16)
 
-MsgPack.construct(::Type{Msg{TBody}}, args...) where TBody = begin
-    Msg{TBody}(args[1], args[2], args[3], Infoton(nullpos))
-end
+# TODO: prepare hook
+#MsgPack.construct(::Type{Msg{TBody}}, args...) where TBody = begin
+#    Msg{TBody}(args[1], args[2], args[3], Infoton(nullpos))
+#end
 
 mutable struct WebsocketService <: Plugin
     actor_connections::Dict{ActorId, IO}
@@ -57,7 +58,7 @@ function Circo.schedule_stop(service::WebsocketService, scheduler)
     isdefined(service, :socket) && close(service.socket)
 end
 
-function sendws(msg::Msg, ws)
+function sendws(msg::AbstractMsg, ws)
     try
         write(ws, marshal(msg))
     catch e
@@ -65,7 +66,7 @@ function sendws(msg::Msg, ws)
     end
 end
 
-function handlemsg(service::WebsocketService, msg::Msg{RegistrationRequest}, ws, scheduler)
+function handlemsg(service::WebsocketService, msg::AbstractMsg{RegistrationRequest}, ws, scheduler)
     actorid = box(body(msg).actoraddr)
     service.actor_connections[actorid] = ws
     newaddr = Addr(postcode(scheduler), actorid)
@@ -74,7 +75,7 @@ function handlemsg(service::WebsocketService, msg::Msg{RegistrationRequest}, ws,
     return nothing
 end
 
-function handlemsg(service::WebsocketService, query::Msg{NameQuery}, ws, scheduler)
+function handlemsg(service::WebsocketService, query::AbstractMsg{NameQuery}, ws, scheduler)
     registry = get(scheduler.plugins, :registry, nothing)
     if isnothing(registry)
         @info "No registry plugin installed, dropping $query"
@@ -92,7 +93,7 @@ function handlemsg(service::WebsocketService, query::Msg{NameQuery}, ws, schedul
     return nothing
 end
 
-function handlemsg(service::WebsocketService, msg::Msg, ws, scheduler)
+function handlemsg(service::WebsocketService, msg::AbstractMsg, ws, scheduler)
     if postcode(target(msg)) === MASTERPOSTCODE
         newaddr = Addr(postcode(scheduler), box(msg.target))
         msg = Msg(sender(msg), newaddr, body(msg), Infoton(nullpos))
@@ -166,10 +167,9 @@ function unmarshal(registry::TypeRegistry, buf)
     return nothing
 end
 
-function Plugins.shutdown!(service::WebsocketService, scheduler)
-end
+Plugins.shutdown!(service::WebsocketService, scheduler) = nothing
 
-function Circo.localroutes(ws_plugin::WebsocketService, scheduler::AbstractActorScheduler, msg::AbstractMsg)::Bool
+Circo.localroutes(ws_plugin::WebsocketService, scheduler, msg::AbstractMsg)::Bool = begin
     ws = get(ws_plugin.actor_connections, box(target(msg)), nothing)
     if !isnothing(ws)
         sendws(msg, ws)

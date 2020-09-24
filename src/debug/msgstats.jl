@@ -9,10 +9,9 @@ mutable struct MsgStats <: Plugin
     end
 end
 
-mutable struct MsgStatsHelper <: AbstractActor
+mutable struct MsgStatsHelper{TCore} <: AbstractActor{TCore}
     stats::MsgStats
-    core::CoreState
-    MsgStatsHelper(stats;options...) = new(stats)
+    core::TCore
 end
 
 struct ResetStats
@@ -33,7 +32,7 @@ Circo.monitorprojection(::Type{MsgStatsHelper}) = JS("{
 Circo.symbol(::MsgStats) = :msgstats
 
 Circo.setup!(stats::MsgStats, scheduler) = begin
-    stats.helper = MsgStatsHelper(stats)
+    stats.helper = MsgStatsHelper(stats, emptycore(scheduler.service))
     spawn(scheduler, stats.helper)
 end
 
@@ -41,7 +40,7 @@ Circo.schedule_start(stats::MsgStats, scheduler) = begin
     stats.helper.core.pos = pos(scheduler) == nullpos ? nullpos : pos(scheduler) - (pos(scheduler) * (1 / norm(pos(scheduler))) * 15.0)
 end
 
-@inline function Circo.localdelivery(stats::MsgStats, scheduler, msg::Circo.Msg{T}, targetactor) where T
+@inline function Circo.localdelivery(stats::MsgStats, scheduler, msg::Circo.AbstractMsg{T}, targetactor) where T
     current = get(stats.typefrequencies, T, nothing)
     if isnothing(current)
         stats.typefrequencies[T] = 1

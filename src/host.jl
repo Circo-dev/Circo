@@ -3,9 +3,8 @@ using DataStructures
 
 const MSG_BUFFER_SIZE = 100_000
 
-mutable struct HostActor <: AbstractActor
-    core::CoreState
-    HostActor() = new()
+mutable struct HostActor{TCore} <: AbstractActor{TCore}
+    core::TCore
 end
 monitorprojection(::Type{HostActor}) = JS("projections.nonimportant")
 
@@ -32,10 +31,10 @@ Circo.postcode(hs::HostService) = hs.postcode
 
 function Plugins.setup!(hs::HostService, scheduler)
     hs.postcode = postcode(scheduler)
-    hs.helper = spawn(scheduler.service, HostActor())
+    hs.helper = spawn(scheduler.service, HostActor(emptycore(scheduler.service)))
 end
 
-function addpeers!(hs::HostService, peers::Array{HostService}, scheduler)
+function addpeers!(hs::HostService, peers, scheduler)
     for peer in peers
         if postcode(peer) != postcode(hs)
             hs.peers[postcode(peer)] = peer
@@ -48,8 +47,8 @@ function addpeers!(hs::HostService, peers::Array{HostService}, scheduler)
     end
 end
 
-@inline function CircoCore.remoteroutes(hostservice::HostService, scheduler::AbstractActorScheduler, msg::AbstractMsg)::Bool
-    target_postcode =  postcode(target(msg))
+@inline function CircoCore.remoteroutes(hostservice::HostService, scheduler, msg)::Bool
+    target_postcode = postcode(target(msg))
     if CircoCore.network_host(target_postcode) !=  CircoCore.network_host(hostservice.postcode)
         return false
     end
@@ -68,7 +67,7 @@ end
     return false
 end
 
-@inline function CircoCore.letin_remote(hs::HostService, scheduler::AbstractActorScheduler)::Bool
+@inline function CircoCore.letin_remote(hs::HostService, scheduler)::Bool
     isempty(hs.in_msg) && return false
     msgs = []
     lock(hs.in_lock)

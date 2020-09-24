@@ -104,10 +104,9 @@ struct MonitorProjectionResponse <: Response
     token::Token
 end
 
-mutable struct MonitorActor{TMonitor} <: AbstractActor
+mutable struct MonitorActor{TMonitor, TCore} <: AbstractActor{TCore}
     monitor::TMonitor
-    core::CoreState
-    MonitorActor(monitor) = new{typeof(monitor)}(monitor)
+    core::TCore
 end
 
 monitorextra(actor::MonitorActor)= (
@@ -115,7 +114,7 @@ monitorextra(actor::MonitorActor)= (
     queuelength = UInt32(length(actor.monitor.scheduler.messagequeue))
     )
 
-monitorprojection(::Type{MonitorActor{TMonitor}}) where TMonitor = JS("
+monitorprojection(::Type{<:MonitorActor}) = JS("
 {
     geometry: new THREE.BoxBufferGeometry(15, 15, 15),
     scale: me => {
@@ -134,7 +133,7 @@ Message that throws an error from the monitoring actor
 struct Throw a::UInt8 end
 registermsg(Throw; ui = true)
 
-function Circo.onmessage(me::MonitorActor, msg::Throw, service)
+function Circo.onmessage(me::MonitorActor, ::Throw, service)
     error("Exception forced from $me")
 end
 
@@ -145,7 +144,7 @@ mutable struct MonitorService <: Plugin
 end
 
 function Plugins.setup!(monitor::MonitorService, scheduler)
-    monitor.actor = MonitorActor(monitor)
+    monitor.actor = MonitorActor(monitor, emptycore(scheduler.service))
     monitor.scheduler = scheduler
     schedule!(scheduler, monitor.actor)
     registername(scheduler.service, "monitor", monitor.actor)
