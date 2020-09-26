@@ -6,12 +6,14 @@ import Circo:onmessage, onmigrate
 const PEER_COUNT = 5
 const ROOT_COUNT = 3
 
+ctx = CircoContext()
+
 @testset "Cluster" begin
     cluster = []
-    scheduler = ActorScheduler([])
+    scheduler = ActorScheduler(ctx, [])
     rootaddresses = []
     for i in 1:ROOT_COUNT
-        root = ClusterActor(NodeInfo("#$(length(cluster))"), rootaddresses)
+        root = ClusterActor(NodeInfo("#$(length(cluster))"), rootaddresses, emptycore(scheduler.service))
         root.servicename = ""
         push!(cluster, root)
         schedule!(scheduler, root)
@@ -20,7 +22,7 @@ const ROOT_COUNT = 3
     end
 
     for i in 1:PEER_COUNT - ROOT_COUNT
-        node = ClusterActor(NodeInfo("#$(length(cluster))"), rootaddresses)
+        node = ClusterActor(NodeInfo("#$(length(cluster))"), rootaddresses, emptycore(scheduler.service))
         node.servicename = ""
         push!(cluster, node)
         schedule!(scheduler, node)

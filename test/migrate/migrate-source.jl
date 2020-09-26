@@ -27,14 +27,16 @@ function Circo.onmessage(me::Stayer, message::SimpleResponse, service)
     die(service, me)
 end
 
+ctx = CircoContext(; userpluginsfn = () -> [ClusterService(), MigrationService()])
+
 function migratetoremote(targetpostcode, resultsholder_address)
     migrant = Migrant()
-    scheduler = ActorScheduler([migrant]; userplugins=[ClusterService(), MigrationService()])
+    scheduler = ActorScheduler(ctx, [migrant])
     stayer = Stayer(addr(migrant), Addr(resultsholder_address))
     schedule!(scheduler, stayer)
     cmd = MigrateCommand(targetpostcode, addr(stayer))
-    message = Msg(addr(migrant), cmd)
-    scheduler(message; process_external=true)
+    deliver!(scheduler, addr(migrant), cmd)
+    scheduler(; process_external=true)
     println("Source Exited")
     Circo.shutdown!(scheduler)
 end

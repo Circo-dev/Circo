@@ -19,5 +19,4 @@ TypeParsers = "6b5504e1-0c77-489f-ba22-2b282cee145f"
 [compat]
 DataStructures = "^0.18"
 Documenter = "^0.25"
-Plugins = "^0.3"
 julia = "^1"

@@ -1,13 +1,49 @@
 # SPDX-License-Identifier: LGPL-3.0-only
 using DataStructures
+import CircoCore.deliver!
+import Base.getproperty
 
 const MSG_BUFFER_SIZE = 100_000
+
+struct HostProfile{TInner <: CircoCore.Profiles.AbstractProfile} <: CircoCore.Profiles.AbstractProfile
+    innerprofile::TInner
+    options
+    HostProfile(innerprofile; options...) = new{typeof(innerprofile)}(innerprofile, options)
+end
+
+CircoCore.Profiles.core_plugins(p::HostProfile) = [
+    HostService(;p.options...),
+    CircoCore.Profiles.core_plugins(p.innerprofile)... # Inner plugins do not see host-added options
+]
+
+struct HostContext{TInner <: CircoCore.AbstractContext} <: CircoCore.AbstractContext
+    innerctx::TInner
+    options
+    profile
+    plugins
+end
+
+function HostContext(innerctx; hostoptions...)
+    options = merge(innerctx.options, hostoptions)
+    profile = HostProfile(innerctx.profile; options = options)
+    plugins = CircoCore.instantiate_plugins(profile, innerctx.userpluginsfn)
+    types = CircoCore.generate_types(plugins)
+    @assert types.corestate_type == innerctx.corestate_type # HostContext currently does not handle staging
+    @assert types.msg_type == innerctx.msg_type
+    return HostContext(innerctx, options, profile, plugins)
+end
+
+Base.getproperty(ctx::HostContext, name::Symbol) = begin
+    if name == :options || name == :profile || name == :plugins || name == :innerctx
+        return getfield(ctx, name)
+    end
+    return getproperty(ctx.innerctx, name)
+end
 
 mutable struct HostActor{TCore} <: AbstractActor{TCore}
     core::TCore
 end
-monitorprojection(::Type{HostActor}) = JS("projections.nonimportant")
-
+monitorprojection(::Type{ <: HostActor }) = JS("projections.nonimportant")
 
 mutable struct HostService <: Plugin
     in_msg::Deque
@@ -43,7 +79,7 @@ function addpeers!(hs::HostService, peers, scheduler)
     cluster = get(scheduler.plugins, :cluster, nothing)
     if !isnothing(cluster) && !hs.iamzygote && length(cluster.roots) == 0
         root = peers[1].postcode
-        deliver!(scheduler, Msg(cluster.helper, ForceAddRoot(root))) # TODO avoid using the internal API
+        deliver!(scheduler, cluster.helper, ForceAddRoot(root))
     end
 end
 
@@ -90,9 +126,9 @@ struct Host
     id::UInt64
 end
 
-function Host(threadcount::Int; options...)
+function Host(ctx, threadcount::Int; options...)
     hostid = rand(UInt64)
-    schedulers = create_schedulers(threadcount, hostid; options...)
+    schedulers = create_schedulers(ctx, threadcount, hostid; options...)
     hostservices = [scheduler.plugins[:host] for scheduler in schedulers]
     addpeers(hostservices, schedulers)
     return Host(schedulers, hostid)
@@ -102,17 +138,14 @@ Base.show(io::IO, ::MIME"text/plain", host::Host) = begin
     print(io, "Circo.Host with $(length(host.schedulers)) schedulers")
 end
 
-function create_schedulers(threadcount, hostid; options...)
+function create_schedulers(ctx, threadcount, hostid; options...)
     zygote = get(options, :zygote, [])
-    profile = get(options, :profile, Profiles.DefaultProfile(;options...))
-    userpluginsfn =  get(options, :userpluginsfn, (;options...) -> [])
     schedulers = []
     for i = 1:threadcount
         iamzygote = i == 1
         myzygote = iamzygote ? zygote : []
-        scheduler = ActorScheduler(myzygote;
-            profile = profile,
-            userplugins = [userpluginsfn()..., HostService(;iamzygote = iamzygote, hostid = hostid, options...)])
+        sdl_ctx = HostContext(ctx; iamzygote = iamzygote)
+        scheduler = ActorScheduler(sdl_ctx, myzygote)
         push!(schedulers, scheduler)
     end
     return schedulers
@@ -123,6 +156,8 @@ function addpeers(hostservices::Array{HostService}, schedulers)
         addpeers!(hostservices[i], hostservices, schedulers[i])
     end
 end
+
+CircoCore.deliver!(host::Host, target::Addr, msgbody) = CircoCore.deliver!(host.schedulers[1], target, msgbody)
 
 # From https://discourse.julialang.org/t/lightweight-tasks-julia-vs-elixir-otp/35082/22
 function onthread(f::F, id::Int) where {F<:Function}
@@ -141,23 +176,19 @@ function (ts::Host)(;process_external=true, exit_when_done=false)
     next_threadid = min(Threads.nthreads(), 2)
     for scheduler in ts.schedulers
         sleep(length(tasks) in (4:length(ts.schedulers) - 4)  ? 0.1 : 1.0) # TODO sleeping is a workaround for a bug in cluster.jl
-        push!(tasks, onthread(next_threadid) do; scheduler(;process_external=process_external, exit_when_done=exit_when_done); end)
+        t = onthread(next_threadid) do
+            try
+                scheduler(;process_external=process_external, exit_when_done=exit_when_done)
+            catch e
+                @show e
+            end
+        end
+        push!(tasks, t)
         next_threadid = next_threadid == Threads.nthreads() ? 1 : next_threadid + 1
     end
     for task in tasks
         wait(task)
     end
-    return nothing
-end
-
-function (host::Host)(messages::Union{Array, AbstractMsg};process_external=true, exit_when_done=false)
-    if messages isa AbstractMsg
-        messages = [messages]
-    end
-    for message in messages
-        deliver!(host.schedulers[1], message)
-    end
-    host(;process_external=process_external,exit_when_done=exit_when_done)
     return nothing
 end
 

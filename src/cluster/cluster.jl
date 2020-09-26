@@ -15,7 +15,7 @@ end
 Plugins.symbol(::ClusterService) = :cluster
 Plugins.setup!(cluster::ClusterService, scheduler) = begin
     @debug "Cluster node with roots $(cluster.roots) starting"
-    helper = ClusterActor(;roots=cluster.roots)
+    helper = ClusterActor(emptycore(scheduler.service);roots=cluster.roots)
     cluster.helper = spawn(scheduler.service, helper)
 end
 
@@ -57,10 +57,10 @@ mutable struct ClusterActor{TCore} <: AbstractActor{TCore}
     servicename::String
     eventdispatcher::Addr
     core::TCore
-    ClusterActor(myinfo::NodeInfo, roots, core) = new{typeof(core)}(myinfo, roots, false, 0, Dict(), Dict(), Set(), 0, NAME, core)
+    ClusterActor(myinfo::NodeInfo, roots, core) = new{typeof(core)}(myinfo, roots, false, 0, Dict(), Dict(), Set(), 0, NAME, Addr(), core)
 end
 ClusterActor(myinfo::NodeInfo, core) = ClusterActor(myinfo, [], core)
-ClusterActor(;roots=[]) = ClusterActor(NodeInfo("unnamed"), roots, core)
+ClusterActor(core;roots=[]) = ClusterActor(NodeInfo("unnamed"), roots, core)
 
 Circo.monitorextra(me::ClusterActor) = (myinfo=me.myinfo, peers=values(me.peers))
 Circo.monitorprojection(::Type{<:ClusterActor}) = JS("projections.nonimportant")
@@ -142,7 +142,7 @@ end
 function Circo.onschedule(me::ClusterActor, service)
     me.myinfo.addr = addr(me)
     me.myinfo.pos = pos(service)
-    me.eventdispatcher = spawn(service, EventDispatcher())
+    me.eventdispatcher = spawn(service, EventDispatcher(emptycore(service)))
     requestjoin(me, service)
 end
 
@@ -183,6 +183,7 @@ function Circo.onmessage(me::ClusterActor, messsage::Subscribe{PeerListUpdated},
 end
 
 function Circo.onmessage(me::ClusterActor, msg::NameResponse, service)
+    @debug "Got $msg"
     if msg.query.name != "cluster"
         @error "Got unrequested $msg"
     end
@@ -190,6 +191,8 @@ function Circo.onmessage(me::ClusterActor, msg::NameResponse, service)
     if isnothing(root)
         @debug "$(addr(me)) : Got no handler for cluster query"
         requestjoin(me, service)
+    elseif root == addr(me)
+        @info "Got own address as cluster"
     else
         send(service, me, root, JoinRequest(me.myinfo))
     end
