@@ -18,15 +18,15 @@ const AUTO_START = false
 using Circo, Circo.Debug, Dates, Random, LinearAlgebra
 
 # Test coordinator: Creates the list and sends the reduce operations to it to calculate the sum
-mutable struct Coordinator <: AbstractActor
+mutable struct Coordinator{TCore} <: AbstractActor{TCore}
     itemcount::Int
     runidx::Int
     isrunning::Bool
     avgreducetime::Float64
     lastreducets::UInt64
     list::Addr
-    core::CoreState
-    Coordinator() = new(0, 0, false, 0.0)
+    core::TCore
+    Coordinator(core) = new{typeof(core)}(0, 0, false, 0.0, 0, Addr(), core)
 end
 
 boxof(addr) = !isnothing(addr) ? addr.box : nothing # Helper
@@ -37,37 +37,36 @@ Circo.monitorextra(me::Coordinator)  = (
     avgreducetime = me.avgreducetime,
     list = boxof(me.list)
 )
-Circo.monitorprojection(::Type{Coordinator}) = JS("{
+Circo.monitorprojection(::Type{<:Coordinator}) = JS("{
     geometry: new THREE.SphereBufferGeometry(25, 7, 7),
     color: 0xcb3c33
 }")
 
-mutable struct LinkedList <: AbstractActor
+mutable struct LinkedList{TCore} <: AbstractActor{TCore}
     head::Addr
     length::UInt64
-    core::CoreState
-    LinkedList(head) = new(head)
+    core::TCore
+    LinkedList(head, core) = new{typeof(core)}(head, 0, core)
 end
 
-Circo.monitorprojection(::Type{LinkedList}) = JS("{
+Circo.monitorprojection(::Type{<:LinkedList}) = JS("{
     geometry: new THREE.BoxBufferGeometry(20, 20, 20),
     color: 0x9558B2
 }")
 
-
-mutable struct ListItem{TData} <: AbstractActor
+mutable struct ListItem{TData, TCore} <: AbstractActor{TCore}
     data::TData
     prev::Addr
     next::Addr
-    core::CoreState
-    ListItem(data) = new{typeof(data)}(data)
+    core::TCore
+    ListItem(data, core) = new{typeof(data), typeof(core)}(data, Addr(), Addr(), core)
 end
 Circo.monitorextra(me::ListItem) = (
     data = isdefined(me, :data) ? me.data : "undefined",
     next = isdefined(me, :next) && !isnothing(me.next) ? boxof(me.next) : nothing
 )
 
-Circo.monitorprojection(::Type{ListItem{TData}}) where TData = JS("{
+Circo.monitorprojection(::Type{<:ListItem}) = JS("{
     geometry: new THREE.BoxBufferGeometry(10, 10, 10)
 }")
 
@@ -128,7 +127,7 @@ end
 function Circo.onschedule(me::Coordinator, service)
     cluster = getname(service, "cluster")
     @info "Coordinator scheduled on cluster: $cluster Building list of $LIST_LENGTH actors"
-    list = LinkedList(addr(me))
+    list = LinkedList(addr(me), emptycore(service))
     me.itemcount = 0
     spawn(service, list)
     me.list = addr(list)
@@ -136,7 +135,7 @@ function Circo.onschedule(me::Coordinator, service)
 end
 
 function appenditem(me::Coordinator, service)
-    item = ListItem(1.0 + me.itemcount * 1e-7)
+    item = ListItem(1.0 + me.itemcount * 1e-7, emptycore(service))
     spawn(service, item)
     send(service, me, me.list, Append(addr(me), addr(item)))
 end
@@ -254,7 +253,7 @@ end
 
 end
 
-zygote() = LinkedListTest.Coordinator()
+zygote(ctx) = LinkedListTest.Coordinator(emptycore(ctx))
 plugins(;options...) = [Debug.MsgStats(;options...)]
 
 profile(;options...) = Circo.Profiles.ClusterProfile(;options...)

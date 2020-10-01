@@ -1,6 +1,10 @@
 # SPDX-License-Identifier: LGPL-3.0-only
 using Logging
 
+function cluster_initialized end
+cluster_initialized(::Plugin, args...) = nothing
+cluster_initialized_hook = Plugins.create_lifecyclehook(cluster_initialized)
+
 const NAME = "cluster"
 const MAX_JOINREQUEST_COUNT = 10
 const MAX_DOWNSTREAM_FRIENDS = 25
@@ -13,10 +17,11 @@ mutable struct ClusterService <: Plugin
     ClusterService(;options...) = new(get(options, :roots, []))
 end
 Plugins.symbol(::ClusterService) = :cluster
-Plugins.setup!(cluster::ClusterService, scheduler) = begin
+Circo.schedule_start(cluster::ClusterService, scheduler) = begin
     @debug "Cluster node with roots $(cluster.roots) starting"
     helper = ClusterActor(emptycore(scheduler.service);roots=cluster.roots)
     cluster.helper = spawn(scheduler.service, helper)
+    call_lifecycle_hook(scheduler, cluster_initialized_hook, cluster)
 end
 
 mutable struct NodeInfo
@@ -107,7 +112,6 @@ struct ForceAddRoot
 end
 
 function requestjoin(me::ClusterActor, service)
-    @debug "$(addr(me)) : Requesting join"
     if !isempty(me.servicename)
         registername(service, NAME, me)
     end
@@ -118,7 +122,9 @@ function requestjoin(me::ClusterActor, service)
     if me.joinrequestcount >= MAX_JOINREQUEST_COUNT
         error("Cannot join: $(me.joinrequestcount) unsuccesful attempt.")
     end
-    sendjoinrequest(me, rand(me.roots), service)
+    root = rand(me.roots)
+    @debug "$(addr(me)) : Requesting join to $root"
+    sendjoinrequest(me, root, service)
 end
 
 function sendjoinrequest(me::ClusterActor, root::PostCode, service)

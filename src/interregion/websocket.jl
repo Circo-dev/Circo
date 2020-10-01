@@ -20,11 +20,6 @@ MsgPack.msgpack_type(::Type{ActorId}) = MsgPack.StringType()
 MsgPack.to_msgpack(::MsgPack.StringType, id::ActorId) = string(id, base=16)
 MsgPack.from_msgpack(::Type{ActorId}, str::AbstractString) = parse(ActorId, str;base=16)
 
-# TODO: prepare hook
-#MsgPack.construct(::Type{Msg{TBody}}, args...) where TBody = begin
-#    Msg{TBody}(args[1], args[2], args[3], Infoton(nullpos))
-#end
-
 mutable struct WebsocketService <: Plugin
     actor_connections::Dict{ActorId, IO}
     typeregistry::TypeRegistry
@@ -34,7 +29,15 @@ end
 
 Plugins.symbol(plugin::WebsocketService) = :websocket
 
-function Circo.schedule_start(service::WebsocketService, scheduler)
+Circo.prepare(::WebsocketService, ctx) = begin
+    @eval :(
+        MsgPack.construct(::Type{Msg{TBody}}, args...) where TBody = begin
+            Msg{TBody}(args[1], args[2], args[3], Infoton(nullpos))
+        end
+    )
+end
+
+Circo.schedule_start(service::WebsocketService, scheduler) = begin
     listenport = 2497 + port(postcode(scheduler)) - CircoCore.PORT_RANGE[1] # CIWS
     ipaddr = Sockets.IPv4(0) # TODO config
     try

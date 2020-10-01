@@ -31,12 +31,9 @@ Circo.monitorprojection(::Type{MsgStatsHelper}) = JS("{
 
 Circo.symbol(::MsgStats) = :msgstats
 
-Circo.setup!(stats::MsgStats, scheduler) = begin
+Circo.schedule_start(stats::MsgStats, scheduler) = begin
     stats.helper = MsgStatsHelper(stats, emptycore(scheduler.service))
     spawn(scheduler, stats.helper)
-end
-
-Circo.schedule_start(stats::MsgStats, scheduler) = begin
     stats.helper.core.pos = pos(scheduler) == nullpos ? nullpos : pos(scheduler) - (pos(scheduler) * (1 / norm(pos(scheduler))) * 15.0)
 end
 

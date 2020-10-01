@@ -36,7 +36,7 @@ function migratetoremote(targetpostcode, resultsholder_address)
     schedule!(scheduler, stayer)
     cmd = MigrateCommand(targetpostcode, addr(stayer))
     deliver!(scheduler, addr(migrant), cmd)
-    scheduler(; process_external=true)
+    scheduler(; remote=true)
     println("Source Exited")
     Circo.shutdown!(scheduler)
 end

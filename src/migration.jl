@@ -62,7 +62,7 @@ Circo.monitorprojection(::Type{MigrationHelper}) = JS("projections.nonimportant"
 
 Plugins.symbol(::MigrationService) = :migration
 
-function Plugins.setup!(migration::MigrationService, scheduler)
+function Circo.schedule_start(migration::MigrationService, scheduler)
     migration.helperactor = MigrationHelper(migration, emptycore(scheduler.service))
     spawn(scheduler.service, migration.helperactor)
 end

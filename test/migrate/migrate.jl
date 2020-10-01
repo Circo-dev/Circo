@@ -35,7 +35,7 @@ end
     ctx = CircoContext(userpluginsfn=() -> [ClusterService(), MigrationService()])
     scheduler = ActorScheduler(ctx, [resultsholder])
     startsource(postcode(scheduler),addr(resultsholder))
-    scheduler(;exit_when_done=true)
+    scheduler(;exit=true)
     println("Resultsholder Exited")
     Circo.shutdown!(scheduler)
     stayer = resultsholder.results.stayer

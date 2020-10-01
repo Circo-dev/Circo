@@ -17,7 +17,7 @@ ctx = CircoContext()
         root.servicename = ""
         push!(cluster, root)
         schedule!(scheduler, root)
-        scheduler(;process_external=false)
+        scheduler(;remote=false)
         rootaddresses = [string(addr(node)) for node in cluster]
     end
 
@@ -27,10 +27,10 @@ ctx = CircoContext()
         push!(cluster, node)
         schedule!(scheduler, node)
         #if rand() < 0.5  # This simulates parallel joins, but the gossip protocol needs an update : currently not every parallel join is published to everywhere correctly.
-            scheduler(;process_external=false)
+            scheduler(;remote=false)
         #end
     end
-    scheduler(;process_external=false)
+    scheduler(;remote=false)
     Circo.shutdown!(scheduler)
     avgpeers = sum([length(node.peers) for node in cluster]) / length(cluster)
     maxpeerupdates = maximum([node.peerupdate_count for node in cluster])

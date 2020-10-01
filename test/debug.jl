@@ -36,7 +36,7 @@ ctx = CircoContext(;userpluginsfn=() -> [stats])
     tester = StatsTester()
     scheduler = ActorScheduler(ctx, [tester])
     deliver!(scheduler, addr(tester), Start())
-    scheduler(;process_external = false, exit_when_done = true)
+    scheduler(;remote = false, exit = true)
     @show stats
     @test stats.typefrequencies[Ack] == SAMPLE_COUNT
 end

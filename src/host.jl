@@ -48,9 +48,10 @@ monitorprojection(::Type{ <: HostActor }) = JS("projections.nonimportant")
 mutable struct HostService <: Plugin
     in_msg::Deque
     in_lock::Threads.SpinLock
-    iamzygote
-    hostid
-    peers::Dict{PostCode, HostService}
+    iamzygote::Bool
+    hostid::Int64
+    peercache::Dict{PostCode, HostService}
+    hostroot::PostCode
     helper::Addr
     postcode::PostCode
     HostService(;options...) = new(
@@ -65,22 +66,9 @@ end
 Plugins.symbol(::HostService) = :host
 Circo.postcode(hs::HostService) = hs.postcode
 
-function Plugins.setup!(hs::HostService, scheduler)
+function Circo.schedule_start(hs::HostService, scheduler)
     hs.postcode = postcode(scheduler)
     hs.helper = spawn(scheduler.service, HostActor(emptycore(scheduler.service)))
-end
-
-function addpeers!(hs::HostService, peers, scheduler)
-    for peer in peers
-        if postcode(peer) != postcode(hs)
-            hs.peers[postcode(peer)] = peer
-        end
-    end
-    cluster = get(scheduler.plugins, :cluster, nothing)
-    if !isnothing(cluster) && !hs.iamzygote && length(cluster.roots) == 0
-        root = peers[1].postcode
-        deliver!(scheduler, cluster.helper, ForceAddRoot(root))
-    end
 end
 
 @inline function CircoCore.remoteroutes(hostservice::HostService, scheduler, msg)::Bool
@@ -89,7 +77,7 @@ end
         return false
     end
     #@debug "remoteroutes in host.jl $msg"
-    peer = get(hostservice.peers, target_postcode, nothing)
+    peer = get(hostservice.peercache, target_postcode, nothing)
     if !isnothing(peer)
         #@debug "Inter-thread delivery of $(hostservice.postcode): $msg"
         lock(peer.in_lock)
@@ -129,8 +117,6 @@ end
 function Host(ctx, threadcount::Int; options...)
     hostid = rand(UInt64)
     schedulers = create_schedulers(ctx, threadcount, hostid; options...)
-    hostservices = [scheduler.plugins[:host] for scheduler in schedulers]
-    addpeers(hostservices, schedulers)
     return Host(schedulers, hostid)
 end
 
@@ -151,9 +137,22 @@ function create_schedulers(ctx, threadcount, hostid; options...)
     return schedulers
 end
 
-function addpeers(hostservices::Array{HostService}, schedulers)
-    for i in 1:length(hostservices)
-        addpeers!(hostservices[i], hostservices, schedulers[i])
+cluster_initialized(hs::HostService, scheduler, cluster) = begin
+    if hs.hostroot != postcode(hs) && length(cluster.roots) == 0
+        deliver!(scheduler, cluster.helper, ForceAddRoot(hs.hostroot))
+    end
+end
+
+function crossadd_peers(schedulers)
+    hostroot = postcode(schedulers[1])
+    for scheduler in schedulers
+        hs = scheduler.plugins[:host]
+        hs.hostroot = hostroot
+        for peer_scheduler in schedulers
+            if postcode(peer_scheduler) != postcode(scheduler)
+                hs.peercache[postcode(peer_scheduler)] = peer_scheduler.plugins[:host]
+            end
+        end
     end
 end
 
@@ -171,14 +170,15 @@ function onthread(f::F, id::Int) where {F<:Function}
     return t
 end
 
-function (ts::Host)(;process_external=true, exit_when_done=false)
+function (ts::Host)(;remote=true, exit=false)
+    crossadd_peers(ts.schedulers)#TODO only once
     tasks = []
     next_threadid = min(Threads.nthreads(), 2)
     for scheduler in ts.schedulers
         sleep(length(tasks) in (4:length(ts.schedulers) - 4)  ? 0.1 : 1.0) # TODO sleeping is a workaround for a bug in cluster.jl
         t = onthread(next_threadid) do
             try
-                scheduler(;process_external=process_external, exit_when_done=exit_when_done)
+                scheduler(;remote=remote, exit=exit)
             catch e
                 @show e
             end

@@ -77,15 +77,15 @@ end
 
 ctx = CircoContext(;profile=Circo.Profiles.ClusterProfile())
 @testset "Host" begin
-    # @testset "Empty host creation and run" begin
-    #     host = Host(ctx, 3)
-    #     @test length(host.schedulers) == 3
-    #     for i in 1:3
-    #         @test length(host.schedulers[i].plugins[:host].peers) == 2
-    #     end
-    #     host(;process_external=false, exit_when_done=true)
-    #     shutdown!(host)
-    # end
+     @testset "Empty host creation and run" begin
+         host = Host(ctx, 3)
+         host(;remote=false, exit=true)
+         @test length(host.schedulers) == 3
+         for i in 1:3
+             @test length(host.schedulers[i].plugins[:host].peercache) == 2
+         end
+         shutdown!(host)
+     end
 
     @testset "Inter-thread Ping-Pong inside Host" begin
         pingers = [PingPonger(nothing, emptycore(ctx)) for i=1:25]
@@ -124,7 +124,7 @@ ctx = CircoContext(;profile=Circo.Profiles.ClusterProfile())
         for pinger in pingers
             deliver!(host, addr(pinger), CreatePeer(nothing))
         end
-        hosttask = @async host(; process_external = false, exit_when_done = true)
+        hosttask = @async host(; remote = false, exit = true)
 
         @info "Sleeping to allow ping-pong to start."
         sleep(8.0)

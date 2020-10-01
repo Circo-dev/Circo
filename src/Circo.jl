@@ -13,14 +13,18 @@ export MonitorService, Debug, cli, Host, JS,
 
 const actor_activity_sparse16 = CircoCore.actor_activity_sparse16
 const actor_activity_sparse256 = CircoCore.actor_activity_sparse256
+const apply_infoton = CircoCore.apply_infoton
 const letin_remote = CircoCore.letin_remote
 const localdelivery = CircoCore.localdelivery
 const localroutes = CircoCore.localroutes
-const specialmsg = CircoCore.specialmsg
+const prepare = CircoCore.prepare
 const schedule_start = CircoCore.schedule_start
+const schedule_pause = CircoCore.schedule_pause
+const schedule_continue = CircoCore.schedule_continue
 const schedule_stop = CircoCore.schedule_stop
 const scheduler_infoton = CircoCore.scheduler_infoton
-const apply_infoton = CircoCore.apply_infoton
+const specialmsg = CircoCore.specialmsg
+const stage = CircoCore.stage
 
 include("host.jl")
 include("monitor.jl")
