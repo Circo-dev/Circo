@@ -30,14 +30,17 @@ end
 Plugins.symbol(plugin::WebsocketService) = :websocket
 
 Circo.prepare(::WebsocketService, ctx) = begin
-    @eval :(
-        MsgPack.construct(::Type{Msg{TBody}}, args...) where TBody = begin
-            Msg{TBody}(args[1], args[2], args[3], Infoton(nullpos))
+    MsgType = ctx.msg_type
+    defaulted_fields = map(type -> :($type()), MsgType.body.types[4:end]) # Assuming 3 filled-in fields
+    eval(:(
+        MsgPack.construct(::Type{$(MsgType){TBody}}, sender::Addr, target::Addr, body, args...) where TBody = begin
+            $(Expr(:call, :($(MsgType){TBody}), :(sender), :(target), :(body), defaulted_fields...))
         end
-    )
+    ))
+    return nothing
 end
 
-Circo.schedule_start(service::WebsocketService, scheduler) = begin
+Circo.schedule_start(service::WebsocketService, scheduler) = begin # TODO during setup!, after PostOffice initialized
     listenport = 2497 + port(postcode(scheduler)) - CircoCore.PORT_RANGE[1] # CIWS
     ipaddr = Sockets.IPv4(0) # TODO config
     try
@@ -57,7 +60,6 @@ Circo.schedule_start(service::WebsocketService, scheduler) = begin
 end
 
 function Circo.schedule_stop(service::WebsocketService, scheduler)
-    #@info "TODO: stop websocket tasks"
     isdefined(service, :socket) && close(service.socket)
 end
 
@@ -133,12 +135,16 @@ function handle_connection(service::WebsocketService, ws, scheduler)
         end
     catch e
         if e isa MethodError && e.f == convert
-            @info "Field of type $(e.args[1]) was not found while unmarshaling type $(readtypename_safely(buf))"
+            @info "Field of type $(e.args[1]) was not found while unmarshaling type '$(readtypename_safely(buf))'"
             @debug "Erroneous websocket frame: ", buf
         else
-            @error "Exception while handling websocket frame: $e"
             # TODO this causes segfault on 1.5.0 with multithreading
-            # @error "Exception while handling websocket frame" exception=(e, catch_backtrace())
+            if Threads.nthreads() == 1
+                @error "Exception while handling websocket frame" exception=(e, catch_backtrace())
+            else
+                @error "Exception while handling websocket frame: $e"
+                @error "Cannot print stack trace due to an unknown issue in Base or HTTP.jl. Rerun with JULIA_NUM_THREADS=1 to get more info"
+            end
         end
     end
     @debug "Websocket closed", ws

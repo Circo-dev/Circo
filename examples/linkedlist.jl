@@ -70,7 +70,7 @@ Circo.monitorprojection(::Type{<:ListItem}) = JS("{
     geometry: new THREE.BoxBufferGeometry(10, 10, 10)
 }")
 
-@inline function Circo.scheduler_infoton(scheduler, actor::AbstractActor)
+@inline @fastmath function Circo.scheduler_infoton(scheduler, actor::AbstractActor)
     energy = (SCHEDULER_TARGET_ACTORCOUNT - scheduler.actorcount) * 4e-2
     return Infoton(scheduler.pos, energy)
 end

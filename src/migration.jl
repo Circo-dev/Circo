@@ -94,7 +94,7 @@ function migrate!(scheduler, actor::AbstractActor, topostcode::PostCode)
     end
     migration = scheduler.plugins[:migration]
     if isnothing(migration)
-        @debug "Migration plugins not loaded, skipping migrate!"
+        @debug "Migration plugin not loaded, skipping migrate!"
         return false
     end
     migration::MigrationService
@@ -173,7 +173,7 @@ end
     check_migration(actor, migration.alternatives, scheduler.service)
 end
 
-@inline function find_nearest(sourcepos::Pos, alternatives::MigrationAlternatives)::Union{NodeInfo, Nothing}
+@inline @fastmath function find_nearest(sourcepos::Pos, alternatives::MigrationAlternatives)::Union{NodeInfo, Nothing}
     peers = alternatives.peers
     if length(peers) < 2
         return nothing
@@ -190,7 +190,7 @@ end
     return found
 end
 
-@inline function migrate_to_nearest(me::AbstractActor, alternatives::MigrationAlternatives, service, tolerance=AUTOMIGRATE_TOLERANCE)
+@inline @fastmath function migrate_to_nearest(me::AbstractActor, alternatives::MigrationAlternatives, service, tolerance=AUTOMIGRATE_TOLERANCE)
     nearest = find_nearest(pos(me), alternatives)
     if isnothing(nearest) return nothing end
     if box(nearest.addr) === box(addr(me)) return nothing end

@@ -3,7 +3,7 @@ using DataStructures
 import CircoCore.deliver!
 import Base.getproperty
 
-const MSG_BUFFER_SIZE = 100_000
+#const MSG_BUFFER_SIZE = 100_000
 
 struct HostProfile{TInner <: CircoCore.Profiles.AbstractProfile} <: CircoCore.Profiles.AbstractProfile
     innerprofile::TInner

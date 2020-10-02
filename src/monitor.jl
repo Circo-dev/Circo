@@ -111,7 +111,7 @@ end
 
 monitorextra(actor::MonitorActor)= (
     actorcount = UInt32(actor.monitor.scheduler.actorcount),
-    queuelength = UInt32(length(actor.monitor.scheduler.messagequeue))
+    queuelength = UInt32(length(actor.monitor.scheduler.msgqueue))
     )
 
 monitorprojection(::Type{<:MonitorActor}) = JS("
