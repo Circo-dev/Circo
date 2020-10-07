@@ -14,7 +14,7 @@ const MIN_FRIEND_COUNT = 3
 mutable struct ClusterService <: Plugin
     roots::Array{PostCode}
     helper::Addr
-    ClusterService(;options...) = new(get(options, :roots, []))
+    ClusterService(;roots=[], unused...) = new(roots)
 end
 Plugins.symbol(::ClusterService) = :cluster
 Circo.schedule_start(cluster::ClusterService, scheduler) = begin

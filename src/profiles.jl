@@ -17,7 +17,7 @@ function CircoCore.Profiles.core_plugins(profile::ClusterProfile)
     options = profile.options
     return [
         core_plugins(DefaultProfile(;options...))...,
-        ClusterService(;options...), # TODO: check why moving this up seems to magically improve performance (but it is not working correctly when placed before PostOffice)
+        ClusterService(;options...),
         WebsocketService(;options...),
         MigrationService(;options...),
         MonitorService(;options...),

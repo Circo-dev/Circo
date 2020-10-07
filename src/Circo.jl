@@ -6,7 +6,7 @@ import Base: show
 
 @reexport using CircoCore
 
-export MonitorService, Debug, cli, Host, JS,
+export MonitorService, Debug, Host, JS,
     ClusterService, ClusterActor, NodeInfo, Joined, PeerListUpdated,
     MigrationService, migrate_to_nearest, MigrationAlternatives, RecipientMoved,
     WebsocketService

@@ -5,21 +5,32 @@
 
 BOOT_SCRIPT=$(cat <<-END
     using Circo
-    using Circo.cli
     
-    # TODO Move this functionality to CircoCore.cli (needs some code-loading gimmick)
-    args = parse_args(ARGS)
-    initscript = get(ENV, "CIRCO_INITSCRIPT", "circo.jl") 
-    if !haskey(args, :help) && !haskey(args, :version)
-        if isfile(initscript)
-            include(initscript)
-        else
-            @error "Cannot open \$(initscript)"
-        end
-    end
-    ctx = Context()
-    node = circonode(ctx, @isdefined(zygote) ? zygote : nothing; userpluginsfn = @isdefined(plugins) ? plugins : nothing, profile = @isdefined(profile) ? profile : nothing)
+    args = Circo.cli.parse_args(ARGS)
+    options = Circo.cli.create_options()
+    options isa Circo.cli.Exit && exit(options.code)
 
+    if isfile(options.script)
+        include(options.script)
+    else
+        @error "Cannot open \$(options.script)"
+    end
+
+    if @isdefined(profile)
+        options = merge(options, (profilefn = profile,))
+    end
+    if @isdefined(plugins)
+        options = merge(options, (userpluginsfn = plugins,))
+    end
+    ctx = CircoContext(;options...)
+
+    zygoteresult = []
+    if options[:iszygote] && @isdefined(zygote)
+        zygoteresult = zygote(ctx)
+        zygoteresult = zygoteresult isa AbstractArray ? zygoteresult : [zygoteresult]
+    end
+
+    node = Circo.cli.circonode(ctx; zygote = zygoteresult, options...)
     nodetask = @async node()
     try
         while true

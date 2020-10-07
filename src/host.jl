@@ -114,9 +114,9 @@ struct Host
     id::UInt64
 end
 
-function Host(ctx, threadcount::Int; options...)
+function Host(ctx, threadcount::Int; zygote=[])
     hostid = rand(UInt64)
-    schedulers = create_schedulers(ctx, threadcount, hostid; options...)
+    schedulers = create_schedulers(ctx, threadcount; zygote = zygote)
     return Host(schedulers, hostid)
 end
 
@@ -124,8 +124,7 @@ Base.show(io::IO, ::MIME"text/plain", host::Host) = begin
     print(io, "Circo.Host with $(length(host.schedulers)) schedulers")
 end
 
-function create_schedulers(ctx, threadcount, hostid; options...)
-    zygote = get(options, :zygote, [])
+function create_schedulers(ctx, threadcount; zygote)
     schedulers = []
     for i = 1:threadcount
         iamzygote = i == 1

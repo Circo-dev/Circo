@@ -6,6 +6,10 @@ const INITSCRIPT_ENVNAME = "CIRCO_INITSCRIPT"
 const DEFAULT_INITSCRIPT = "circo.jl"
 const VERSION = v"0.2.0"
 
+struct Exit
+    code::Int
+end
+
 doc = """Start a Circo cluster node.
 
 Usage:
@@ -17,6 +21,7 @@ Options:
   -a --add        Add the address of this node to the roots file, create the file if missing.
   -z --zygote     Call zygote() from the init script and schedule the actor/actors returned by it.
   -t --threads    Number of threads (schedulers) to start. Defaults to 1.
+  -s --script     Path to script file. Defaults to $DEFAULT_INITSCRIPT
   -h --help       Show this screen.
   --version       Show version.
 
@@ -42,7 +47,7 @@ Examples:
   circonode.sh -z
     Start a node and schedule the actor/actors returned by zygote(), as defined in circo.jl.
 
-  CIRCO_INITSCRIPT=examples/searchtree.jl circonode.sh -t 6 -z
+  circonode.sh -t 6 -s examples/searchtree.jl -z
     Start six schedulers, connect them into a local (in-process) cluster, and run the zygote defined in
   examples/searchtree.jl on the first scheduler.
 """
@@ -51,9 +56,9 @@ function usage()
 end
 
 function parse_args(args)
-    longs = Set(["roots", "rootsfile", "add", "help", "version", "threads", "zygote"])
+    longs = Set(["roots", "rootsfile", "add", "help", "version", "script", "threads", "zygote"])
     shorts = Dict([("-r", "roots"), ("--root", "roots"), ("-f", "rootsfile"),
-     ("-a", "add"), ("-z", "zygote"), ("-h", "help"), ("-t", "threads")])
+     ("-a", "add"), ("-z", "zygote"), ("-h", "help"), ("-s", "script"), ("-t", "threads"),])
     defaults = Dict([("zygote", "zygote")])
     parsed = Dict()
     key = nothing
@@ -78,25 +83,19 @@ end
 
 iszygote(args) = isinteractive() ? get(args, :zygote, true) : haskey(args, :zygote)
 
-function circonode(
-    zygotefn_or_instance;
-    userpluginsfn::Union{Function, Nothing} = () -> [],
-    profile::Union{Function, Circo.Profiles.AbstractProfile, Nothing} = nothing,
-    kwargs...)
+function create_options(;kwargs...)
     try
         args = merge(parse_args(ARGS), kwargs)
-        if isnothing(userpluginsfn)
-            userpluginsfn = () -> []
-        end
         roots = []
         rootsfilename = nothing
         addmetoroots = false
         threads = 1
         zygoteresult = []
-        haskey(args, :help) && (println(doc); return 0)
-        haskey(args, :version) && (println(VERSION); return 0)
+        haskey(args, :help) && (println(doc); return Exit(0))
+        haskey(args, :version) && (println(VERSION); return Exit(0))
         haskey(args, :roots) && (append!(roots, parseroots(args[:roots])))
         addmetoroots = haskey(args, :add) && args[:add] != "false"
+        script = haskey(args, :script) ? args[:script] : DEFAULT_INITSCRIPT
         if haskey(args, :rootsfile)
             rootsfilename = args[:rootsfile]
             isnothing(rootsfilename) && throw("No roots file provided for --rootsfile or -f")
@@ -105,24 +104,16 @@ function circonode(
         if haskey(args, :threads)
             threads = args[:threads] isa Int ? args[:threads] : parse(Int, args[:threads])
         end
-        if profile isa Function
-            profile = profile(;args..., roots=roots, threads=threads)
-        else
-            if isnothing(profile)
-                profile = Circo.Profiles.ClusterProfile(;args..., roots=roots, threads=threads)
-            end
-        end
-        if iszygote(args)
-            zygoteresult = zygotefn_or_instance isa Function ? zygotefn_or_instance() : zygotefn_or_instance
-            zygoteresult = zygoteresult isa AbstractArray ? zygoteresult : [zygoteresult]
-        end
-        if isempty(roots)
-            return create_first_node(;profile = profile, rootsfilename = rootsfilename, threads = threads, zygote = zygoteresult, userpluginsfn = userpluginsfn)
-        else
-            return create_connecting_node(;profile = profile, roots = roots, threads = threads, zygote = zygoteresult, userpluginsfn = userpluginsfn, rootsfilename=rootsfilename, addmetoroots=addmetoroots)
-        end
+        return (
+            addmetoroots=addmetoroots,
+            roots = roots,
+            rootsfilename = rootsfilename,
+            script = script,
+            threads = threads,
+            iszygote = iszygote(args),
+        )
     catch e
-        e isa String ? (println(stderr, e);return -1) : rethrow()
+        e isa String ? (println(stderr, e);return Exit(-1)) : rethrow()
     end
 end
 
@@ -153,28 +144,34 @@ function appendpostcode(filename, po)
     end
 end
 
-function create_first_node(;profile, userpluginsfn, rootsfilename=nothing, threads=1, zygote=[])
-    host = Host(threads; profile = profile, userpluginsfn = userpluginsfn, zygote = zygote)
+function circonode(ctx; options...)
+    if !haskey(options, :roots) || isempty(options[:roots])
+        return create_first_node(ctx; options...)
+    else
+        return create_connecting_node(ctx; options...)
+    end
+end
+
+function create_first_node(ctx; rootsfilename=nothing, threads=1, zygote=[], unused...)
+    host = Host(ctx, threads; zygote = zygote)
     scheduler = host.schedulers[1]
-    root = getname(scheduler.service, "cluster")
     @info "First node started. To add nodes to this cluster, run:"
     if isnothing(rootsfilename)
-        @info "bin/circonode.sh --roots $(postcode(root))"
+        @info "bin/circonode.sh --roots $(postcode(scheduler))"
     else
-        appendpostcode(rootsfilename, postcode(root))
+        appendpostcode(rootsfilename, postcode(scheduler))
         @info "bin/circonode.sh --rootsfile $rootsfilename"
     end
     return host
 end
 
-function create_connecting_node(;roots, profile, threads=1, zygote=[], userpluginsfn=() -> [], rootsfilename=nothing, addmetoroots=false)
-    host = Host(threads; profile = profile, userpluginsfn = userpluginsfn, zygote = zygote, roots = roots)
+function create_connecting_node(ctx;threads=1, zygote=[], rootsfilename=nothing, addmetoroots=false, unused...)
+    host = Host(ctx, threads; zygote = zygote)
     scheduler = host.schedulers[1]
-    root = getname(scheduler.service, "cluster")
     if addmetoroots
-        appendpostcode(rootsfilename, root)
+        appendpostcode(rootsfilename, postcode(scheduler))
     end
-    @info "Node started. Postcode of this node$(addmetoroots ? " (added to $rootsfilename)" : ""): $(postcode(root))"
+    @info "Node started. Postcode of this node: $(postcode(scheduler)) $(addmetoroots ? " (added to $rootsfilename)" : "")"
     return host
 end
 
