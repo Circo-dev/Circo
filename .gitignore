@@ -1,6 +1,17 @@
 *.jl.cov
 *.jl.*.cov
 *.jl.mem
-/deps/deps.jl
-/docs/build
-/docs/Manifest.toml
+deps/build.log
+deps/deps.jl
+deps/downloads/
+deps/usr/
+deps/src/
+
+docs/build
+docs/Manifest.toml
+
+Manifest.toml
+
+# Circo temp files
+roots.txt
+circo.out
