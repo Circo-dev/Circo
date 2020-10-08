@@ -10,6 +10,7 @@ makedocs(
         "install.md",
         "tutorial.md",
         "infotons.md",
+        "plugindev.md",
         "reference.md",
         "troubleshooting.md",
     ]
