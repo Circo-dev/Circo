@@ -95,7 +95,7 @@ ctx = CircoContext(;profile=Circo.Profiles.ClusterProfile())
         end
         hosttask = @async host()
         @info "Sleeping to allow ping-pong to start."
-        sleep(10.0)
+        sleep(15.0)
         for pinger in pingers
             @test pinger.pings_sent > 1
             @test pinger.pongs_got > 1
