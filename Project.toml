@@ -17,6 +17,7 @@ Sockets = "6462fe0b-24de-5631-8697-dd941f90decc"
 TypeParsers = "6b5504e1-0c77-489f-ba22-2b282cee145f"
 
 [compat]
+CircoCore = "0.2"
 DataStructures = "^0.18"
 Documenter = "^0.25"
 julia = "^1"
