@@ -1,4 +1,7 @@
-using Documenter, Circo
+using Documenter, Circo, Literate
+
+# Generating to docs/src, was unable to load pages from a different directory
+Literate.markdown("docs/src/tutorial.jl", "docs/src/"; documenter = true)
 
 makedocs(
     modules = [Circo],
