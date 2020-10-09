@@ -1,3 +1,4 @@
 [deps]
+Circo = "36e45090-0d1b-4017-951a-c8c63491b169"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
