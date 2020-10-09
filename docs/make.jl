@@ -8,6 +8,7 @@ makedocs(
     pages = Any[
         "index.md",
         "install.md",
+        "showcase.md",
         "tutorial.md",
         "infotons.md",
         "plugindev.md",
@@ -20,6 +21,7 @@ makedocs(
 )
 
 deploydocs(
-    repo = "github.com/Circo-dev/Circo.git",
+    repo = "github.com/Circo-dev/Circo-docs.git",
+    branch="main",
     push_preview = true
 )

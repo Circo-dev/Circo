@@ -1,4 +1,4 @@
-# Tutorial
+# Showcase
 
 When you install & run the system, on [http://localhost:8000](http://localhost:8000) soon you will see something like the following:
 

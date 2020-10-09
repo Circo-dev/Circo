@@ -1,6 +1,6 @@
 # Plugin development
 
-Please also read the documentation of [Plugins.jl](https://github.com/tisztamo/Plugins.jl)
+Please also read the documentation of [Plugins.jl](https://tisztamo.github.io/Plugins.jl/dev/)
 
 
 For sample code, look for any plugin in the source code. E.g. [OnMessage](https://github.com/Circo-dev/CircoCore.jl/blob/master/src/onmessage.jl) is trivial, [MsgStats](https://github.com/Circo-dev/Circo/blob/master/src/debug/msgstats.jl) and [Event](https://github.com/Circo-dev/CircoCore.jl/blob/master/src/event.jl) are a bit more involved.
@@ -8,7 +8,7 @@ For sample code, look for any plugin in the source code. E.g. [OnMessage](https:
 
 ## Plugin Lifecycle
 
-Following is the list of hooks to implement in plugins. Time usually goes top -> down, except:
+Following is the list of hooks to implement in plugins. Time goes top → down, except:
 
 - When there is no empty line between hooks, then the call order is not defined.
 - Indented blocks may be called repeatedly
@@ -24,7 +24,7 @@ setup!(plugin, scheduler) # Allocate resources
 
     schedule_start(plugin, scheduler) # Scheduling may be stopped and restarted several times
 
-        schedule_continue(plugin, scheduler) # Scheduling continues after stop or pause
+        schedule_continue(plugin, scheduler) # Scheduling continues after stop or pause (also called after start)
 
             localdelivery() # Deliver a message to an actor (e.g. call onmessage)
             localroutes() # Handle messages that are targeted to actors not (currently) scheduled locally (e.g. during migration).
