@@ -19,8 +19,7 @@ jobs:
        julia: 1.5
        os: linux
        script:
-         - julia --project -e 'using Pkg; Pkg.instantiate()'
-         - julia --project --color=yes docs/make.jl
+         - julia --projectt=docs -e 'using Pkg;Pkg.develop(PackageSpec(path=pwd()));include("docs/make.jl");'
        after_success: skip
   allow_failures:
     - julia: nightly
