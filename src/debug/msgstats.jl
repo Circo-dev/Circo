@@ -2,7 +2,7 @@ using Circo
 using LinearAlgebra
 
 mutable struct MsgStats <: Plugin
-    typefrequencies::IdDict{Any, Int}
+    typefrequencies::IdDict{Type, Int}
     helper::AbstractActor
     MsgStats(;options...) = begin
         return new(IdDict())
