@@ -35,7 +35,7 @@ ctx = CircoContext(;userpluginsfn=() -> [stats])
 @testset "Debug" begin
     tester = StatsTester()
     scheduler = ActorScheduler(ctx, [tester])
-    deliver!(scheduler, addr(tester), Start())
+    send(scheduler, addr(tester), Start())
     scheduler(;remote = false, exit = true)
     @show stats
     @test stats.typefrequencies[Ack] == SAMPLE_COUNT

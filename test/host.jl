@@ -91,7 +91,7 @@ ctx = CircoContext(;profile=Circo.Profiles.ClusterProfile())
         pingers = [PingPonger(nothing, emptycore(ctx)) for i=1:25]
         host = Host(ctx, 2; zygote=pingers)
         for pinger in pingers
-            deliver!(host, addr(pinger), CreatePeer(postcode(host.schedulers[end])))
+            send(host, addr(pinger), CreatePeer(postcode(host.schedulers[end])))
         end
         hosttask = @async host()
         @info "Sleeping to allow ping-pong to start."
@@ -122,7 +122,7 @@ ctx = CircoContext(;profile=Circo.Profiles.ClusterProfile())
         pingers = [PingPonger(nothing, emptycore(ctx)) for i=1:1]
         host = Host(ctx, 1; zygote=pingers)
         for pinger in pingers
-            deliver!(host, addr(pinger), CreatePeer(nothing))
+            send(host, addr(pinger), CreatePeer(nothing))
         end
         hosttask = @async host(; remote = false, exit = true)
 

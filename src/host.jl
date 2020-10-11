@@ -138,7 +138,7 @@ end
 
 cluster_initialized(hs::HostService, scheduler, cluster) = begin
     if hs.hostroot != postcode(hs) && length(cluster.roots) == 0
-        deliver!(scheduler, cluster.helper, ForceAddRoot(hs.hostroot))
+        send(scheduler, cluster.helper, ForceAddRoot(hs.hostroot))
     end
 end
 
@@ -155,7 +155,7 @@ function crossadd_peers(schedulers)
     end
 end
 
-CircoCore.deliver!(host::Host, target::Addr, msgbody) = CircoCore.deliver!(host.schedulers[1], target, msgbody)
+CircoCore.send(host::Host, target::Addr, msgbody) = CircoCore.send(host.schedulers[1], target, msgbody)
 
 # From https://discourse.julialang.org/t/lightweight-tasks-julia-vs-elixir-otp/35082/22
 function onthread(f::F, id::Int) where {F<:Function}

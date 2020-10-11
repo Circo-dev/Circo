@@ -1,10 +1,9 @@
 # Plugin development
 
-Please also read the documentation of [Plugins.jl](https://tisztamo.github.io/Plugins.jl/dev/)
+To get familiar with the plugin system, please read the documentation of [Plugins.jl](https://tisztamo.github.io/Plugins.jl/dev/)
 
 
 For sample code, look for any plugin in the source code. E.g. [OnMessage](https://github.com/Circo-dev/CircoCore.jl/blob/master/src/onmessage.jl) is trivial, [MsgStats](https://github.com/Circo-dev/Circo/blob/master/src/debug/msgstats.jl) and [Event](https://github.com/Circo-dev/CircoCore.jl/blob/master/src/event.jl) are a bit more involved.
-
 
 ## Plugin Lifecycle
 
@@ -46,3 +45,5 @@ shutdown!(plugin, scheduler) # Release resources
 ```
 
 If you need a new hook, please file an issue to discuss your use case and find the best way to implement it!
+
+TODO: A real plugin dev guide
