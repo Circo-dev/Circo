@@ -8,7 +8,7 @@ Circo is a fast, scalable and extensible actor system.
 
 Circo also features *Infoton Optimization*, a physics-inspired solution to the data-locality problem. [^infoton]
 
-Circo is implemented in [Julia](https://julialang.org) - an incredibly fast, dynamic, yet compiled language -, and it has a JavaScript sister: [CircoCore.js](https://github.com/Circo-dev/CircoCore.js), which can run in the browser and transparently integrate into the Circo cluster. These two components form a high performance, distributed application platform.
+Circo is implemented in [Julia](https://julialang.org) - an incredibly fast, dynamic, yet compiled language -, and it has a JavaScript sister: [Circo.js](https://github.com/Circo-dev/Circo.js), which can run in the browser and transparently integrate into the Circo cluster. These two components form a high performance, distributed application platform.
 
 There is a monitoring tool named "Camera Diserta" which can help to tune Circo applications and to research
 Infoton Optimization.
