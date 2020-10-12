@@ -56,13 +56,14 @@ N1. The limits and applicability of this algorithm is not yet explored, implemen
 
 N2. The cost of this optimization is a small, constant overhead on every message sent, plus the overhead of actor migration.
 
-N3. Actors cannot collide in the base model. They may be positioned at the exact same place.
+N3. Actors cannot collide in the base model and in the extended one currently implemented in Circo. Multiple actors may be positioned at the exact same place.
 
 N4. However, domain-specific knowledge or special requirements can be added by sending negative signal messages. E.g. If multiple copies of a piece of data exist in the system for failure tolerance, the copies can preiodically check the liveness of each other while also spread as a result.
 
-N5. The extended model is implemented in Circo.
+N5. A similar domain mechanism works in the tree example, where neighbour nodes "periodically" ping each other with negative infotons.
 
-#### Sample codes (Julia)
+
+#### Sample code
 
 This is the current default implementation in Circo of how an infoton acts on the target actor. In this version pulling forces are not applied if the distance between the source and the target is too small. This trick seems to lead to better results in some cases. It introduces a metaparameter called `TARGET_DISTANCE`, and it can be thought of as a rudimentary approximation of a separate force that pushes actors away when they are too close.
 
@@ -88,6 +89,10 @@ function apply_infoton(targetactor::AbstractActor, infoton::Infoton)
     return nothing
 end
 ```
+
+#### How to start research on Infoton optimization
+
+You can overload `apply_infoton` and `scheduler_infoton` for your actor types. Actor positioning is implemented as a plugin. All you need to do is to install the system and run the examples where you can tweak the current rudimentary implementation. Please share your findings on Discourse!
 
 
 
