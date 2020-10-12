@@ -25,4 +25,4 @@ Please note that Circo is in alpha stage. It is more like a research tool at the
 
 [^singlenode]: Measured on an AWS C6g 16xlarge instance, 64 Graviton2 Arm core. See [maxthroughput.jl](https://github.com/Circo-dev/CircoCore.jl/blob/master/benchmark/maxthroughput.jl)
 
-[^infoton]: Go to [Infoton Optimization](./infotons/) for a description of this novel algorithm.
+[^infoton]: Go to [Infoton Optimization](https://circo-dev.github.io/Circo-docs/dev/infotons/) for a description of this novel algorithm.
