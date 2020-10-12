@@ -33,9 +33,22 @@ Mapping the state of the system - as avaiable on individual schedulers - to the 
 #### Sample images
 
 ![](assets/infoton/sample1.png)
-![](assets/infoton/sample2.png)
-![](assets/infoton/sample3.png)
+I1: A balanced binary tree of actors spreads out to fill part of the space that is covered by 6 schedulers. Green and red dots are leafs, red meaning the leaf is 90% full or more. Purple dots are inner nodes of the search tree.
+
+---
+
 ![](assets/infoton/sample4.png)
+I2: A different rendering of a scene similar to I1. Orange lines cross scheduler boundary, gray lines don't.
+
+---
+
+![](assets/infoton/sample2.png)
+I3: A linked list of 4000 actors spreads out to fill part of the space that is covered by 6 schedulers.
+
+---
+
+![](assets/infoton/sample3.png)
+I4: A better solution of I3, rendered sightly differently.
 
 #### Notes
 
