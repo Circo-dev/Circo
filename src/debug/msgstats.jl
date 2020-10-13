@@ -4,10 +4,10 @@ using LinearAlgebra
 mutable struct MsgStats <: Plugin
     typefrequencies::IdDict{Type, Int}
     helper::AbstractActor
-    MsgStats(;options...) = begin
-        return new(IdDict())
-    end
+    MsgStats(;options...) = new(IdDict())
 end
+
+Circo.symbol(::MsgStats) = :msgstats
 
 mutable struct MsgStatsHelper{TCore} <: AbstractActor{TCore}
     stats::MsgStats
@@ -28,8 +28,6 @@ Circo.monitorextra(actor::MsgStatsHelper) = (
 Circo.monitorprojection(::Type{MsgStatsHelper}) = JS("{
     geometry: new THREE.BoxBufferGeometry(10, 10, 10)
 }")
-
-Circo.symbol(::MsgStats) = :msgstats
 
 Circo.schedule_start(stats::MsgStats, scheduler) = begin
     stats.helper = MsgStatsHelper(stats, emptycore(scheduler.service))
