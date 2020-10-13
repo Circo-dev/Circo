@@ -1,7 +1,10 @@
 # # Tutorial
 #
-# We will create a distributed backend for Twitter clones. Don't worry, it is not complicated,
-# at least not in this simplified prototype form. But it works, and it scales to any size!
+# Here you will learn how to start Circo, create actors, send messages and react to lifecycle
+# events. We will program a distributed backend for Twitter clones from scratch.
+#
+# Don't worry, it is not complicated, just a simplified prototype! But it works,
+# and it scales to any size...
 #
 # ### Architecture
 #
@@ -10,7 +13,7 @@
 # - `Feed`s are actors holding a list of posts. When someone opens the frontend,
 #    a new feed will be created for that session, and populated with recent posts.
 #    While the feed is alive, it also receives pushed updates from its sources.
-# - `Profile`s can create posts and follow other profiles.
+# - `Profile` actors can create posts and follow other profiles.
 #
 # ### Post
 #
@@ -23,14 +26,13 @@ struct Post
     authorname::String
     text::String
 end
+
 # ### Feed
 #
 # A `Feed` - our first - actor contains a growing list of posts from different authors.
 #
 #
-# Actors in Circo are `mutable struct`s[^encapsulation], subtypes of `AbstractActor`. For maximum
-# performance `AbstractActor` itself is parametric, but for now `AbstractActor{Any}`
-# is perfectly fine:
+# Actors in Circo are `mutable struct`s[^encapsulation], subtypes of `AbstractActor`:
 #
 # [^encapsulation]: Actors encapsulate their state: They are to be accessed only through message passing.
 #     This strict separation enables the scalability of the actor model, and I also believe
@@ -42,7 +44,6 @@ mutable struct Feed <: AbstractActor{Any}
     sources::Vector{Addr} # Post sources that this feed watches
     posts::Vector{Post}
     core::Any # A tiny boilerplate is needed
-    Feed() = new([], [])
     Feed(sources) = new(sources, [])
 end
 
@@ -51,7 +52,7 @@ end
 # as its content is not fixed: Its type is assembled by the activated plugins.
 #
 # ---
-# 
+#
 # When the feed receives a `Post`, it just prints and stores it:
 
 function Circo.onmessage(me::Feed, post::Post, service)
@@ -71,12 +72,12 @@ end
 #     replaceable behaviors.
 #
 # ---
-# 
-# Now we can try out what we have:
+#
+# ### Try out what we have
 
-feed = Feed()
+feed = Feed([])
 
-ctx = CircoContext() # This is our connection to the Circo system
+ctx = CircoContext()
 s = ActorScheduler(ctx, [feed])
 @async s() # Start the scheduler in the background
 
@@ -84,18 +85,18 @@ s = ActorScheduler(ctx, [feed])
 # The `CircoContext` manages the configuration and helps building a tailored system:
 # it loads the plugins, generates types, etc. The `ActorScheduler` then executes
 # our actors in that context.
-# 
+#
 # ---
-# 
+#
 # The feed is scheduled and waiting for posts. We can send one from the outside:
 
 send(s, feed, Post("Me", "My first post"))
 feed.posts
 
-# Great, the post arrived at the feed and got processed! 
+# Great, the post arrived at the feed and got processed!
 #
 # ### Profile
-# 
+#
 # Now we will create a `Profile` actor that can create posts and follow other profiles.
 
 mutable struct Profile <: AbstractActor{Any}
@@ -109,7 +110,7 @@ end
 
 #
 # ---
-# 
+#
 # The `Profile` will start following another one if it receives the `Follow` message:
 
 struct Follow
@@ -123,7 +124,7 @@ end
 
 #
 # ---
-# 
+#
 # Now we can create a few profiles and connect them:
 
 alice = spawn(s, Profile("Alice"))
@@ -134,8 +135,15 @@ send(s, alice, Follow(cecile))
 send(s, bela, Follow(cecile))
 
 #
+# ```
+# Output:
+# Alice (14794612644248267373): Starting to follow 476101269856542852
+# Alice (14794612644248267373): Starting to follow 1805520424651598862
+# Béla (476101269856542852): Starting to follow 1805520424651598862
+# ```
+#
 # ### Creating Posts, notifying watchers
-# 
+#
 # Profiles will create posts when they receive a `CreatePost` message:
 
 struct CreatePost
@@ -157,7 +165,7 @@ end
 
 #
 # ---
-# 
+#
 # Let our users create a few interesting posts:
 
 send(s, alice, CreatePost("Through the Looking-Glass"))
@@ -165,10 +173,19 @@ send(s, bela, CreatePost("I lost my handkerchief"))
 send(s, cecile, CreatePost("My first post"))
 send(s, cecile, CreatePost("At the zoo"))
 
+#
+# ```
+# Output:
+# Posting: Post("Alice", "Through the Looking-Glass")
+# Posting: Post("Béla", "I lost my handkerchief")
+# Posting: Post("Cécile", "My first post")
+# Posting: Post("Cécile", "At the zoo")
+# ```
+#
 # As there isn't any feed watching the profiles at the time, no notifications were sent out.
 #
 # ### Creating feeds
-# 
+#
 # So, time to create a live feed! The `CreateFeed` message asks a profile to create a feed that
 # is sourced from the profiles that this one follows:
 
@@ -180,7 +197,7 @@ end
 
 #
 # ---
-# 
+#
 # When the feed actor is spawned, it starts watching the profiles by sending them an
 # `AddWatcher` message:
 
@@ -196,7 +213,7 @@ end
 
 #
 # ---
-# 
+#
 # The profile reacts with immediately sending back its last 3 posts, and starting to send
 # notifications about future posts:
 
@@ -206,10 +223,10 @@ function Circo.onmessage(me::Profile, msg::AddWatcher, service)
     end
     push!(me.watchers, msg.watcher)
 end
-    
+
 #
-# ---
-# 
+# ### Ta-da
+#
 # We are ready! We do not want to create the frontend, so let's just say that when
 # someone opens the frontend app on their device, a Circo plugin or an external system
 # will call:
@@ -217,12 +234,34 @@ end
 send(s, alice, CreateFeed())
 
 #
+# ```
+# Output:
+# Created Feed: 192.168.1.11:24721/9d727407b4c66252
+# Feed 11345257987746194002 received post: Post("Béla", "I lost my handkerchief")
+# Feed 11345257987746194002 received post: Post("Cécile", "My first post")
+# Feed 11345257987746194002 received post: Post("Cécile", "At the zoo")
+# ```
+#
 # ---
-# 
+#
 # That's it! Just a final check that
 # when Béla creates a new post, it will arrive on the feed of Alice:
 
 sleep(2.0)
 send(s, bela, CreatePost("Have you ever seen a llama wearing pajamas?"))
 
-# X
+#
+# ```
+# Output:
+# Posting: Post("Béla", "Have you ever seen a llama wearing pajamas?")
+# Feed 11345257987746194002 received post: Post("Béla", "Have you ever seen a llama wearing pajamas?")
+#```
+#
+# ### Where to go
+#
+# Nothing more is needed to start coding in Circo. The best way to learn is to make something yourself.
+#
+# For closer-to-life Circo programs look into the [examples](https://github.com/Circo-dev/Circo/tree/master/examples)
+# folder of the repo.
+#
+# Have fun!
