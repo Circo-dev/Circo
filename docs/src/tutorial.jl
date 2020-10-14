@@ -1,3 +1,11 @@
+# ```@raw html
+# <style>
+#   .documenter-example-output { display:none !important }
+#   .is-category-output { background-color: white  !important; color: black !important; border-color: lightsteelblue !important}
+#   .is-category-output pre, .is-category-output code { background-color: white  !important; color: black !important; border-width: 0 !important}
+#   .is-category-output .admonition-header { background-color: lightsteelblue !important }
+# </style>
+# ```
 # # Tutorial
 #
 # Here you will learn how to start Circo, create actors, send messages and react to lifecycle
@@ -79,7 +87,7 @@ feed = Feed([])
 
 ctx = CircoContext()
 s = ActorScheduler(ctx, [feed])
-@async s() # Start the scheduler in the background
+run!(s) # Start the scheduler in the background
 
 #
 # The `CircoContext` manages the configuration and helps building a tailored system:
@@ -90,9 +98,14 @@ s = ActorScheduler(ctx, [feed])
 #
 # The feed is scheduled and waiting for posts. We can send one from the outside:
 
+sleep(5.0) # hide
 send(s, feed, Post("Me", "My first post"))
-feed.posts
 
+# !!! output "Output"
+#     ```
+#     Feed 15794352489972218257 received post: Main.Post("Me", "My first post")
+#     ```
+#
 # Great, the post arrived at the feed and got processed!
 #
 # ### Profile
@@ -125,22 +138,25 @@ end
 #
 # ---
 #
-# Now we can create a few profiles and connect them:
+# Now we can create a few profiles and connect them. But first the running scheduler has to
+# be paused and restarted for the new methods to take effect.
 
+pause!(s); run!(s)
 alice = spawn(s, Profile("Alice"))
 bela = spawn(s, Profile("Béla"))
 cecile = spawn(s, Profile("Cécile"))
+
 send(s, alice, Follow(bela))
 send(s, alice, Follow(cecile))
 send(s, bela, Follow(cecile))
+sleep(1.0) # hide
 
-#
-# ```
-# Output:
-# Alice (14794612644248267373): Starting to follow 476101269856542852
-# Alice (14794612644248267373): Starting to follow 1805520424651598862
-# Béla (476101269856542852): Starting to follow 1805520424651598862
-# ```
+# !!! output "Output"
+#     ```
+#     Alice (2519498415121108185): Starting to follow 3749599043616972853
+#     Alice (2519498415121108185): Starting to follow 5769659525869689442
+#     Bela (3749599043616972853): Starting to follow 5769659525869689442
+#     ```
 #
 # ### Creating Posts, notifying watchers
 #
@@ -162,25 +178,27 @@ function notify_watchers(me::Profile, post, service)
         send(service, me, watcher, post)
     end
 end
+; # hide
 
 #
 # ---
 #
 # Let our users create a few interesting posts:
 
+pause!(s); run!(s)
 send(s, alice, CreatePost("Through the Looking-Glass"))
 send(s, bela, CreatePost("I lost my handkerchief"))
 send(s, cecile, CreatePost("My first post"))
 send(s, cecile, CreatePost("At the zoo"))
+sleep(1.0) # hide
 
-#
-# ```
-# Output:
-# Posting: Post("Alice", "Through the Looking-Glass")
-# Posting: Post("Béla", "I lost my handkerchief")
-# Posting: Post("Cécile", "My first post")
-# Posting: Post("Cécile", "At the zoo")
-# ```
+# !!! output "Output"
+#     ```
+#     Posting: Main.Post("Alice", "Through the Looking-Glass")
+#     Posting: Main.Post("Bela", "I lost my handkerchief")
+#     Posting: Main.Post("Cécile", "My first post")
+#     Posting: Main.Post("Cécile", "At the zoo")
+#     ```
 #
 # As there isn't any feed watching the profiles at the time, no notifications were sent out.
 #
@@ -231,31 +249,31 @@ end
 # someone opens the frontend app on their device, a Circo plugin or an external system
 # will call:
 
+pause!(s); run!(s) # hide
 send(s, alice, CreateFeed())
+sleep(2.0) # hide
 
-#
-# ```
-# Output:
-# Created Feed: 192.168.1.11:24721/9d727407b4c66252
-# Feed 11345257987746194002 received post: Post("Béla", "I lost my handkerchief")
-# Feed 11345257987746194002 received post: Post("Cécile", "My first post")
-# Feed 11345257987746194002 received post: Post("Cécile", "At the zoo")
-# ```
+# !!! output "Output"
+#     ```
+#     Created Feed: 192.168.193.99:24721/898192691fd68c14
+#     Feed 9908361635395177492 received post: Main.Post("Cécile", "My first post")
+#     Feed 9908361635395177492 received post: Main.Post("Cécile", "At the zoo")
+#     Feed 9908361635395177492 received post: Main.Post("Béla", "I lost my handkerchief")
+#     ```
 #
 # ---
 #
 # That's it! Just a final check that
 # when Béla creates a new post, it will arrive on the feed of Alice:
 
-sleep(2.0)
 send(s, bela, CreatePost("Have you ever seen a llama wearing pajamas?"))
+sleep(1.0) # hide
 
-#
-# ```
-# Output:
-# Posting: Post("Béla", "Have you ever seen a llama wearing pajamas?")
-# Feed 11345257987746194002 received post: Post("Béla", "Have you ever seen a llama wearing pajamas?")
-#```
+# !!! output "Output"
+#     ```
+#     Posting: Main.Post("Bela", "Have you ever seen a llama wearing pajamas?")
+#     Feed 9908361635395177492 received post: Main.Post("Bela", "Have you ever seen a llama wearing pajamas?")
+#     ```
 #
 # ### Where to go
 #
