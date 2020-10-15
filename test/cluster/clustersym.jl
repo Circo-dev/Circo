@@ -13,7 +13,7 @@ ctx = CircoContext()
     scheduler = Scheduler(ctx, [])
     rootaddresses = []
     for i in 1:ROOT_COUNT
-        root = ClusterActor(NodeInfo("#$(length(cluster))"), rootaddresses, emptycore(scheduler.service))
+        root = Circo.ClusterActor(Circo.NodeInfo("#$(length(cluster))"), rootaddresses, emptycore(scheduler.service))
         root.servicename = ""
         push!(cluster, root)
         schedule!(scheduler, root)
@@ -22,7 +22,7 @@ ctx = CircoContext()
     end
 
     for i in 1:PEER_COUNT - ROOT_COUNT
-        node = ClusterActor(NodeInfo("#$(length(cluster))"), rootaddresses, emptycore(scheduler.service))
+        node = Circo.ClusterActor(Circo.NodeInfo("#$(length(cluster))"), rootaddresses, emptycore(scheduler.service))
         node.servicename = ""
         push!(cluster, node)
         schedule!(scheduler, node)

@@ -139,7 +139,7 @@ end
 # ---
 #
 # Now we can create a few profiles and connect them. But first the running scheduler has to
-# be paused and restarted for the new methods to take effect.
+# be paused and restarted for the new `onmessage` method to take effect.
 
 pause!(s); run!(s)
 alice = spawn(s, Profile("Alice"))

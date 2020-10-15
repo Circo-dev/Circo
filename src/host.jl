@@ -158,7 +158,7 @@ end
 CircoCore.send(host::Host, target::Addr, msgbody) = CircoCore.send(host.schedulers[1], target, msgbody)
 
 # From https://discourse.julialang.org/t/lightweight-tasks-julia-vs-elixir-otp/35082/22
-function onthread(f::F, id::Int) where {F<:Function}
+function onthread(f, id::Int)
     t = Task(nothing)
     @assert id in 1:Threads.nthreads() "thread $id not available!"
     Threads.@threads for i in 1:Threads.nthreads()

@@ -84,7 +84,7 @@ end
     migrate(service, actor::AbstractActor, topostcode::PostCode)
 
 """
-@inline function migrate(service::Service, actor::AbstractActor, topostcode::PostCode)
+@inline function migrate(service::CircoCore.AbstractService, actor::AbstractActor, topostcode::PostCode)
     return migrate!(service.scheduler, actor, topostcode)
 end
 

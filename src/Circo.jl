@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: LGPL-3.0-only
 module Circo
 
 using Reexport
@@ -6,11 +7,19 @@ import Base: show
 
 @reexport using CircoCore
 
-export MonitorService, Debug, Host, JS,
-    ClusterService, ClusterActor, NodeInfo, Joined, PeerListUpdated,
+export MonitorService, Debug, Host, JS, registermsg,
+    ClusterService, Joined, PeerListUpdated,
     MigrationService, migrate_to_nearest, MigrationAlternatives, RecipientMoved,
     WebsocketService
 
+const call_lifecycle_hook = CircoCore.call_lifecycle_hook
+
+# Actor lifecycle callbacks
+const onschedule = CircoCore.onschedule
+const onmessage = CircoCore.onmessage
+const onmigrate = CircoCore.onmigrate
+
+# Hooks
 const actor_activity_sparse16 = CircoCore.actor_activity_sparse16
 const actor_activity_sparse256 = CircoCore.actor_activity_sparse256
 const apply_infoton = CircoCore.apply_infoton
