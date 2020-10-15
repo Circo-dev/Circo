@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: LGPL-3.0-only
 using DataStructures
-import CircoCore.deliver!
 import Base.getproperty
 
 #const MSG_BUFFER_SIZE = 100_000
@@ -104,13 +103,13 @@ end
         unlock(hs.in_lock)
     end
     for msg in msgs # The lock must be released before delivering (hostroutes aquires the peer lock)
-        deliver!(scheduler, msg)
+        CircoCore.deliver!(scheduler, msg)
     end
     return false
 end
 
 struct Host
-    schedulers::Array{Scheduler}
+    schedulers::Vector{CircoCore.AbstractScheduler}
     id::UInt64
 end
 
@@ -130,7 +129,7 @@ function create_schedulers(ctx, threadcount; zygote)
         iamzygote = i == 1
         myzygote = iamzygote ? zygote : []
         sdl_ctx = HostContext(ctx; iamzygote = iamzygote)
-        scheduler = Scheduler(sdl_ctx, myzygote)
+        scheduler = CircoCore.Scheduler(sdl_ctx, myzygote)
         push!(schedulers, scheduler)
     end
     return schedulers

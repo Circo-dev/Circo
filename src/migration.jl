@@ -128,7 +128,7 @@ specialmsg(migration::MigrationService, scheduler, message::AbstractMsg{Migratio
         @debug "$(response.from) migrated to $(response.to) (at $(postcode(scheduler)))"
         migration.movedactors[box(response.from)] = response.to
         for message in movingactor.messages
-            deliver!(scheduler, message)
+            CircoCore.deliver!(scheduler, message)
         end
     else
         schedule!(scheduler, movingactor.actor) # TODO callback + tests
