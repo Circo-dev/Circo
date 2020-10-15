@@ -10,7 +10,7 @@ ctx = CircoContext()
 
 @testset "Cluster" begin
     cluster = []
-    scheduler = ActorScheduler(ctx, [])
+    scheduler = Scheduler(ctx, [])
     rootaddresses = []
     for i in 1:ROOT_COUNT
         root = ClusterActor(NodeInfo("#$(length(cluster))"), rootaddresses, emptycore(scheduler.service))

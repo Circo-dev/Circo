@@ -103,14 +103,14 @@ end
     finally
         unlock(hs.in_lock)
     end
-    for msg in msgs # The lock must be released before delivering (hostroutes now aquires the peer lock)
+    for msg in msgs # The lock must be released before delivering (hostroutes aquires the peer lock)
         deliver!(scheduler, msg)
     end
     return false
 end
 
 struct Host
-    schedulers::Array{ActorScheduler}
+    schedulers::Array{Scheduler}
     id::UInt64
 end
 
@@ -130,7 +130,7 @@ function create_schedulers(ctx, threadcount; zygote)
         iamzygote = i == 1
         myzygote = iamzygote ? zygote : []
         sdl_ctx = HostContext(ctx; iamzygote = iamzygote)
-        scheduler = ActorScheduler(sdl_ctx, myzygote)
+        scheduler = Scheduler(sdl_ctx, myzygote)
         push!(schedulers, scheduler)
     end
     return schedulers

@@ -34,7 +34,7 @@ ctx = CircoContext(;userpluginsfn=() -> [stats])
 
 @testset "Debug" begin
     tester = StatsTester()
-    scheduler = ActorScheduler(ctx, [tester])
+    scheduler = Scheduler(ctx, [tester])
     send(scheduler, addr(tester), Start())
     scheduler(;remote = false, exit = true)
     @show stats

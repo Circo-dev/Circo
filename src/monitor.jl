@@ -139,7 +139,7 @@ end
 
 mutable struct MonitorService <: Plugin
     actor::MonitorActor
-    scheduler::CircoCore.AbstractActorScheduler
+    scheduler::CircoCore.AbstractScheduler
     MonitorService(;options...) = new()
 end
 

@@ -31,7 +31,7 @@ ctx = CircoContext(; userpluginsfn = () -> [ClusterService(), MigrationService()
 
 function migratetoremote(targetpostcode, resultsholder_address)
     migrant = Migrant()
-    scheduler = ActorScheduler(ctx, [migrant])
+    scheduler = Scheduler(ctx, [migrant])
     stayer = Stayer(addr(migrant), Addr(resultsholder_address))
     schedule!(scheduler, stayer)
     cmd = MigrateCommand(targetpostcode, addr(stayer))
