@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-3.0-only
+# SPDX-License-Identifier: MPL-2.0
 
 # Simple search tree for testing cluster functions and for analyzing infoton optimization strategies
 

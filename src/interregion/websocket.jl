@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-3.0-only
+# SPDX-License-Identifier: MPL-2.0
 include("typeregistry.jl")
 
 using HTTP, Logging, MsgPack

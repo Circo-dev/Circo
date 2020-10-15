@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-3.0-only
+# SPDX-License-Identifier: MPL-2.0
 
 # This Circo sample creates a linked list of actors holding float values,
 # and calculates the sum of them over and over again.

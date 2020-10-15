@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-License-Identifier: LGPL-3.0-only
+# SPDX-License-Identifier: MPL-2.0
 
 # Starts a Circo node. For more info, call with -h
 

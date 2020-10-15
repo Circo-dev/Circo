@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-3.0-only
+# SPDX-License-Identifier: MPL-2.0
 # Sample circo.jl showing a minimal CircoCore application
 
 module CircoSample
