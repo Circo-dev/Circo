@@ -67,7 +67,7 @@ function Circo.schedule_start(migration::MigrationService, scheduler)
     spawn(scheduler.service, migration.helperactor)
 end
 
-function Circo.onschedule(me::MigrationHelper, service)
+function Circo.onspawn(me::MigrationHelper, service)
     cluster = getname(service, "cluster")
     if isnothing(cluster)
         error("Migration depends on cluster, but the name 'cluster' is not registered. Please install ClusterService before MigrationService.")

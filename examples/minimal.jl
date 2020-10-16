@@ -4,7 +4,7 @@
 module CircoSample
 
 using CircoCore
-import CircoCore: onmessage, onschedule
+import CircoCore: onmessage, onspawn
 
 mutable struct SampleActor <: AbstractActor
     core::CoreState
@@ -15,7 +15,7 @@ struct SampleMessage
     message::String
 end
 
-function onschedule(me::SampleActor, service)
+function onspawn(me::SampleActor, service)
     cluster = getname(service, "cluster")
     println("SampleActor scheduled on cluster: $cluster Sending a message to myself.")
     send(service, me, addr(me), SampleMessage("This is a message from $(addr(me))"))

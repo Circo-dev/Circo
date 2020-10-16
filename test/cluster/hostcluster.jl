@@ -2,7 +2,7 @@ module HostClusterTest
 
 using Test, Printf
 using Circo
-import Circo:onschedule, onmessage, onmigrate
+import Circo:onspawn, onmessage, onmigrate
 
 const CLUSTER_SIZE = 30
 

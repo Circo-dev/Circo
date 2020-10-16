@@ -124,7 +124,7 @@ function Circo.onmessage(me::LinkedList, message::Append, service)
     me.length += 1
 end
 
-function Circo.onschedule(me::Coordinator, service)
+function Circo.onspawn(me::Coordinator, service)
     cluster = getname(service, "cluster")
     @info "Coordinator scheduled on cluster: $cluster Building list of $LIST_LENGTH actors"
     list = LinkedList(addr(me), emptycore(service))

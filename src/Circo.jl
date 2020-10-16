@@ -17,7 +17,7 @@ const call_lifecycle_hook = CircoCore.call_lifecycle_hook
 const deliver! = CircoCore.deliver!
 
 # Actor lifecycle callbacks
-const onschedule = CircoCore.onschedule
+const onspawn = CircoCore.onspawn
 const onmessage = CircoCore.onmessage
 const onmigrate = CircoCore.onmigrate
 

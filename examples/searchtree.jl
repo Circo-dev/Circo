@@ -153,8 +153,8 @@ end
 genvalue() = rand(UInt32)
 nearpos(pos::Pos=nullpos, maxdistance=10.0) = pos + Pos(rand() * maxdistance, rand() * maxdistance, rand() * maxdistance)
 
-function Circo.onschedule(me::Coordinator, service)
-    @debug "onschedule: $me"
+function Circo.onspawn(me::Coordinator, service)
+    @debug "onspawn: $me"
     me.core.pos = nearpos(nullpos, 100.0)
     me.root = createnode(Array{UInt32}(undef, 0), service, nearpos(me.core.pos))
     if me.runmode !== STOP
