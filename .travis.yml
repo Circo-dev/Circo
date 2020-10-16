@@ -19,7 +19,7 @@ jobs:
        julia: 1.5
        os: linux
        script:
-         - julia --project=docs -e 'using Pkg;Pkg.develop(PackageSpec(path=pwd()));include("docs/make.jl");'
+         - julia --project=docs -e 'using Pkg;Pkg.develop(PackageSpec(path=pwd()));Pkg.add(name="CircoCore", rev="master");include("docs/make.jl");'
        after_success: skip
   allow_failures:
     - julia: nightly
