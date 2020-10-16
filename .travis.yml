@@ -12,7 +12,8 @@ notifications:
   email: false
 git:
   depth: 99999999
-
+script:
+  - julia --project --color=yes --check-bounds=yes -e 'using Pkg; using Pkg; Pkg.add(name="CircoCore", rev="master"); Pkg.instantiate(); Pkg.build();'
 jobs:
   include:
      - stage: "Documentation"
