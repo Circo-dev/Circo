@@ -16,9 +16,11 @@ end
 """
     RecipientMoved{TBody}
 
-If a message is undeliverable because the tartget actor moved to a known lcoation,
-this message will be sent back to the sender. The original message will not be delivered,
-but it gets included in the `RecipientMoved` message.
+If a message is not delivered because the target actor moved to a known location,
+this message will be sent back to the sender.
+
+The original message gets included in the `RecipientMoved` message. Resending to the new location and updating the
+address in their storage is the responsibility of the original sender.
 
 ```
 struct RecipientMoved{TBody}

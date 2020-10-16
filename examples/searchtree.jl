@@ -23,14 +23,14 @@ const RED_AFTER = ITEMS_PER_LEAF * 0.95 - 1
 const NODESCALE_FACTOR = 1 / ITEMS_PER_LEAF / 2
 
 # Test Coordinator that fills the tree and sends Search requests to it
-mutable struct Coordinator <: AbstractActor
+mutable struct Coordinator{TCoreState} <: AbstractActor{TCoreState}
     runmode::UInt8
     size::Int64
     resultcount::UInt64
     lastreportts::UInt64
     root::Addr
-    core::CoreState
-    Coordinator() = new(STOP, 0, 0, 0)
+    core::TCoreState
+    Coordinator(core) = new{typeof(core)}(STOP, 0, 0, 0, nulladdr, core)
 end
 
 # Implement monitorextra() to publish part of an actor's state on the UI
@@ -54,15 +54,15 @@ const MEDIUM = 98
 const FULLSPEED = 100
 
 # Binary search tree that holds a set of TValue values in the leaves (max size of a leaf is ITEMS_PER_LEAF)
-mutable struct TreeNode{TValue} <: AbstractActor
+mutable struct TreeNode{TValue, TCoreState} <: AbstractActor{TCoreState}
     values::SortedSet{TValue}
     size::Int64
     left::Union{Addr, Nothing}
     right::Union{Addr, Nothing}
     sibling::Union{Addr, Nothing}
     splitvalue::Union{TValue, Nothing}
-    core::CoreState
-    TreeNode(values) = new{eltype(values)}(SortedSet(values), length(values), nothing, nothing, nothing, nothing)
+    core::TCoreState
+    TreeNode(values, core) = new{eltype(values), typeof(core)}(SortedSet(values), length(values), nothing, nothing, nothing, nothing, core)
 end
 Circo.monitorextra(me::TreeNode) =
 (left = isnothing(me.left) ? nothing : me.left.box,
@@ -71,7 +71,7 @@ Circo.monitorextra(me::TreeNode) =
  splitval = me.splitvalue,
  size = me.size)
 
- Circo.monitorprojection(::Type{TreeNode{TValue}}) where TValue = JS("{
+ Circo.monitorprojection(::Type{<:TreeNode}) = JS("{
     geometry: new THREE.TetrahedronBufferGeometry(10, 2),
     scale: function(actor) {
         if (actor.extra.left) {
@@ -163,7 +163,7 @@ function Circo.onspawn(me::Coordinator, service)
 end
 
 function createnode(nodevalues, service, pos=nothing)
-    node = TreeNode(nodevalues)
+    node = TreeNode(nodevalues, emptycore(service))
     retval = spawn(service, node)
     if !isnothing(pos)
         node.core.pos = pos
@@ -326,5 +326,6 @@ end
 
 end
 
-zygote() = [SearchTreeTest.Coordinator() for i = 1:1]
-plugins() = [Debug.MsgStats()]
+zygote(ctx) = [SearchTreeTest.Coordinator(emptycore(ctx)) for i = 1:1]
+plugins(;options...) = [Debug.MsgStats(;options...)]
+profile(;options...) = Circo.Profiles.ClusterProfile(;options...)
