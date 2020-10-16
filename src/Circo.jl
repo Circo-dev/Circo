@@ -14,6 +14,8 @@ export MonitorService, Debug, Host, JS, registermsg,
 
 const call_lifecycle_hook = CircoCore.call_lifecycle_hook
 
+const deliver! = CircoCore.deliver!
+
 # Actor lifecycle callbacks
 const onschedule = CircoCore.onschedule
 const onmessage = CircoCore.onmessage

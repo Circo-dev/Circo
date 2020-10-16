@@ -103,7 +103,7 @@ function handlemsg(service::WebsocketService, msg::AbstractMsg, ws, scheduler)
         newaddr = Addr(postcode(scheduler), box(msg.target))
         msg = Msg(sender(msg), newaddr, body(msg), Infoton(nullpos))
     end
-    deliver!(scheduler, msg)
+    Circo.deliver!(scheduler, msg)
     return nothing
 end
 

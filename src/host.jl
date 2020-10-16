@@ -103,13 +103,13 @@ end
         unlock(hs.in_lock)
     end
     for msg in msgs # The lock must be released before delivering (hostroutes aquires the peer lock)
-        CircoCore.deliver!(scheduler, msg)
+        Circo.deliver!(scheduler, msg)
     end
     return false
 end
 
 struct Host
-    schedulers::Vector{CircoCore.AbstractScheduler}
+    schedulers::Vector{Circo.AbstractScheduler}
     id::UInt64
 end
 
