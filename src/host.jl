@@ -173,7 +173,6 @@ function (ts::Host)(;remote=true, exit=false)
     tasks = []
     next_threadid = min(Threads.nthreads(), 2)
     for scheduler in ts.schedulers
-        sleep(length(tasks) in (4:length(ts.schedulers) - 4)  ? 0.1 : 1.0) # TODO sleeping is a workaround for a bug in cluster.jl
         t = onthread(next_threadid) do
             try
                 scheduler(;remote=remote, exit=exit)

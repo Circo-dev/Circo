@@ -24,6 +24,8 @@ Circo.schedule_start(cluster::ClusterService, scheduler) = begin
     call_lifecycle_hook(scheduler, cluster_initialized_hook, cluster)
 end
 
+# TODO schedule_stop
+
 mutable struct NodeInfo
     name::String
     addr::Addr
@@ -134,7 +136,7 @@ function sendjoinrequest(me::ClusterActor, root::PostCode, service)
         @debug "$(addr(me)) : Querying name 'cluster'"
         send(service, me, Addr(root), NameQuery("cluster");timeout=10.0)
     else
-        @info "Got direct root address: $root"
+        @debug "Got direct root address: $root" # TODO possible only because PostCode==String, which is bad
         send(service, me, rootaddr, JoinRequest(me.myinfo))
     end
 end
@@ -154,7 +156,7 @@ end
 
 function setpeer(me::ClusterActor, peer::NodeInfo)
     me.peerupdate_count += 1
-    if haskey(me.peers, peer.addr)
+    if haskey(me.peers, peer.addr) # TODO update?
         return false
     end
     me.peers[peer.addr] = peer
@@ -175,7 +177,7 @@ function registerpeer(me::ClusterActor, newpeer::NodeInfo, service)
 end
 
 function Circo.onmessage(me::ClusterActor, messsage::Subscribe{Joined}, service)
-    if me.joined
+    if me.joined # TODO The lately sent event may contain different data. Is that a problem?
         send(service, me, messsage.subscriber, Joined(collect(values(me.peers)))) #TODO handle late subscription to one-off events automatically
     end
     send(service, me, me.eventdispatcher, messsage)
@@ -204,8 +206,8 @@ function Circo.onmessage(me::ClusterActor, msg::NameResponse, service)
     end
 end
 
-function Circo.onmessage(me::ClusterActor, message::JoinRequest, service)
-    newpeer = message.info
+function Circo.onmessage(me::ClusterActor, msg::JoinRequest, service)
+    newpeer = msg.info
     if (length(me.upstream_friends) < TARGET_FRIEND_COUNT)
         send(service, me, newpeer.addr, FriendRequest(addr(me)))
     end
@@ -215,12 +217,12 @@ function Circo.onmessage(me::ClusterActor, message::JoinRequest, service)
     send(service, me, newpeer.addr, JoinResponse(newpeer, me.myinfo, collect(values(me.peers)), true))
 end
 
-function Circo.onmessage(me::ClusterActor, message::JoinResponse, service)
-    if message.accepted
+function Circo.onmessage(me::ClusterActor, msg::JoinResponse, service)
+    if msg.accepted
         me.joined = true
-        initpeers(me, message.peers, service)
+        initpeers(me, msg.peers, service)
         send(service, me, me.eventdispatcher, Joined(collect(values(me.peers))))
-        @info "Joined to cluster using root node $(message.responderinfo.addr). ($(length(message.peers)) peers)"
+        @info "Joined to cluster using root node $(msg.responderinfo.addr). ($(length(msg.peers)) peers)"
     else
         requestjoin(me, service)
     end
@@ -236,13 +238,19 @@ function initpeers(me::ClusterActor, peers::Array{NodeInfo}, service)
     end
 end
 
-function Circo.onmessage(me::ClusterActor, message::PeerListRequest, service)
-    send(service, me, message.respondto, PeerListResponse(collect(values(me.peers))))
+function Circo.onmessage(me::ClusterActor, msg::PeerListRequest, service)
+    send(service, me, msg.respondto, PeerListResponse(collect(values(me.peers))))
 end
 
-function Circo.onmessage(me::ClusterActor, message::PeerJoinedNotification, service)
-    if registerpeer(me, message.peer, service)
-        friend = get(me.upstream_friends, message.creditto, nothing)
+function Circo.onmessage(me::ClusterActor, msg::PeerListResponse, service)
+    for peer in msg.peers
+        setpeer(me, peer)
+    end
+end
+
+function Circo.onmessage(me::ClusterActor, msg::PeerJoinedNotification, service)
+    if registerpeer(me, msg.peer, service)
+        friend = get(me.upstream_friends, msg.creditto, nothing)
         isnothing(friend) && return
         friend.score += 1
         if friend.score == 100
@@ -255,7 +263,7 @@ function Circo.onmessage(me::ClusterActor, message::PeerJoinedNotification, serv
                 getanewfriend(me, service)
             end
         end
-        # @info "Peer joined: $(message.peer.addr.box) at $(addr(me).box)"
+        # @info "Peer joined: $(msg.peer.addr.box) at $(addr(me).box)"
     end
 end
 
@@ -288,23 +296,24 @@ function replaceafriend(me::ClusterActor, service)
     end
 end
 
-function Circo.onmessage(me::ClusterActor, message::FriendRequest, service)
-    friendsalready = message.requestor in me.downstream_friends
+function Circo.onmessage(me::ClusterActor, msg::FriendRequest, service)
+    friendsalready = msg.requestor in me.downstream_friends
     accepted = !friendsalready && length(me.downstream_friends) < MAX_DOWNSTREAM_FRIENDS
     if accepted
-        push!(me.downstream_friends, message.requestor)
+        push!(me.downstream_friends, msg.requestor)
     end
-    send(service, me, message.requestor, FriendResponse(addr(me), accepted))
+    send(service, me, msg.requestor, FriendResponse(addr(me), accepted))
 end
 
-function Circo.onmessage(me::ClusterActor, message::FriendResponse, service)
-    if message.accepted
-        me.upstream_friends[message.responder] = Friend(message.responder)
+function Circo.onmessage(me::ClusterActor, msg::FriendResponse, service)
+    if msg.accepted
+        me.upstream_friends[msg.responder] = Friend(msg.responder)
+        send(service, me, msg.responder, PeerListRequest(addr(me)))
     end
 end
 
-function Circo.onmessage(me::ClusterActor, message::UnfriendRequest, service)
-    pop!(me.downstream_friends, message.requestor)
+function Circo.onmessage(me::ClusterActor, msg::UnfriendRequest, service)
+    pop!(me.downstream_friends, msg.requestor)
 end
 
 # TODO: update peers
