@@ -262,8 +262,8 @@ function split(me::TreeNode, service)
         end
         idx += 1
     end
-    left = TreeNode(leftvalues)
-    right = TreeNode(rightvalues)
+    left = TreeNode(leftvalues, emptycore(service))
+    right = TreeNode(rightvalues, emptycore(service))
     me.left = spawn(service, left)
     me.right = spawn(service, right)
     left.core.pos = nearpos(me.core.pos)
