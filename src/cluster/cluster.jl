@@ -42,7 +42,7 @@ struct Joined <: CircoCore.Event
     peers::Array{NodeInfo}
 end
 
-struct Leaving # TODO sent out directly for now <: CircoCore.Event
+struct Leaving # TODO sent out directly, should (also) create an event.
     who::Addr
     upstream_friends::Vector{Addr}
 end
@@ -319,8 +319,11 @@ end
 function Circo.onmessage(me::ClusterActor, msg::FriendResponse, service)
     if msg.accepted
         me.upstream_friends[msg.responder] = Friend(msg.responder)
-        send(service, me, msg.responder, PeerListRequest(addr(me)))
     end
+    # Ask for the current peer list to get concurrently joined peers (Some may still be missing,
+    # so only regular status updates will lead to convergence when join concurrency is high.)
+    # TODO should try to get another friend instead of sending this if our friend request was denied
+    send(service, me, msg.responder, PeerListRequest(addr(me)))
 end
 
 function Circo.onmessage(me::ClusterActor, msg::UnfriendRequest, service)
