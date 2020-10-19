@@ -3,28 +3,26 @@
 
 module CircoSample
 
-using CircoCore
-import CircoCore: onmessage, onspawn
+using Circo
 
-mutable struct SampleActor <: AbstractActor
-    core::CoreState
+mutable struct SampleActor <: AbstractActor{Any}
+    core::Any
     SampleActor() = new()
 end
 
-struct SampleMessage
-    message::String
+struct SampleMsg
+    text::String
 end
 
-function onspawn(me::SampleActor, service)
-    cluster = getname(service, "cluster")
-    println("SampleActor scheduled on cluster: $cluster Sending a message to myself.")
-    send(service, me, addr(me), SampleMessage("This is a message from $(addr(me))"))
+function Circo.onspawn(me::SampleActor, service)
+    println("SampleActor scheduled. Sending a message to myself.")
+    send(service, me, addr(me), SampleMsg("This is a message from $(addr(me))"))
 end
 
-function onmessage(me::SampleActor, message::SampleMessage, service)
-    println("Got SampleMessage: '$(message.message)'")
+function Circo.onmessage(me::SampleActor, msg::SampleMsg, service)
+    println("Got SampleMessage: '$(msg.text)'")
 end
 
 end #module
 
-zygote() = CircoSample.SampleActor()
+zygote(ctx) = CircoSample.SampleActor()
