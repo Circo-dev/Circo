@@ -168,10 +168,10 @@ function onthread(f, id::Int)
     return t
 end
 
-function (ts::Host)(;remote=true, exit=false)
-    crossadd_peers(ts.schedulers)#TODO only once
+function (ts::Host)(;remote=true, exit=false, first_threadidx=2)
+    crossadd_peers(ts.schedulers) # TODO only once
     tasks = []
-    next_threadid = min(Threads.nthreads(), 2)
+    next_threadid = min(Threads.nthreads(), first_threadidx)
     for scheduler in ts.schedulers
         t = onthread(next_threadid) do
             try
