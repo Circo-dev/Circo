@@ -5,7 +5,7 @@ import Base.length
 const AUTOMIGRATE_TOLERANCE = 1e-2
 
 struct MigrationRequest
-    actor::AbstractActor
+    actor::Actor
 end
 struct MigrationResponse
     from::Addr
@@ -37,9 +37,9 @@ struct RecipientMoved{TBody}
 end
 
 struct MovingActor
-    actor::AbstractActor
+    actor::Actor
     messages::Queue{AbstractMsg}
-    MovingActor(actor::AbstractActor) = new(actor, Queue{AbstractMsg}())
+    MovingActor(actor::Actor) = new(actor, Queue{AbstractMsg}())
 end
 
 mutable struct MigrationAlternatives
@@ -55,7 +55,7 @@ mutable struct MigrationService <: Plugin
     MigrationService(;options...) = new(Dict([]),Dict([]), MigrationAlternatives([]))
 end
 
-mutable struct MigrationHelper{TCore} <: AbstractActor{TCore}
+mutable struct MigrationHelper{TCore} <: Actor{TCore}
     service::MigrationService
     core::TCore
 end
@@ -83,14 +83,14 @@ function Circo.onmessage(me::MigrationHelper, message::PeerListUpdated, service)
 end
 
 """
-    migrate(service, actor::AbstractActor, topostcode::PostCode)
+    migrate(service, actor::Actor, topostcode::PostCode)
 
 """
-@inline function migrate(service::CircoCore.AbstractService, actor::AbstractActor, topostcode::PostCode)
+@inline function migrate(service::CircoCore.AbstractService, actor::Actor, topostcode::PostCode)
     return migrate!(service.scheduler, actor, topostcode)
 end
 
-function migrate!(scheduler, actor::AbstractActor, topostcode::PostCode)
+function migrate!(scheduler, actor::Actor, topostcode::PostCode)
     if topostcode == postcode(scheduler)
         return false
     end
@@ -169,9 +169,9 @@ Circo.localroutes(migration::MigrationService, scheduler, message::AbstractMsg):
     end
 end
 
-@inline check_migration(me::AbstractActor, alternatives::MigrationAlternatives, service) = nothing
+@inline check_migration(me::Actor, alternatives::MigrationAlternatives, service) = nothing
 
-@inline CircoCore.actor_activity_sparse256(migration::MigrationService, scheduler, actor::AbstractActor) = begin
+@inline CircoCore.actor_activity_sparse256(migration::MigrationService, scheduler, actor::Actor) = begin
     check_migration(actor, migration.alternatives, scheduler.service)
 end
 
@@ -192,7 +192,7 @@ end
     return found
 end
 
-@inline @fastmath function migrate_to_nearest(me::AbstractActor, alternatives::MigrationAlternatives, service, tolerance=AUTOMIGRATE_TOLERANCE)
+@inline @fastmath function migrate_to_nearest(me::Actor, alternatives::MigrationAlternatives, service, tolerance=AUTOMIGRATE_TOLERANCE)
     nearest = find_nearest(pos(me), alternatives)
     if isnothing(nearest) return nothing end
     if box(nearest.addr) === box(addr(me)) return nothing end

@@ -40,7 +40,7 @@ end
 # A `Feed` - our first - actor contains a growing list of posts from different authors.
 #
 #
-# Actors in Circo are `mutable struct`s[^encapsulation], subtypes of `AbstractActor`:
+# Actors in Circo are `mutable struct`s[^encapsulation], subtypes of `Actor`:
 #
 # [^encapsulation]: Actors encapsulate their state: They are to be accessed only through message passing.
 #     This strict separation enables the scalability of the actor model, and I also believe
@@ -48,7 +48,7 @@ end
 #     It seems that shared state is not common in nature, which explains why systems that
 #     provide shared state scale poorly.
 
-mutable struct Feed <: AbstractActor{Any}
+mutable struct Feed <: Actor{Any}
     sources::Vector{Addr} # Post sources that this feed watches
     posts::Vector{Post}
     core::Any # A tiny boilerplate is needed
@@ -112,7 +112,7 @@ sleep(1.0) # hide
 #
 # Now we will create a `Profile` actor that can create posts and follow other profiles.
 
-mutable struct Profile <: AbstractActor{Any}
+mutable struct Profile <: Actor{Any}
     name::String
     posts::Vector{Post}
     following::Vector{Addr} # Adresses of the profiles we follow

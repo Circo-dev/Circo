@@ -7,7 +7,7 @@ struct ActorInfo{TExtra}
     y::Float32
     z::Float32
     extra::TExtra
-    ActorInfo(actor::AbstractActor, extras) = new{typeof(extras)}(string(typeof(actor)), box(actor.core.addr),
+    ActorInfo(actor::Actor, extras) = new{typeof(extras)}(string(typeof(actor)), box(actor.core.addr),
      pos(actor).x, pos(actor).y, pos(actor).z, extras)
 end
 
@@ -17,15 +17,15 @@ struct NoExtra
 end
 noextra = NoExtra()
 
-monitorextra(actor::AbstractActor) = noextra
+monitorextra(actor::Actor) = noextra
 
-monitorinfo(actor::AbstractActor) = ActorInfo(actor, monitorextra(actor))
+monitorinfo(actor::Actor) = ActorInfo(actor, monitorextra(actor))
 
 struct JS
     src::String
 end
 
-monitorprojection(::Type{<: AbstractActor}) = JS("{
+monitorprojection(::Type{<: Actor}) = JS("{
     geometry: new THREE.BoxBufferGeometry(20, 20, 20),
     scale: { x: 1, y: 1, z: 1 },
     rotation: { x: 0, y: 0, z: 0 }
@@ -104,7 +104,7 @@ struct MonitorProjectionResponse <: Response
     token::Token
 end
 
-mutable struct MonitorActor{TMonitor, TCore} <: AbstractActor{TCore}
+mutable struct MonitorActor{TMonitor, TCore} <: Actor{TCore}
     monitor::TMonitor
     core::TCore
 end

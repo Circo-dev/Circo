@@ -5,7 +5,7 @@ module CircoSample
 
 using Circo
 
-mutable struct SampleActor <: AbstractActor{Any}
+mutable struct SampleActor <: Actor{Any}
     core::Any
     SampleActor() = new()
 end

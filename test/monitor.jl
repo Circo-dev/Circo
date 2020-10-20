@@ -5,12 +5,12 @@ using Test
 using Circo
 import Circo: monitorprojection
 
-mutable struct EmptyActor <: AbstractActor{Any}
+mutable struct EmptyActor <: Actor{Any}
     core
     EmptyActor() = new()
 end
 
-mutable struct MonitorTester <: AbstractActor{Any}
+mutable struct MonitorTester <: Actor{Any}
     core
     MonitorTester() = new()
 end

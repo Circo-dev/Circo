@@ -5,7 +5,7 @@ using Test, Printf
 using Circo
 import Circo:onspawn, onmessage, onmigrate
 
-mutable struct PingPonger{TCore} <: AbstractActor{TCore}
+mutable struct PingPonger{TCore} <: Actor{TCore}
     peer::Union{Addr, Nothing}
     target_postcode::Union{PostCode, Nothing}
     pings_sent::Int64
