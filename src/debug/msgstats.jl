@@ -9,9 +9,10 @@ end
 
 Circo.symbol(::MsgStats) = :msgstats
 
-mutable struct MsgStatsHelper{TCore} <: AbstractActor{TCore}
+mutable struct MsgStatsHelper <: AbstractActor{Any}
     stats::MsgStats
-    core::TCore
+    core
+    MsgStatsHelper(stats) = new(stats)
 end
 
 struct ResetStats
@@ -30,7 +31,7 @@ Circo.monitorprojection(::Type{MsgStatsHelper}) = JS("{
 }")
 
 Circo.schedule_start(stats::MsgStats, scheduler) = begin
-    stats.helper = MsgStatsHelper(stats, emptycore(scheduler.service))
+    stats.helper = MsgStatsHelper(stats)
     spawn(scheduler, stats.helper)
     stats.helper.core.pos = pos(scheduler) == nullpos ? nullpos : pos(scheduler) - (pos(scheduler) * (1 / norm(pos(scheduler))) * 15.0)
 end
