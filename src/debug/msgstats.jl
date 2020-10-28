@@ -3,13 +3,13 @@ using LinearAlgebra
 
 mutable struct MsgStats <: Plugin
     typefrequencies::IdDict{Type, Int}
-    helper::AbstractActor
+    helper::Actor
     MsgStats(;options...) = new(IdDict())
 end
 
 Circo.symbol(::MsgStats) = :msgstats
 
-mutable struct MsgStatsHelper <: AbstractActor{Any}
+mutable struct MsgStatsHelper <: Actor{Any}
     stats::MsgStats
     core
     MsgStatsHelper(stats) = new(stats)

@@ -18,7 +18,7 @@ const AUTO_START = false
 using Circo, Circo.Debug, Dates, Random, LinearAlgebra
 
 # Test coordinator: Creates the list and sends the reduce operations to it to calculate the sum
-mutable struct Coordinator{TCore} <: AbstractActor{TCore}
+mutable struct Coordinator{TCore} <: Actor{TCore}
     itemcount::Int
     runidx::Int
     isrunning::Bool
@@ -42,7 +42,7 @@ Circo.monitorprojection(::Type{<:Coordinator}) = JS("{
     color: 0xcb3c33
 }")
 
-mutable struct LinkedList{TCore} <: AbstractActor{TCore}
+mutable struct LinkedList{TCore} <: Actor{TCore}
     head::Addr
     length::UInt64
     core::TCore
@@ -54,7 +54,7 @@ Circo.monitorprojection(::Type{<:LinkedList}) = JS("{
     color: 0x9558B2
 }")
 
-mutable struct ListItem{TData, TCore} <: AbstractActor{TCore}
+mutable struct ListItem{TData, TCore} <: Actor{TCore}
     data::TData
     prev::Addr
     next::Addr
@@ -70,7 +70,7 @@ Circo.monitorprojection(::Type{<:ListItem}) = JS("{
     geometry: new THREE.BoxBufferGeometry(10, 10, 10)
 }")
 
-@inline @fastmath function Circo.scheduler_infoton(scheduler, actor::AbstractActor)
+@inline @fastmath function Circo.scheduler_infoton(scheduler, actor::Actor)
     energy = (SCHEDULER_TARGET_ACTORCOUNT - scheduler.actorcount) * 4e-2
     return Infoton(scheduler.pos, energy)
 end

@@ -5,7 +5,7 @@ using Circo
 
 const SAMPLE_COUNT = 1000
 
-mutable struct StatsTester <: AbstractActor{Any}
+mutable struct StatsTester <: Actor{Any}
     core
     StatsTester() = new()
 end

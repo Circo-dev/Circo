@@ -23,7 +23,7 @@ const RED_AFTER = ITEMS_PER_LEAF * 0.95 - 1
 const NODESCALE_FACTOR = 1 / ITEMS_PER_LEAF / 2
 
 # Test Coordinator that fills the tree and sends Search requests to it
-mutable struct Coordinator{TCoreState} <: AbstractActor{TCoreState}
+mutable struct Coordinator{TCoreState} <: Actor{TCoreState}
     runmode::UInt8
     size::Int64
     resultcount::UInt64
@@ -54,7 +54,7 @@ const MEDIUM = 98
 const FULLSPEED = 100
 
 # Binary search tree that holds a set of TValue values in the leaves (max size of a leaf is ITEMS_PER_LEAF)
-mutable struct TreeNode{TValue, TCoreState} <: AbstractActor{TCoreState}
+mutable struct TreeNode{TValue, TCoreState} <: Actor{TCoreState}
     values::SortedSet{TValue}
     size::Int64
     left::Union{Addr, Nothing}
@@ -89,14 +89,14 @@ Circo.monitorextra(me::TreeNode) =
 
 # Schedulers pull/push their actors based on the number of actors they schedule
 # SCHEDULER_TARGET_ACTOURCOUNT configures the target actorcount.
-@inline function actorcount_scheduler_infoton(scheduler, actor::AbstractActor)
+@inline function actorcount_scheduler_infoton(scheduler, actor::Actor)
     dist = norm(scheduler.pos - actor.core.pos)
     dist === 0.0 && return Infoton(scheduler.pos, 0.0)
     energy = (SCHEDULER_TARGET_ACTORCOUNT - scheduler.actorcount) * 2e-4  # disabled: "/ dist" would mean that force degrades linearly with distance.
     return Infoton(scheduler.pos, energy)
 end
 
-Circo.scheduler_infoton(scheduler, actor::AbstractActor) = actorcount_scheduler_infoton(scheduler, actor)
+Circo.scheduler_infoton(scheduler, actor::Actor) = actorcount_scheduler_infoton(scheduler, actor)
 
 @inline Circo.check_migration(me::Union{TreeNode, Coordinator}, alternatives::MigrationAlternatives, service) = begin
     if length(alternatives) < 5 && rand(UInt8) == 0
@@ -113,7 +113,7 @@ Circo.scheduler_infoton(scheduler, actor::AbstractActor) = actorcount_scheduler_
     return nothing
 end
 
-@inline Circo.apply_infoton(targetactor::AbstractActor, infoton::Infoton) = begin
+@inline Circo.apply_infoton(targetactor::Actor, infoton::Infoton) = begin
     diff = infoton.sourcepos - targetactor.core.pos
     difflen = norm(diff)
     energy = infoton.energy

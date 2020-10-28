@@ -39,7 +39,7 @@ Base.getproperty(ctx::HostContext, name::Symbol) = begin
     return getproperty(ctx.innerctx, name)
 end
 
-mutable struct HostActor{TCore} <: AbstractActor{TCore}
+mutable struct HostActor{TCore} <: Actor{TCore}
     core::TCore
 end
 monitorprojection(::Type{ <: HostActor }) = JS("projections.nonimportant")

@@ -13,7 +13,7 @@ const MIN_FRIEND_COUNT = 3
 
 mutable struct ClusterService <: Plugin
     roots::Array{PostCode}
-    helper::AbstractActor
+    helper::Actor
     ClusterService(;roots=[], _...) = new(roots)
 end
 Plugins.symbol(::ClusterService) = :cluster
@@ -58,7 +58,7 @@ mutable struct Friend
 end
 Base.isless(a::Friend,b::Friend) = Base.isless(a.score, b.score)
 
-mutable struct ClusterActor{TCore} <: AbstractActor{TCore}
+mutable struct ClusterActor{TCore} <: Actor{TCore}
     myinfo::NodeInfo
     roots::Array{PostCode}
     joined::Bool
@@ -361,7 +361,7 @@ function Circo.onmessage(me::ClusterActor, msg::PeerLeavingNotification, service
 end
 
 # TODO: update peers
-#@inline function CircoCore.actor_activity_sparse256(cluster::ClusterService, scheduler, actor::AbstractActor)
+#@inline function CircoCore.actor_activity_sparse256(cluster::ClusterService, scheduler, actor::Actor)
 #   if rand(UInt8) == 0
 #
 #    end

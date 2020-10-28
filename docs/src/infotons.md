@@ -78,7 +78,7 @@ end
 
 const TARGET_DISTANCE = 15.0
 
-function apply_infoton(targetactor::AbstractActor, infoton::Infoton)
+function apply_infoton(targetactor::Actor, infoton::Infoton)
     diff = infoton.sourcepos - targetactor.core.pos
     difflen = norm(diff)
     energy = infoton.energy
