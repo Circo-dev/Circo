@@ -238,7 +238,7 @@ end
 
 const alpha = 1e-3
 function Circo.onmessage(me::Coordinator, message::Reduce, service)
-    me.core.pos = Pos(300, 100, 100)
+    me.core.pos = Pos(900, 0, 0)
     ts = time_ns()
     reducetime = ts - me.lastreducets
     me.lastreducets = ts
