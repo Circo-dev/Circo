@@ -3,8 +3,10 @@ using LinearAlgebra
 
 mutable struct MsgStats <: Plugin
     typefrequencies::IdDict{Type, Int}
+    total_count::Int
+    local_count::Int
     helper::Actor
-    MsgStats(;options...) = new(IdDict())
+    MsgStats(;options...) = new(IdDict(), 0, 0)
 end
 
 Circo.symbol(::MsgStats) = :msgstats
@@ -22,8 +24,11 @@ struct ResetStats
 end
 registermsg(ResetStats, ui=true)
 
-Circo.monitorextra(actor::MsgStatsHelper) = (
-    (; (Symbol(k) => v for (k,v) in actor.stats.typefrequencies)...)
+Circo.monitorextra(me::MsgStatsHelper) = (
+    (total_count = me.stats.total_count,
+     local_rate = me.stats.local_count / me.stats.total_count,
+     (Symbol(k) => v for (k,v) in me.stats.typefrequencies)...
+    )
 )
 
 Circo.monitorprojection(::Type{MsgStatsHelper}) = JS("{
@@ -37,17 +42,18 @@ Circo.schedule_start(stats::MsgStats, scheduler) = begin
 end
 
 @inline function Circo.localdelivery(stats::MsgStats, scheduler, msg::Circo.AbstractMsg{T}, targetactor) where T
-    current = get(stats.typefrequencies, T, nothing)
-    if isnothing(current)
-        stats.typefrequencies[T] = 1
-        return false
+    stats.typefrequencies[T] = get!(stats.typefrequencies, T, 0) + 1
+    stats.total_count += 1
+    if postcode(msg.sender) == postcode(msg.target)
+        stats.local_count += 1
     end
-    stats.typefrequencies[T] = current + 1
     return false
 end
 
 Circo.onmessage(me::MsgStatsHelper, msg::ResetStats, service) = begin
     empty!(me.stats.typefrequencies)
+    me.stats.local_count = 0
+    me.stats.total_count = 0
 end
 
 # function Base.show(io::IO, stats::MsgStats)
