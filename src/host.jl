@@ -154,7 +154,8 @@ function crossadd_peers(schedulers)
     end
 end
 
-CircoCore.send(host::Host, target::Addr, msgbody) = CircoCore.send(host.schedulers[1], target, msgbody)
+Circo.send(host::Host, to::Actor, msgbody; kwargs...) = send(host, addr(to), msgbody; kwargs...)
+CircoCore.send(host::Host, target::Addr, msgbody; kwargs...) = CircoCore.send(host.schedulers[1], target, msgbody; kwargs...)
 
 # From https://discourse.julialang.org/t/lightweight-tasks-julia-vs-elixir-otp/35082/22
 function onthread(f, id::Int)
@@ -173,6 +174,7 @@ function (ts::Host)(;remote=true, exit=false, first_threadidx=2)
     tasks = []
     next_threadid = min(Threads.nthreads(), first_threadidx)
     for scheduler in ts.schedulers
+        sleep(2.0)# TODO: still needed?
         t = onthread(next_threadid) do
             try
                 scheduler(;remote=remote, exit=exit)
