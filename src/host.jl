@@ -50,6 +50,7 @@ mutable struct HostService <: Plugin
     iamzygote::Bool
     hostid::Int64
     peercache::Dict{PostCode, HostService}
+    tmp_msg::Vector{Any}
     hostroot::PostCode
     helper::Addr
     postcode::PostCode
@@ -58,7 +59,8 @@ mutable struct HostService <: Plugin
         Threads.SpinLock(),
         get(options, :iamzygote, false),
         get(options, :hostid, 0),
-        Dict()
+        Dict(),
+        [],
     )
 end
 
@@ -92,19 +94,20 @@ end
 
 @inline function CircoCore.letin_remote(hs::HostService, scheduler)::Bool
     isempty(hs.in_msg) && return false
-    msgs = []
+    tmp_msgs = hs.tmp_msg
     lock(hs.in_lock)
     try
         for i = 1:min(length(hs.in_msg), 30)
-            push!(msgs, pop!(hs.in_msg))
+            push!(tmp_msgs, popfirst!(hs.in_msg))
             #@debug "arrived at $(hs.postcode): $msg"
         end
     finally
         unlock(hs.in_lock)
     end
-    for msg in msgs # The lock must be released before delivering (hostroutes aquires the peer lock)
+    for msg in tmp_msgs # The lock must be released before delivering (hostroutes aquires the peer lock)
         Circo.deliver!(scheduler, msg)
     end
+    empty!(tmp_msgs)
     return false
 end
 

@@ -31,7 +31,8 @@ monitorprojection(::Type{<: Actor}) = JS("{
     rotation: { x: 0, y: 0, z: 0 }
 }")
 
-monitorprojection(::Type{CircoCore.RegistryHelper}) = JS("projections.nonimportant") # TODO: trait or type for nonimportant
+monitorprojection(::Type{<:CircoCore.RegistryHelper}) = JS("projections.nonimportant") # TODO: trait or type for nonimportant
+monitorprojection(::Type{<:CircoCore.EventDispatcher}) = JS("projections.nonimportant")
 
 struct ActorListRequest <: Request
     respondto::Addr

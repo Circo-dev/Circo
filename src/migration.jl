@@ -60,7 +60,7 @@ mutable struct MigrationHelper{TCore} <: Actor{TCore}
     core::TCore
 end
 
-Circo.monitorprojection(::Type{MigrationHelper}) = JS("projections.nonimportant")
+monitorprojection(::Type{<:MigrationHelper}) = JS("projections.nonimportant")
 
 Plugins.symbol(::MigrationService) = :migration
 
@@ -100,9 +100,9 @@ function migrate!(scheduler, actor::Actor, topostcode::PostCode)
         return false
     end
     migration::MigrationService
-    send(scheduler.service, migration.helperactor, Addr(topostcode, 0), MigrationRequest(actor))
     unschedule!(scheduler, actor)
     migration.movingactors[box(actor)] = MovingActor(actor)
+    send(scheduler.service, migration.helperactor, Addr(topostcode, 0), MigrationRequest(actor))
     return true
 end
 
@@ -110,10 +110,10 @@ specialmsg(::MigrationService, scheduler, message) = false
 specialmsg(migration::MigrationService, scheduler, message::AbstractMsg{MigrationRequest}) = begin
     @debug "Migration request: $(message)"
     actor = body(message).actor
-    actorbox = box(addr(actor))
+    actorbox = box(actor)
     fromaddress = addr(actor)
     if haskey(migration.movingactors, actorbox)
-        @error "TODO Handle fast back-and forth moving when the request comes earlier than the previous response"
+        @info "Thread $(Threads.threadid()): $actorbox fast back-and forth moving: got MigrationRequest while waiting for a response. Accept."
     end
     delete!(migration.movedactors, actorbox)
     schedule!(scheduler, actor)
@@ -125,16 +125,24 @@ end
 specialmsg(migration::MigrationService, scheduler, message::AbstractMsg{MigrationResponse}) = begin
     @debug("Migration response: at $(postcode(scheduler)): $(message)")
     response = body(message)
-    movingactor = pop!(migration.movingactors, box(response.to))
+    movingactor = pop!(migration.movingactors, box(response.to), nothing)
+    if isnothing(movingactor) # TODO check if this is safe
+        @info " $(Threads.threadid()) Got MigrationResponse for $(box(response.to)), but it is not moving."
+    end
     if response.success
         @debug "$(response.from) migrated to $(response.to) (at $(postcode(scheduler)))"
         migration.movedactors[box(response.from)] = response.to
-        for message in movingactor.messages
-            CircoCore.deliver!(scheduler, message)
+        if !isnothing(movingactor) 
+            for message in movingactor.messages
+                CircoCore.deliver!(scheduler, message)
+            end
         end
     else
-        schedule!(scheduler, movingactor.actor) # TODO callback + tests
+        if !isnothing(movingactor) 
+            schedule!(scheduler, movingactor.actor) # TODO callback + tests
+        end
     end
+    return nothing
 end
 
 Circo.localroutes(migration::MigrationService, scheduler, message::AbstractMsg)::Bool = begin
