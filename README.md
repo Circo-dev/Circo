@@ -1,6 +1,6 @@
 # Circo
 
-![Lifecycle](https://img.shields.io/badge/lifecycle-experimantal-blue.svg)
+![Lifecycle](https://img.shields.io/badge/lifecycle-experimental-blue.svg)
 [![Build Status](https://travis-ci.com/Circo-dev/Circo.svg?branch=main)](https://travis-ci.com/Circo-dev/Circo)
 <!--[![codecov.io](http://codecov.io/github/Circo-dev/Circo/coverage.svg?branch=master)](http://codecov.io/github/Circo-dev/Circo?branch=master)
 [![Documentation](https://img.shields.io/badge/docs-stable-blue.svg)](https://Circo-dev.github.io/Circo.jl/stable)-->
