@@ -73,11 +73,13 @@ end
 
 Plugins.symbol(plugin::HttpService) = :http
 
-function Circo.schedule_start(http::HttpService, scheduler)
-    http.dispatcher = _HttpDispatcher(emptycore(scheduler.service))# TODO should run earlier but can run only after PostOffice setup!
+function Circo.setup!(http::HttpService, scheduler)
+    http.dispatcher = _HttpDispatcher(emptycore(scheduler.service))
     schedule!(scheduler, http.dispatcher)
     registername(scheduler.service, "http", http.dispatcher)
+end
 
+function Circo.schedule_start(http::HttpService, scheduler)
     listenport = 8080 + port(postcode(scheduler)) - CircoCore.PORT_RANGE[1]
     ipaddr = Sockets.IPv4(0) # TODO config
     try

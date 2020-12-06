@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MPL-2.0
 using Logging
 
-function cluster_initialized end
+function cluster_initialized end # TODO not in use. Remove?
 cluster_initialized(::Plugin, args...) = nothing
 cluster_initialized_hook = Plugins.create_lifecyclehook(cluster_initialized)
 
