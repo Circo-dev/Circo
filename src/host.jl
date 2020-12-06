@@ -70,6 +70,12 @@ Circo.postcode(hs::HostService) = hs.postcode
 function Circo.schedule_start(hs::HostService, scheduler)
     hs.postcode = postcode(scheduler)
     hs.helper = spawn(scheduler.service, HostActor(emptycore(scheduler.service)))
+    cluster = scheduler.plugins[:cluster]
+    @async begin # TODO eliminate
+        if hs.hostroot != postcode(hs) && length(cluster.roots) == 0
+            send(scheduler, cluster.helper, ForceAddRoot(hs.hostroot))
+        end
+    end
 end
 
 @inline function CircoCore.remoteroutes(hostservice::HostService, scheduler, msg)::Bool
@@ -136,12 +142,6 @@ function create_schedulers(ctx, threadcount; zygote)
         push!(schedulers, scheduler)
     end
     return schedulers
-end
-
-cluster_initialized(hs::HostService, scheduler, cluster) = begin
-    if hs.hostroot != postcode(hs) && length(cluster.roots) == 0
-        send(scheduler, cluster.helper, ForceAddRoot(hs.hostroot))
-    end
 end
 
 function crossadd_peers(schedulers)

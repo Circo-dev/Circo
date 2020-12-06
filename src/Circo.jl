@@ -10,7 +10,7 @@ import Base: show
 export MonitorService, Debug, Host, JS, registermsg,
     ClusterService, Joined, PeerListUpdated,
     MigrationService, migrate_to_nearest, MigrationAlternatives, RecipientMoved,
-    WebsocketService
+    HttpService, WebsocketService
 
 const call_lifecycle_hook = CircoCore.call_lifecycle_hook
 
@@ -41,7 +41,8 @@ include("host.jl")
 include("monitor.jl")
 include("cluster/cluster.jl")
 include("migration.jl")
-include("interregion/websocket.jl")
+include("outer/http.jl")
+include("outer/websocket.jl")
 include("debug/debug.jl")
 include("profiles.jl")
 include("cli/circonode.jl")

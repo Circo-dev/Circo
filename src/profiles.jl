@@ -16,11 +16,11 @@ end
 function CircoCore.Profiles.core_plugins(profile::ClusterProfile)
     options = profile.options
     return [
-        core_plugins(DefaultProfile(;options...))...,
+        MigrationService(;options...),
         ClusterService(;options...),
         WebsocketService(;options...),
-        MigrationService(;options...),
         MonitorService(;options...),
+        core_plugins(DefaultProfile(;options...))...,
     ]
 end
 

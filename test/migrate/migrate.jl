@@ -32,7 +32,7 @@ end
 
 @testset "Migration" begin
     resultsholder = ResultsHolder()
-    ctx = CircoContext(userpluginsfn=() -> [ClusterService(), MigrationService()])
+    ctx = CircoContext(userpluginsfn=() -> [MigrationService(), ClusterService()])
     scheduler = Scheduler(ctx, [resultsholder])
     startsource(postcode(scheduler),addr(resultsholder))
     scheduler(;exit=true)

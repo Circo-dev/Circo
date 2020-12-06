@@ -47,7 +47,7 @@ Circo.schedule_start(service::WebsocketService, scheduler) = begin # TODO during
         service.socket = Sockets.listen(Sockets.InetAddr(ipaddr, listenport))
         @info "Web Socket listening on $(ipaddr):$(listenport)"
     catch e
-        @warn "Unable to listen on $(ipaddr):$(listenport)", e
+        @warn "Web Socker unable to listen on $(ipaddr):$(listenport)", e
     end
     @async HTTP.listen(ipaddr, listenport; server=service.socket) do http
         if HTTP.WebSockets.is_upgrade(http.message)
