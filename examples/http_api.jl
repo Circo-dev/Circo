@@ -8,11 +8,9 @@ mutable struct API{TCore} <: Actor{TCore}
 end
 
 function Circo.onspawn(me::API, service)
-    @async begin # Workaround for init timing issue
-        http = getname(service, "http")
-        isnothing(http) && error("No http service found")
-        send(service, me, http, Circo.PrefixRoute("/api", addr(me)))
-    end
+    http = getname(service, "http")
+    isnothing(http) && error("No http service found")
+    send(service, me, http, Circo.PrefixRoute("/api", addr(me)))
     @async begin
         while true
             sleep(1)
