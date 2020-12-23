@@ -118,11 +118,11 @@ monitorextra(actor::MonitorActor)= (
 monitorprojection(::Type{<:MonitorActor}) = JS("
 {
     geometry: new THREE.BoxBufferGeometry(15, 15, 15),
-    scale: me => {
+    /*scale: me => {
         const plussize = me.extra.actorcount * 0.00002
         // Works only for origo-centered setups:
         return { x: 1 + plussize * Math.abs(me.y + me.z), y: 1 + plussize * Math.abs(me.x + me.z), z: 1 + plussize * Math.abs(me.x + me.y)}
-    },
+    },*/
     color: 0x4063d8
 }")
 
