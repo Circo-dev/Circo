@@ -15,3 +15,5 @@ Manifest.toml
 # Circo temp files
 roots.txt
 circo.out
+
+.history/
