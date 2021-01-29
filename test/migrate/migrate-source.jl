@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MPL-2.0
 include("migrate-base.jl")
 using Test
-using Circo
+using Circo, Circo.Migration, Circo.Cluster
 
 function Circo.onmessage(me::Migrant, message::MigrateCommand, service)
     @debug "MigrateCommand"
@@ -27,7 +27,7 @@ function Circo.onmessage(me::Stayer, message::SimpleResponse, service)
     die(service, me)
 end
 
-ctx = CircoContext(; userpluginsfn = () -> [MigrationService(), ClusterService()])
+ctx = CircoContext(; userpluginsfn = () -> [MigrationService, ClusterService])
 
 function migratetoremote(targetpostcode, resultsholder_address)
     migrant = Migrant()

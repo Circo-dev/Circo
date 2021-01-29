@@ -1,6 +1,7 @@
 module Debug
 
-using ..Circo
+using Plugins
+using ..Circo, ..Circo.Monitor
 
 export Run, Step, Stop, MsgStats
 
@@ -26,4 +27,8 @@ end
 
 include("msgstats.jl")
 
+function __init__()
+    Plugins.register(MsgStats)
 end
+
+end # module

@@ -1,5 +1,5 @@
 using Test
-using Circo
+using Circo, Circo.Blocking
 import Circo:onmessage, onspawn
 
 mutable struct Blocker <: Actor{Any}
@@ -113,7 +113,7 @@ end
 
 @testset "Blocking" begin
     tester = BlockTester()
-    ctx = CircoContext(userpluginsfn=() -> [BlockService()])
+    ctx = CircoContext(userpluginsfn=() -> [BlockService])
     scheduler = Scheduler(ctx, [tester])
     scheduler(;exit=true)
     Circo.shutdown!(scheduler)

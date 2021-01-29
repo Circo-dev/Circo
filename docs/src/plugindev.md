@@ -26,6 +26,7 @@ setup!(plugin, scheduler) # Allocate resources
         schedule_continue(plugin, scheduler) # Scheduling continues after stop or pause (also called after start)
 
             localdelivery() # Deliver a message to an actor (e.g. call onmessage)
+            actor_spawning() # Called when the new actor is already spawned, but before onspawn.
             localroutes() # Handle messages that are targeted to actors not (currently) scheduled locally (e.g. during migration).
             specialmsg() # Handle messages that are targeted to the scheduler (to the box 0)
             remoteroutes() # Deliver messages to external targets

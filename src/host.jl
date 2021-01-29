@@ -11,8 +11,8 @@ struct HostProfile{TInner <: CircoCore.Profiles.AbstractProfile} <: CircoCore.Pr
 end
 
 CircoCore.Profiles.core_plugins(p::HostProfile) = [
-    HostService(;p.options...),
-    CircoCore.Profiles.core_plugins(p.innerprofile)... # Inner plugins do not see host-added options
+    HostService,
+    CircoCore.Profiles.core_plugins(p.innerprofile)...
 ]
 
 struct HostContext{TInner <: CircoCore.AbstractContext} <: CircoCore.AbstractContext
@@ -42,19 +42,20 @@ end
 mutable struct HostActor{TCore} <: Actor{TCore}
     core::TCore
 end
-monitorprojection(::Type{ <: HostActor }) = JS("projections.nonimportant")
+Circo.monitorprojection(::Type{ <: HostActor }) = Circo.Monitor.JS("projections.nonimportant")
 
-mutable struct HostService <: Plugin
+abstract type HostService <: Plugin end
+mutable struct HostServiceImpl <: HostService
     in_msg::Deque
     in_lock::Threads.SpinLock
     iamzygote::Bool
     hostid::Int64
-    peercache::Dict{PostCode, HostService}
+    peercache::Dict{PostCode, HostServiceImpl}
     tmp_msg::Vector{Any}
     hostroot::PostCode
     helper::Addr
     postcode::PostCode
-    HostService(;options...) = new(
+    HostServiceImpl(;options...) = new(
         Deque{Any}(),#get(options, :buffer_size, MSG_BUFFER_SIZE)
         Threads.SpinLock(),
         get(options, :iamzygote, false),
@@ -67,26 +68,26 @@ end
 Plugins.symbol(::HostService) = :host
 Circo.postcode(hs::HostService) = hs.postcode
 
-function Circo.schedule_start(hs::HostService, scheduler)
+function Circo.schedule_start(hs::HostServiceImpl, scheduler)
     hs.postcode = postcode(scheduler)
     hs.helper = spawn(scheduler.service, HostActor(emptycore(scheduler.service)))
     cluster = scheduler.plugins[:cluster]
     @async begin # TODO eliminate
         if hs.hostroot != postcode(hs) && length(cluster.roots) == 0
-            send(scheduler, cluster.helper, ForceAddRoot(hs.hostroot))
+            send(scheduler, cluster.helper, Circo.Cluster.ForceAddRoot(hs.hostroot))
         end
     end
 end
 
-@inline function CircoCore.remoteroutes(hostservice::HostService, scheduler, msg)::Bool
+@inline function CircoCore.remoteroutes(hostservice::HostServiceImpl, scheduler, msg)::Bool
     target_postcode = postcode(target(msg))
     if CircoCore.network_host(target_postcode) !=  CircoCore.network_host(hostservice.postcode)
         return false
     end
-    #@debug "remoteroutes in host.jl $msg"
+    @debug "remoteroutes in host.jl $msg"
     peer = get(hostservice.peercache, target_postcode, nothing)
     if !isnothing(peer)
-        #@debug "Inter-thread delivery of $(hostservice.postcode): $msg"
+        @debug "Inter-thread delivery of $(hostservice.postcode): $msg"
         lock(peer.in_lock)
         try
             push!(peer.in_msg, msg)
@@ -98,7 +99,7 @@ end
     return false
 end
 
-@inline function CircoCore.letin_remote(hs::HostService, scheduler)::Bool
+@inline function CircoCore.letin_remote(hs::HostServiceImpl, scheduler)::Bool
     isempty(hs.in_msg) && return false
     tmp_msgs = hs.tmp_msg
     lock(hs.in_lock)

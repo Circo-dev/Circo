@@ -2,8 +2,7 @@
 module TokenTest
 
 using Test
-using Circo
-import Circo: monitorprojection
+using Circo, Circo.Monitor
 
 mutable struct EmptyActor <: Actor{Any}
     core
@@ -19,14 +18,14 @@ const PROJECTION = JS("{
     geometry: new THREE.BoxBufferGeometry(1, 1, 1),
     scale: { x: .42, y: 1, z: 1 }
 }")
-monitorprojection(::Type{MonitorTester}) = PROJECTION
+Circo.monitorprojection(::Type{MonitorTester}) = PROJECTION
 
 @testset "Monitor" begin
     empty = EmptyActor()
-    @test typeof(monitorprojection(typeof(empty))) === JS
+    @test typeof(Circo.monitorprojection(typeof(empty))) === JS
 
     tester = MonitorTester()
-    @test monitorprojection(typeof(tester)) === PROJECTION
+    @test Circo.monitorprojection(typeof(tester)) === PROJECTION
 end
 
 end
