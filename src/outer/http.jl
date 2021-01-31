@@ -1,5 +1,11 @@
 # SPDX-License-Identifier: MPL-2.0
+module Http
 
+export HttpRequest, HttpResponse, PrefixRoute, HttpService
+
+using ..Circo
+using Plugins
+using HTTP
 import HTTP, Sockets
 using Logging
 
@@ -64,22 +70,24 @@ mutable struct _HttpDispatcher{TCore} <: HttpDispatcher{TCore}
     _HttpDispatcher(core) = new{typeof(core)}(Dict(), Router(), core)
 end
 
-mutable struct HttpService <: Plugin
+abstract type HttpService <: Plugin end
+Plugins.symbol(plugin::HttpService) = :http
+
+mutable struct HttpServiceImpl <: HttpService
     router::Router
     socket::Sockets.TCPServer
     dispatcher
-    HttpService(;options...) = new()
+    HttpServiceImpl(;options...) = new()
 end
+__init__() = Plugins.register(HttpServiceImpl)
 
-Plugins.symbol(plugin::HttpService) = :http
-
-function Circo.setup!(http::HttpService, scheduler)
+function Circo.setup!(http::HttpServiceImpl, scheduler)
     http.dispatcher = _HttpDispatcher(emptycore(scheduler.service))
     schedule!(scheduler, http.dispatcher)
     registername(scheduler.service, "http", http.dispatcher)
 end
 
-function Circo.schedule_start(http::HttpService, scheduler)
+function Circo.schedule_start(http::HttpServiceImpl, scheduler)
     listenport = 8080 + port(postcode(scheduler)) - CircoCore.PORT_RANGE[1]
     ipaddr = Sockets.IPv4(0) # TODO config
     try
@@ -103,7 +111,7 @@ function Circo.schedule_start(http::HttpService, scheduler)
     end
 end
 
-function Circo.schedule_stop(service::HttpService, scheduler)
+function Circo.schedule_stop(service::HttpServiceImpl, scheduler)
     isdefined(service, :socket) && close(service.socket)
 end
 
@@ -131,3 +139,5 @@ function Circo.onmessage(me::HttpDispatcher, msg::Route, service)
     @info "Added route: $msg"
     return nothing
 end
+
+end # module
