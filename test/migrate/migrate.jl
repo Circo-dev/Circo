@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: MPL-2.0
 using Test
-using Circo
-import Circo:onmessage, onmigrate
+using Circo, Circo.Migration, Circo.Cluster
+import Circo:onmessage
 
 include("migrate-base.jl")
 
-function onmigrate(me::Migrant, service)
+function Circo.onmigrate(me::Migrant, service)
     @debug "Successfully migrated to $me"
     send(service, me, me.stayeraddress, MigrateDone(addr(me)))
 end
@@ -32,7 +32,7 @@ end
 
 @testset "Migration" begin
     resultsholder = ResultsHolder()
-    ctx = CircoContext(userpluginsfn=() -> [MigrationService(), ClusterService()])
+    ctx = CircoContext(userpluginsfn=() -> [MigrationService, ClusterService])
     scheduler = Scheduler(ctx, [resultsholder])
     startsource(postcode(scheduler),addr(resultsholder))
     scheduler(;exit=true)

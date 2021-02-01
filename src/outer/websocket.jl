@@ -1,8 +1,15 @@
 # SPDX-License-Identifier: MPL-2.0
-include("typeregistry.jl")
+module WebSocket
 
+export WebsocketService
+
+using ..Circo
+using Plugins
 using HTTP, Logging, MsgPack
+using CircoCore.Registry
 import Sockets
+
+include("typeregistry.jl")
 
 const MASTERPOSTCODE = "Master"
 
@@ -20,16 +27,17 @@ MsgPack.msgpack_type(::Type{ActorId}) = MsgPack.StringType()
 MsgPack.to_msgpack(::MsgPack.StringType, id::ActorId) = string(id, base=16)
 MsgPack.from_msgpack(::Type{ActorId}, str::AbstractString) = parse(ActorId, str;base=16)
 
-mutable struct WebsocketService <: Plugin
+abstract type WebsocketService <: Plugin end
+mutable struct WebsocketServiceImpl <: WebsocketService
     actor_connections::Dict{ActorId, IO}
     typeregistry::TypeRegistry
     socket
-    WebsocketService(;options...) = new(Dict(), TypeRegistry())
+    WebsocketServiceImpl(;options...) = new(Dict(), TypeRegistry())
 end
+Plugins.symbol(plugin::WebsocketServiceImpl) = :websocket
+__init__() = Plugins.register(WebsocketServiceImpl)
 
-Plugins.symbol(plugin::WebsocketService) = :websocket
-
-Circo.prepare(::WebsocketService, ctx) = begin
+Circo.prepare(::WebsocketServiceImpl, ctx) = begin
     MsgType = ctx.msg_type
     defaulted_fields = map(type -> :($type()), MsgType.body.types[4:end]) # Assuming 3 filled-in fields
     eval(:(
@@ -40,7 +48,7 @@ Circo.prepare(::WebsocketService, ctx) = begin
     return nothing
 end
 
-Circo.schedule_start(service::WebsocketService, scheduler) = begin # TODO during setup!, after PostOffice initialized
+Circo.schedule_start(service::WebsocketServiceImpl, scheduler) = begin # TODO during setup!, after PostOffice initialized
     listenport = 2497 + port(postcode(scheduler)) - CircoCore.PORT_RANGE[1] # CIWS
     ipaddr = Sockets.IPv4(0) # TODO config
     try
@@ -59,7 +67,7 @@ Circo.schedule_start(service::WebsocketService, scheduler) = begin # TODO during
     end
 end
 
-function Circo.schedule_stop(service::WebsocketService, scheduler)
+function Circo.schedule_stop(service::WebsocketServiceImpl, scheduler)
     isdefined(service, :socket) && close(service.socket)
 end
 
@@ -71,7 +79,7 @@ function sendws(msg::AbstractMsg, ws)
     end
 end
 
-function handlemsg(service::WebsocketService, msg::AbstractMsg{RegistrationRequest}, ws, scheduler)
+function handlemsg(service::WebsocketServiceImpl, msg::AbstractMsg{RegistrationRequest}, ws, scheduler)
     actorid = box(body(msg).actoraddr)
     service.actor_connections[actorid] = ws
     newaddr = Addr(postcode(scheduler), actorid)
@@ -80,7 +88,7 @@ function handlemsg(service::WebsocketService, msg::AbstractMsg{RegistrationReque
     return nothing
 end
 
-function handlemsg(service::WebsocketService, query::AbstractMsg{NameQuery}, ws, scheduler)
+function handlemsg(service::WebsocketServiceImpl, query::AbstractMsg{CircoCore.Registry.NameQuery}, ws, scheduler)
     registry = get(scheduler.plugins, :registry, nothing)
     if isnothing(registry)
         @info "No registry plugin installed, dropping $query"
@@ -98,7 +106,7 @@ function handlemsg(service::WebsocketService, query::AbstractMsg{NameQuery}, ws,
     return nothing
 end
 
-function handlemsg(service::WebsocketService, msg::AbstractMsg, ws, scheduler)
+function handlemsg(service::WebsocketServiceImpl, msg::AbstractMsg, ws, scheduler)
     if postcode(target(msg)) === MASTERPOSTCODE
         newaddr = Addr(postcode(scheduler), box(msg.target))
         msg = Msg(sender(msg), newaddr, body(msg), Infoton(nullpos))
@@ -107,7 +115,7 @@ function handlemsg(service::WebsocketService, msg::AbstractMsg, ws, scheduler)
     return nothing
 end
 
-handlemsg(service::WebsocketService, msg, ws, scheduler) = nothing
+handlemsg(service::WebsocketServiceImpl, msg, ws, scheduler) = nothing
 
 function readtypename_safely(buf)
     try
@@ -118,7 +126,7 @@ function readtypename_safely(buf)
     end
 end
 
-function handle_connection(service::WebsocketService, ws, scheduler)
+function handle_connection(service::WebsocketServiceImpl, ws, scheduler)
     @debug "ws handle_connection on thread $(Threads.threadid())"
     buf = nothing
     msg = nothing
@@ -176,9 +184,9 @@ function unmarshal(registry::TypeRegistry, buf)
     return nothing
 end
 
-Plugins.shutdown!(service::WebsocketService, scheduler) = nothing
+Plugins.shutdown!(service::WebsocketServiceImpl, scheduler) = nothing
 
-Circo.localroutes(ws_plugin::WebsocketService, scheduler, msg::AbstractMsg)::Bool = begin
+Circo.localroutes(ws_plugin::WebsocketServiceImpl, scheduler, msg::AbstractMsg)::Bool = begin
     ws = get(ws_plugin.actor_connections, box(target(msg)), nothing)
     if !isnothing(ws)
         sendws(msg, ws)
@@ -186,3 +194,5 @@ Circo.localroutes(ws_plugin::WebsocketService, scheduler, msg::AbstractMsg)::Boo
     end
     return false
 end
+
+end # module

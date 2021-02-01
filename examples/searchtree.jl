@@ -22,7 +22,8 @@ const SIBLINGINFO_ENERGY = -1.0
 const RED_AFTER = ITEMS_PER_LEAF * 0.95 - 1
 const NODESCALE_FACTOR = 1 / ITEMS_PER_LEAF / 2
     
-using Circo, DataStructures
+using Circo, Circo.Monitor, Circo.Migration
+using DataStructures
 using LinearAlgebra: norm
 
 # Test Coordinator that fills the tree and sends Search requests to it
@@ -108,7 +109,7 @@ end
 
 Circo.scheduler_infoton(scheduler, actor::Union{TreeNode, Coordinator}) = load_scheduler_infoton(scheduler, actor)
 
-@inline Circo.check_migration(me::Union{TreeNode, Coordinator}, alternatives::MigrationAlternatives, service) = begin
+@inline Circo.Migration.check_migration(me::Union{TreeNode, Coordinator}, alternatives::MigrationAlternatives, service) = begin
     if length(alternatives) < 5 && rand(UInt8) == 0
         @debug "Only $(length(alternatives)) alternatives at $(box(me)) : $alternatives"
     end
@@ -335,5 +336,5 @@ end
 end
 
 zygote(ctx) = [SearchTreeTest.Coordinator(emptycore(ctx)) for i = 1:1]
-plugins(;options...) = [Debug.MsgStats(;options...)]
+plugins(;options...) = [Debug.MsgStats]
 profile(;options...) = Circo.Profiles.ClusterProfile(;options...)

@@ -29,12 +29,12 @@ function Circo.onmessage(me::StatsTester, msg::Sample, service)
     send(service, me, addr(me), Ack())
 end
 
-stats = Debug.MsgStats()
-ctx = CircoContext(;userpluginsfn=() -> [stats])
+ctx = CircoContext(;userpluginsfn=() -> [Debug.MsgStats])
 
 @testset "Debug" begin
     tester = StatsTester()
     scheduler = Scheduler(ctx, [tester])
+    stats = scheduler.plugins[:msgstats]
     send(scheduler, addr(tester), Start())
     scheduler(;remote = false, exit = true)
     @show stats

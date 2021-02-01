@@ -2,7 +2,7 @@
 module HostTest
 
 using Test, Printf
-using Circo
+using Circo, Circo.Migration
 import Circo:onspawn, onmessage, onmigrate
 
 mutable struct PingPonger{TCore} <: Actor{TCore}

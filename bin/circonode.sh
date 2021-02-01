@@ -43,8 +43,18 @@ BOOT_SCRIPT=$(cat <<-END
     end
 END
 )
+CORE_COUNT=1
+if command -v nproc &> /dev/null
+then
+    CORE_COUNT=`nproc`
+fi
+if command -v sysctl &> /dev/null
+then
+    CORE_COUNT=`sysctl -n hw.ncpu`
+fi
+
 ROOTS_FILE=${ROOTS_FILE:-roots.txt}
-export JULIA_NUM_THREADS=${JULIA_NUM_THREADS:-10000}
+export JULIA_NUM_THREADS=${JULIA_NUM_THREADS:-$CORE_COUNT}
 export JULIA_EXECUTABLE=${JULIA_EXECUTABLE:-julia}
 
 # JULIA_EXCLUSIVE is needed as a workaround to a crash at websocket disconnection

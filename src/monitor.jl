@@ -1,4 +1,11 @@
 # SPDX-License-Identifier: MPL-2.0
+module Monitor
+
+export MonitorService, registermsg, JS
+
+using ..Circo
+using Plugins
+using TypeParsers
 
 struct ActorInfo{TExtra}
     typename::String
@@ -17,22 +24,22 @@ struct NoExtra
 end
 noextra = NoExtra()
 
-monitorextra(actor::Actor) = noextra
+Circo.monitorextra(actor::Actor) = noextra
 
-monitorinfo(actor::Actor) = ActorInfo(actor, monitorextra(actor))
+monitorinfo(actor::Actor) = ActorInfo(actor, Circo.monitorextra(actor))
 
 struct JS
     src::String
 end
 
-monitorprojection(::Type{<: Actor}) = JS("{
+Circo.monitorprojection(::Type{<: Actor}) = JS("{
     geometry: new THREE.BoxBufferGeometry(20, 20, 20),
     scale: { x: 1, y: 1, z: 1 },
     rotation: { x: 0, y: 0, z: 0 }
 }")
 
-monitorprojection(::Type{<:CircoCore.RegistryHelper}) = JS("projections.nonimportant") # TODO: trait or type for nonimportant
-monitorprojection(::Type{<:CircoCore.EventDispatcher}) = JS("projections.nonimportant")
+Circo.monitorprojection(::Type{<:CircoCore.Registry.RegistryHelper}) = JS("projections.nonimportant") # TODO: trait or type for nonimportant
+Circo.monitorprojection(::Type{<:CircoCore.EventDispatcher}) = JS("projections.nonimportant")
 
 struct ActorListRequest <: Request
     respondto::Addr
@@ -110,12 +117,12 @@ mutable struct MonitorActor{TMonitor, TCore} <: Actor{TCore}
     core::TCore
 end
 
-monitorextra(actor::MonitorActor)= (
+Circo.monitorextra(actor::MonitorActor)= (
     actorcount = UInt32(actor.monitor.scheduler.actorcount),
     queuelength = UInt32(length(actor.monitor.scheduler.msgqueue))
     )
 
-monitorprojection(::Type{<:MonitorActor}) = JS("
+Circo.monitorprojection(::Type{<:MonitorActor}) = JS("
 {
     geometry: new THREE.BoxBufferGeometry(15, 15, 15),
     /*scale: me => {
@@ -138,13 +145,16 @@ function Circo.onmessage(me::MonitorActor, ::Throw, service)
     error("Exception forced from $me")
 end
 
-mutable struct MonitorService <: Plugin
+abstract type MonitorService <: Plugin end
+mutable struct MonitorServiceImpl <: MonitorService
     actor::MonitorActor
     scheduler::CircoCore.AbstractScheduler
-    MonitorService(;options...) = new()
+    MonitorServiceImpl(;options...) = new()
 end
+Plugins.symbol(::MonitorService) = :monitor
+__init__() = Plugins.register(MonitorServiceImpl)
 
-function Plugins.setup!(monitor::MonitorService, scheduler)
+function Plugins.setup!(monitor::MonitorServiceImpl, scheduler)
     monitor.actor = MonitorActor(monitor, emptycore(scheduler.service))
     monitor.scheduler = scheduler
     schedule!(scheduler, monitor.actor)
@@ -158,7 +168,7 @@ function Circo.onmessage(me::MonitorActor, request::ActorListRequest, service)
 end
 
 function Circo.onmessage(me::MonitorActor, request::MonitorProjectionRequest, service)
-    projection = monitorprojection(parsetype(request.typename))
+    projection = Circo.monitorprojection(parsetype(request.typename))
     @debug "monitorprojection for $(request.typename): $projection"
     send(service, me, request.respondto, MonitorProjectionResponse(projection, request.token))
 end
@@ -172,7 +182,7 @@ function Circo.onmessage(me::MonitorActor, request::ActorInterfaceRequest, servi
         return nothing # TODO a general notfound response
     end
     result = Vector{MessageType}()
-    for m in methods(onmessage, [typeof(actor), Any, Any])
+    for m in methods(Circo.onmessage, [typeof(actor), Any, Any])
         if typeof(m.sig) === DataType # TODO handle UnionAll message types
             type = extract_messagetype(m.sig)
             if type != Any
@@ -182,3 +192,5 @@ function Circo.onmessage(me::MonitorActor, request::ActorInterfaceRequest, servi
     end
     send(service, me, request.respondto, ActorInterfaceResponse(request.box, result, request.token))
 end
+
+end # module

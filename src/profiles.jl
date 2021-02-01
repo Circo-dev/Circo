@@ -1,5 +1,5 @@
 module Profiles
-using ..Circo
+using ..Circo, ..Circo.Migration, ..Circo.Cluster, ..Circo.WebSocket, Circo.Monitor
 import CircoCore
 
 const AbstractProfile = CircoCore.Profiles.AbstractProfile
@@ -16,10 +16,10 @@ end
 function CircoCore.Profiles.core_plugins(profile::ClusterProfile)
     options = profile.options
     return [
-        MigrationService(;options...),
-        ClusterService(;options...),
-        WebsocketService(;options...),
-        MonitorService(;options...),
+        MigrationService,
+        ClusterService,
+        WebsocketService,
+        MonitorService,
         core_plugins(DefaultProfile(;options...))...,
     ]
 end

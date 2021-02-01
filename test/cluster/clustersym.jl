@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MPL-2.0
 using Test
-using Circo
+using Circo, Circo.Cluster
 import Circo:onmessage, onmigrate
 
 const PEER_COUNT = 500
@@ -13,7 +13,7 @@ ctx = CircoContext()
     scheduler = Scheduler(ctx, [])
     rootaddresses = []
     for i in 1:ROOT_COUNT
-        root = Circo.ClusterActor(Circo.NodeInfo("#$(length(cluster))"), rootaddresses, emptycore(scheduler.service))
+        root = Cluster.ClusterActor(NodeInfo("#$(length(cluster))"), rootaddresses, emptycore(scheduler.service))
         root.servicename = ""
         push!(cluster, root)
         spawn(scheduler, root)
@@ -22,7 +22,7 @@ ctx = CircoContext()
     end
 
     for i in 1:PEER_COUNT - ROOT_COUNT
-        node = Circo.ClusterActor(Circo.NodeInfo("#$(length(cluster))"), rootaddresses, emptycore(scheduler.service))
+        node = Cluster.ClusterActor(NodeInfo("#$(length(cluster))"), rootaddresses, emptycore(scheduler.service))
         node.servicename = ""
         push!(cluster, node)
         spawn(scheduler, node)

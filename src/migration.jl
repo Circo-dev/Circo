@@ -1,4 +1,10 @@
 # SPDX-License-Identifier: MPL-2.0
+module Migration
+
+export RecipientMoved, MigrationService, migrate_to_nearest, migrate, MigrationAlternatives
+
+using ..Circo, ..Circo.Cluster, Circo.Monitor
+using Plugins
 using DataStructures, LinearAlgebra
 import Base.length
 
@@ -47,24 +53,27 @@ mutable struct MigrationAlternatives
 end
 Base.length(a::MigrationAlternatives) = Base.length(a.peers)
 
-mutable struct MigrationService <: Plugin
+abstract type MigrationService <: Plugin end
+mutable struct MigrationServiceImpl <: MigrationService
     movingactors::Dict{ActorId,MovingActor}
     movedactors::Dict{ActorId,Addr}
     alternatives::MigrationAlternatives
     helperactor::Any
-    MigrationService(;options...) = new(Dict([]),Dict([]), MigrationAlternatives([]))
+    MigrationServiceImpl(;options...) = new(Dict([]),Dict([]), MigrationAlternatives([]))
 end
 
+__init__() = Plugins.register(MigrationServiceImpl)
+
 mutable struct MigrationHelper{TCore} <: Actor{TCore}
-    service::MigrationService
+    service::MigrationServiceImpl
     core::TCore
 end
 
-monitorprojection(::Type{<:MigrationHelper}) = JS("projections.nonimportant")
+Circo.monitorprojection(::Type{<:MigrationHelper}) = JS("projections.nonimportant")
 
-Plugins.symbol(::MigrationService) = :migration
+Plugins.symbol(::MigrationServiceImpl) = :migration
 
-function Circo.schedule_start(migration::MigrationService, scheduler)
+function Circo.schedule_start(migration::MigrationServiceImpl, scheduler)
     migration.helperactor = MigrationHelper(migration, emptycore(scheduler.service))
     spawn(scheduler.service, migration.helperactor)
 end
@@ -99,15 +108,15 @@ function migrate!(scheduler, actor::Actor, topostcode::PostCode)
         @debug "Migration plugin not loaded, skipping migrate!"
         return false
     end
-    migration::MigrationService
+    migration::MigrationServiceImpl
     unschedule!(scheduler, actor)
     migration.movingactors[box(actor)] = MovingActor(actor)
     send(scheduler.service, migration.helperactor, Addr(topostcode, 0), MigrationRequest(actor))
     return true
 end
 
-specialmsg(::MigrationService, scheduler, message) = false
-specialmsg(migration::MigrationService, scheduler, message::AbstractMsg{MigrationRequest}) = begin
+Circo.specialmsg(::MigrationServiceImpl, scheduler, message) = false
+Circo.specialmsg(migration::MigrationServiceImpl, scheduler, message::AbstractMsg{MigrationRequest}) = begin
     @debug "Migration request: $(message)"
     actor = body(message).actor
     actorbox = box(actor)
@@ -117,12 +126,12 @@ specialmsg(migration::MigrationService, scheduler, message::AbstractMsg{Migratio
     end
     delete!(migration.movedactors, actorbox)
     schedule!(scheduler, actor)
-    onmigrate(actor, scheduler.service)
+    Circo.onmigrate(actor, scheduler.service)
     send(scheduler.service, actor, Addr(postcode(fromaddress), 0), MigrationResponse(fromaddress, addr(actor), true))
     return true
 end
 
-specialmsg(migration::MigrationService, scheduler, message::AbstractMsg{MigrationResponse}) = begin
+Circo.specialmsg(migration::MigrationServiceImpl, scheduler, message::AbstractMsg{MigrationResponse}) = begin
     @debug("Migration response: at $(postcode(scheduler)): $(message)")
     response = body(message)
     movingactor = pop!(migration.movingactors, box(response.to), nothing)
@@ -145,7 +154,7 @@ specialmsg(migration::MigrationService, scheduler, message::AbstractMsg{Migratio
     return nothing
 end
 
-Circo.localroutes(migration::MigrationService, scheduler, message::AbstractMsg)::Bool = begin
+Circo.localroutes(migration::MigrationServiceImpl, scheduler, message::AbstractMsg)::Bool = begin
     newaddress = get(migration.movedactors, box(target(message)), nothing)
     if isnothing(newaddress)
         movingactor = get(migration.movingactors, box(target(message)), nothing)
@@ -179,7 +188,7 @@ end
 
 @inline check_migration(me::Actor, alternatives::MigrationAlternatives, service) = nothing
 
-@inline CircoCore.actor_activity_sparse256(migration::MigrationService, scheduler, actor::Actor) = begin
+@inline CircoCore.actor_activity_sparse256(migration::MigrationServiceImpl, scheduler, actor::Actor) = begin
     check_migration(actor, migration.alternatives, scheduler.service)
 end
 
@@ -209,3 +218,4 @@ end
     end
     return nothing
 end
+end # module

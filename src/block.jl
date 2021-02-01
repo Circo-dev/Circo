@@ -1,3 +1,9 @@
+module Blocking
+
+using Plugins, DataStructures
+using ..Circo
+
+export block, wake, BlockService
 
 struct BlockedActor
     actor::Actor
@@ -25,6 +31,8 @@ mutable struct BlockService <: Plugin
     BlockService(;options...) = new(CircoCore.ActorStore{BlockedActor}())
 end
 Plugins.symbol(::BlockService) = :block
+
+__init__() = Plugins.register(BlockService)
 
 Circo.localroutes(bs::BlockService, sdl, msg::AbstractMsg)::Bool = begin
     blockedactor = get(bs.blockedactors, box(target(msg)), nothing)
@@ -84,3 +92,5 @@ function wake(service, me::Actor)
     sdl = service.scheduler
     wake(bs, sdl, me)
 end
+
+end # module

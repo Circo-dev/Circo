@@ -1,4 +1,10 @@
 # SPDX-License-Identifier: MPL-2.0
+module Cluster
+
+export NodeInfo, PeerListUpdated, ClusterService
+
+using ..Circo, ..CircoCore.Registry, ..Circo.Monitor
+using Plugins
 using Logging
 
 function cluster_initialized end # TODO not in use. Remove?
@@ -11,19 +17,22 @@ const MAX_DOWNSTREAM_FRIENDS = 25
 const TARGET_FRIEND_COUNT = 5
 const MIN_FRIEND_COUNT = 3
 
-mutable struct ClusterService <: Plugin
+abstract type ClusterService <: Plugin end
+mutable struct ClusterServiceImpl <: ClusterService
     roots::Array{PostCode}
     helper::Actor
-    ClusterService(;roots=[], _...) = new(roots)
+    ClusterServiceImpl(;roots=[], _...) = new(roots)
 end
 Plugins.symbol(::ClusterService) = :cluster
-Circo.schedule_start(cluster::ClusterService, scheduler) = begin
+__init__() = Plugins.register(ClusterServiceImpl)
+
+Circo.schedule_start(cluster::ClusterServiceImpl, scheduler) = begin
     cluster.helper = ClusterActor(emptycore(scheduler.service);roots=cluster.roots)
     spawn(scheduler.service, cluster.helper)
-    call_lifecycle_hook(scheduler, cluster_initialized_hook, cluster)
+    Circo.call_lifecycle_hook(scheduler, cluster_initialized_hook, cluster)
 end
 
-Circo.schedule_stop(cluster::ClusterService, scheduler) = begin
+Circo.schedule_stop(cluster::ClusterServiceImpl, scheduler) = begin
     send_leaving(cluster.helper, scheduler.service)
 end
 
@@ -201,7 +210,7 @@ function Circo.onmessage(me::ClusterActor, messsage::Subscribe{PeerListUpdated},
     send(service, me, me.eventdispatcher, messsage)
 end
 
-function Circo.onmessage(me::ClusterActor, msg::NameResponse, service)
+function Circo.onmessage(me::ClusterActor, msg::CircoCore.Registry.NameResponse, service)
     @debug "Got $msg"
     if msg.query.name != "cluster"
         @error "Got unrequested $msg"
@@ -366,3 +375,5 @@ end
 #
 #    end
 #end
+
+end # module
