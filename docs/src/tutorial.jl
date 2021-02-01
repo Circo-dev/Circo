@@ -17,6 +17,7 @@
 # ### Architecture
 #
 # We build the system out of three building blocks: Posts, Feeds and Profiles.
+#
 # - `Post`s are simple structs with some text and the name of the author.
 # - `Feed`s are actors holding a list of posts. When someone opens the frontend,
 #    a new feed will be created for that session, and populated with recent posts.

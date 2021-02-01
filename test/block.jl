@@ -76,7 +76,7 @@ end
 function Circo.onmessage(me::Blocker, msg::WriteAndBlock, service)
     @test me.val == nothing
     me.val = msg.val
-    block(service, me, UnBlockAndWrite; process_readonly = Read) do wakemsg
+    block(service, me, UnBlockAndWrite; process_readonly = Read) do wakemsg # TODO also test without callback
         @test msg.val != wakemsg.val
         send(service, me, me.tester, CbNotification())
     end
