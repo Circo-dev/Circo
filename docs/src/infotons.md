@@ -78,7 +78,7 @@ end
 
 const TARGET_DISTANCE = 15.0
 
-function apply_infoton(targetactor::Actor, infoton::Infoton)
+function apply_infoton(space::Space, targetactor::Actor, infoton::Infoton)
     diff = infoton.sourcepos - targetactor.core.pos
     difflen = norm(diff)
     energy = infoton.energy
@@ -92,7 +92,7 @@ end
 
 #### How to start research on Infoton optimization
 
-You can overload `apply_infoton` and `scheduler_infoton` for your actor types. Actor positioning is implemented as a plugin. All you need to do is to install the system and run the examples where you can tweak the current rudimentary implementation. Please share your findings on Discourse!
+You can overload `apply_infoton` and `scheduler_infoton` for your actor (and/or plugin) types. Actor positioning is implemented as a plugin. All you need to do is to install the system and run the examples where you can tweak the current rudimentary implementation. Please share your findings on Discourse!
 
 
 

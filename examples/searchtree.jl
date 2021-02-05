@@ -117,7 +117,7 @@ Circo.scheduler_infoton(scheduler, actor::Union{TreeNode, Coordinator}) = load_s
     return nothing
 end
 
-@inline @fastmath Circo.apply_infoton(targetactor::Actor, infoton::Infoton) = begin
+@inline @fastmath Circo.apply_infoton(space::Space, targetactor::Actor, infoton::Infoton) = begin
     diff = infoton.sourcepos - targetactor.core.pos
     difflen = norm(diff)
     difflen == 0 && return nothing
