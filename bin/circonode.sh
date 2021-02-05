@@ -47,9 +47,7 @@ CORE_COUNT=1
 if command -v nproc &> /dev/null
 then
     CORE_COUNT=`nproc`
-fi
-if command -v sysctl &> /dev/null
-then
+else
     CORE_COUNT=`sysctl -n hw.ncpu`
 fi
 
