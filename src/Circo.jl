@@ -40,7 +40,6 @@ function onmigrate(me::Actor, service) end
 # Hooks
 const actor_activity_sparse16 = CircoCore.actor_activity_sparse16
 const actor_activity_sparse256 = CircoCore.actor_activity_sparse256
-const apply_infoton = CircoCore.apply_infoton
 const letin_remote = CircoCore.letin_remote
 const localdelivery = CircoCore.localdelivery
 const localroutes = CircoCore.localroutes
@@ -49,7 +48,6 @@ const schedule_start = CircoCore.schedule_start
 const schedule_pause = CircoCore.schedule_pause
 const schedule_continue = CircoCore.schedule_continue
 const schedule_stop = CircoCore.schedule_stop
-const scheduler_infoton = CircoCore.scheduler_infoton
 const specialmsg = CircoCore.specialmsg
 const stage = CircoCore.stage
 
@@ -64,6 +62,7 @@ include("monitor.jl")
 include("cluster/cluster.jl")
 include("migration.jl")
 include("block.jl")
+include("infotonopt.jl")
 include("outer/http.jl")
 include("outer/websocket.jl")
 include("debug/debug.jl")

@@ -22,7 +22,7 @@ const SIBLINGINFO_ENERGY = -1.0
 const RED_AFTER = ITEMS_PER_LEAF * 0.95 - 1
 const NODESCALE_FACTOR = 1 / ITEMS_PER_LEAF / 2
     
-using Circo, Circo.Monitor, Circo.Migration
+using Circo, Circo.Monitor, Circo.Migration, Circo.InfotonOpt
 using DataStructures
 using LinearAlgebra: norm
 
@@ -107,7 +107,7 @@ Circo.monitorextra(me::TreeNode) =
     return Infoton(scheduler.pos, energy)
 end
 
-Circo.scheduler_infoton(scheduler, actor::Union{TreeNode, Coordinator}) = load_scheduler_infoton(scheduler, actor)
+Circo.InfotonOpt.scheduler_infoton(_::Circo.InfotonOpt.OptimizerImpl, scheduler, actor::Union{TreeNode, Coordinator}) = load_scheduler_infoton(scheduler, actor)
 
 @inline Circo.Migration.check_migration(me::Union{TreeNode, Coordinator}, alternatives::MigrationAlternatives, service) = begin
     if length(alternatives) < 5 && rand(UInt8) == 0
@@ -117,7 +117,7 @@ Circo.scheduler_infoton(scheduler, actor::Union{TreeNode, Coordinator}) = load_s
     return nothing
 end
 
-@inline @fastmath Circo.apply_infoton(space::Space, targetactor::Actor, infoton::Infoton) = begin
+@inline @fastmath Circo.InfotonOpt.apply_infoton(_::Circo.InfotonOpt.OptimizerImpl, targetactor::Actor, infoton::Infoton) = begin
     diff = infoton.sourcepos - targetactor.core.pos
     difflen = norm(diff)
     difflen == 0 && return nothing

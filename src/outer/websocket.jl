@@ -4,6 +4,7 @@ module WebSocket
 export WebsocketService
 
 using ..Circo
+using Circo.InfotonOpt # TODO eliminate
 using Plugins
 using HTTP, Logging, MsgPack
 using CircoCore.Registry
@@ -83,7 +84,7 @@ function handlemsg(service::WebsocketServiceImpl, msg::AbstractMsg{RegistrationR
     actorid = box(body(msg).actoraddr)
     service.actor_connections[actorid] = ws
     newaddr = Addr(postcode(scheduler), actorid)
-    response = Msg(target(msg), sender(msg), Registered(newaddr, true), Infoton(nullpos))
+    response = Main.Msg(target(msg), sender(msg), Registered(newaddr, true), Infoton(nullpos))
     sendws(response, ws)
     return nothing
 end
@@ -98,7 +99,7 @@ function handlemsg(service::WebsocketServiceImpl, query::AbstractMsg{CircoCore.R
     if isnothing(namehandler)
         @info "No handler for $(body(query))"
     end
-    sendws(Msg(target(query),
+    sendws(Main.Msg(target(query),
             sender(query),
             NameResponse(body(query), namehandler, body(query).token),
             Infoton(nullpos)
@@ -109,7 +110,7 @@ end
 function handlemsg(service::WebsocketServiceImpl, msg::AbstractMsg, ws, scheduler)
     if postcode(target(msg)) === MASTERPOSTCODE
         newaddr = Addr(postcode(scheduler), box(msg.target))
-        msg = Msg(sender(msg), newaddr, body(msg), Infoton(nullpos))
+        msg = Main.Msg(sender(msg), newaddr, body(msg), Infoton(nullpos))
     end
     Circo.deliver!(scheduler, msg)
     return nothing

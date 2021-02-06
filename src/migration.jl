@@ -167,14 +167,7 @@ Circo.localroutes(migration::MigrationServiceImpl, scheduler, message::AbstractM
         end
     else
         if body(message) isa RecipientMoved # Got a RecipientMoved, but the original sender also moved. Forward the RecipientMoved
-            msg = Msg(
-                addr(scheduler),
-                newaddress,
-                body(message),
-                Infoton(nullpos)
-            )
-            @debug "Forwarding message $message"
-            @debug "forwarding as $msg"
+            @debug "Forwarding message $message to $newaddress"
             send(scheduler.service, migration.helperactor, newaddress, body(message))
         else # Do not forward normal messages but send back a RecipientMoved
             recipientmoved = RecipientMoved(target(message), newaddress, body(message))
