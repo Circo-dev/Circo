@@ -46,7 +46,7 @@ infotoninit(sender::Addr, target, body, scheduler; energy = 1.0f0) = Infoton() #
 
 Plugins.customfield(::Optimizer, ::Type{AbstractMsg}) = Plugins.FieldSpec("infoton", Infoton, infotoninit)
 
-@inline Circo.localdelivery(optimizer::OptimizerImpl, scheduler, msg, targetactor) = begin
+@inline Circo.localdelivery(optimizer::Optimizer, scheduler, msg, targetactor) = begin
     apply_infoton(optimizer, targetactor, msg.infoton)
     apply_infoton(optimizer, targetactor, scheduler_infoton(optimizer, scheduler, targetactor)) # TODO: SparseActivity?
     return false
