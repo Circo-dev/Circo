@@ -107,7 +107,7 @@ Circo.monitorextra(me::TreeNode) =
     return Infoton(scheduler.pos, energy)
 end
 
-Circo.InfotonOpt.scheduler_infoton(_::Circo.InfotonOpt.OptimizerImpl, scheduler, actor::Union{TreeNode, Coordinator}) = load_scheduler_infoton(scheduler, actor)
+Circo.InfotonOpt.scheduler_infoton(_::Circo.InfotonOpt.Optimizer, scheduler, actor::Union{TreeNode, Coordinator}) = load_scheduler_infoton(scheduler, actor)
 
 @inline Circo.Migration.check_migration(me::Union{TreeNode, Coordinator}, alternatives::MigrationAlternatives, service) = begin
     if length(alternatives) < 5 && rand(UInt8) == 0
@@ -117,7 +117,7 @@ Circo.InfotonOpt.scheduler_infoton(_::Circo.InfotonOpt.OptimizerImpl, scheduler,
     return nothing
 end
 
-@inline @fastmath Circo.InfotonOpt.apply_infoton(_::Circo.InfotonOpt.OptimizerImpl, targetactor::Actor, infoton::Infoton) = begin
+@inline @fastmath Circo.InfotonOpt.apply_infoton(_::Circo.InfotonOpt.Optimizer, targetactor::Actor, infoton::Infoton) = begin
     diff = infoton.sourcepos - targetactor.core.pos
     difflen = norm(diff)
     difflen == 0 && return nothing
