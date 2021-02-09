@@ -32,6 +32,7 @@ abstract type WebsocketService <: Plugin end
 mutable struct WebsocketServiceImpl <: WebsocketService
     actor_connections::Dict{ActorId, IO}
     typeregistry::TypeRegistry
+    msg_type_name::String
     socket
     WebsocketServiceImpl(;options...) = new(Dict(), TypeRegistry())
 end
@@ -49,7 +50,8 @@ Circo.prepare(::WebsocketServiceImpl, ctx) = begin
     return nothing
 end
 
-Circo.schedule_start(service::WebsocketServiceImpl, scheduler) = begin # TODO during setup!, after PostOffice initialized
+Circo.schedule_start(service::WebsocketServiceImpl, scheduler::AbstractScheduler{TMsg}) where {TMsg} = begin # TODO during setup!, after PostOffice initialized
+    service.msg_type_name = string(TMsg)
     listenport = 2497 + port(postcode(scheduler)) - CircoCore.PORT_RANGE[1] # CIWS
     ipaddr = Sockets.IPv4(0) # TODO config
     try
@@ -80,16 +82,16 @@ function sendws(msg::AbstractMsg, ws)
     end
 end
 
-function handlemsg(service::WebsocketServiceImpl, msg::AbstractMsg{RegistrationRequest}, ws, scheduler)
+function handlemsg(service::WebsocketServiceImpl, msg::AbstractMsg{RegistrationRequest}, ws, scheduler::AbstractScheduler{TMsg}) where {TMsg}
     actorid = box(body(msg).actoraddr)
     service.actor_connections[actorid] = ws
     newaddr = Addr(postcode(scheduler), actorid)
-    response = Main.Msg(target(msg), sender(msg), Registered(newaddr, true), Infoton(nullpos))
+    response = TMsg(target(msg), sender(msg), Registered(newaddr, true), Infoton(nullpos))
     sendws(response, ws)
     return nothing
 end
 
-function handlemsg(service::WebsocketServiceImpl, query::AbstractMsg{CircoCore.Registry.NameQuery}, ws, scheduler)
+function handlemsg(service::WebsocketServiceImpl, query::AbstractMsg{CircoCore.Registry.NameQuery}, ws, scheduler::AbstractScheduler{TMsg}) where {TMsg}
     registry = get(scheduler.plugins, :registry, nothing)
     if isnothing(registry)
         @info "No registry plugin installed, dropping $query"
@@ -99,7 +101,7 @@ function handlemsg(service::WebsocketServiceImpl, query::AbstractMsg{CircoCore.R
     if isnothing(namehandler)
         @info "No handler for $(body(query))"
     end
-    sendws(Main.Msg(target(query),
+    sendws(TMsg(target(query),
             sender(query),
             NameResponse(body(query), namehandler, body(query).token),
             Infoton(nullpos)
@@ -107,10 +109,10 @@ function handlemsg(service::WebsocketServiceImpl, query::AbstractMsg{CircoCore.R
     return nothing
 end
 
-function handlemsg(service::WebsocketServiceImpl, msg::AbstractMsg, ws, scheduler)
+function handlemsg(service::WebsocketServiceImpl, msg::AbstractMsg, ws, scheduler::AbstractScheduler{TMsg}) where {TMsg}
     if postcode(target(msg)) === MASTERPOSTCODE
         newaddr = Addr(postcode(scheduler), box(msg.target))
-        msg = Main.Msg(sender(msg), newaddr, body(msg), Infoton(nullpos))
+        msg = TMsg(sender(msg), newaddr, body(msg), Infoton(nullpos))
     end
     Circo.deliver!(scheduler, msg)
     return nothing
@@ -139,7 +141,7 @@ function handle_connection(service::WebsocketServiceImpl, ws, scheduler)
                 @debug "Websocket closed: $e"
                 return
             end
-            msg = unmarshal(service.typeregistry, buf)
+            msg = unmarshal(service, buf)
             handlemsg(service, msg, ws, scheduler)
         end
     catch e
@@ -167,13 +169,13 @@ function marshal(data)
     return buf
 end
 
-function unmarshal(registry::TypeRegistry, buf)
+function unmarshal(service::WebsocketServiceImpl, buf)
     length(buf) > 0 || return nothing
     typename = ""
     try
         io = IOBuffer(buf)
-        typename = readline(io)
-        type = gettype(registry,typename)
+        typename = service.msg_type_name * readline(io)
+        type = gettype(service.typeregistry, typename)
         return unpack(io, type)
     catch e
         if e isa UndefVarError

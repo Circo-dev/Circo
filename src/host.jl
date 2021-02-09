@@ -27,7 +27,7 @@ function HostContext(innerctx; hostoptions...)
     profile = HostProfile(innerctx.profile; options = options)
     plugins = CircoCore.instantiate_plugins(profile, innerctx.userpluginsfn)
     types = CircoCore.generate_types(plugins)
-    @assert types.corestate_type == innerctx.corestate_type # HostContext currently does not handle staging
+    @assert types.corestate_type == innerctx.corestate_type
     @assert types.msg_type == innerctx.msg_type
     return HostContext(innerctx, options, profile, plugins)
 end

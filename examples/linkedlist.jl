@@ -15,7 +15,7 @@ const PARALLELISM = 200 # Number of parallel Reduce operations (firstly started 
 const SCHEDULER_TARGET_ACTORCOUNT = 180.0 # Schedulers will push away their actors if they have more than this
 const AUTO_START = false
 
-using Circo, Circo.Debug, Circo.Monitor, Circo.Migration, Dates, Random, LinearAlgebra
+using Circo, Circo.Debug, Circo.Monitor, Circo.Migration, Circo.InfotonOpt, Dates, Random, LinearAlgebra
 
 # Test coordinator: Creates the list and sends the reduce operations to it to calculate the sum
 mutable struct Coordinator{TCore} <: Actor{TCore}
@@ -70,7 +70,7 @@ Circo.monitorprojection(::Type{<:ListItem}) = JS("{
     geometry: new THREE.BoxBufferGeometry(10, 10, 10)
 }")
 
-@inline @fastmath function Circo.scheduler_infoton(scheduler, actor::Actor)
+@inline @fastmath function Circo.InfotonOpt.scheduler_infoton(scheduler, actor::Actor)
     energy = (SCHEDULER_TARGET_ACTORCOUNT - scheduler.actorcount) * 4e-2
     return Infoton(scheduler.pos, energy)
 end
