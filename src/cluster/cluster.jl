@@ -76,10 +76,9 @@ mutable struct ClusterActor{TCore} <: Actor{TCore}
     upstream_friends::Dict{Addr,Friend}
     downstream_friends::Set{Addr}
     peerupdate_count::UInt
-    servicename::String
     eventdispatcher::Addr
     core::TCore
-    ClusterActor(myinfo::NodeInfo, roots, core) = new{typeof(core)}(myinfo, roots, false, 0, Dict(), Dict(), Set(), 0, NAME, Addr(), core)
+    ClusterActor(myinfo::NodeInfo, roots, core) = new{typeof(core)}(myinfo, roots, false, 0, Dict(), Dict(), Set(), 0, Addr(), core)
 end
 ClusterActor(myinfo::NodeInfo, core) = ClusterActor(myinfo, [], core)
 ClusterActor(core;roots=[]) = ClusterActor(NodeInfo("unnamed"), roots, core)
@@ -134,8 +133,10 @@ struct ForceAddRoot
 end
 
 function requestjoin(me::ClusterActor, service)
-    if !isempty(me.servicename)
+    try
         registername(service, NAME, me)
+    catch e
+        @warn "Cannot register $NAME: $e"
     end
     if length(me.roots) == 0
         registerpeer(me, me.myinfo, service)

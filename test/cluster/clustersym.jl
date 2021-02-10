@@ -14,7 +14,6 @@ ctx = CircoContext()
     rootaddresses = []
     for i in 1:ROOT_COUNT
         root = Cluster.ClusterActor(NodeInfo("#$(length(cluster))"), rootaddresses, emptycore(scheduler.service))
-        root.servicename = ""
         push!(cluster, root)
         spawn(scheduler, root)
         scheduler(;remote=false)
@@ -23,7 +22,6 @@ ctx = CircoContext()
 
     for i in 1:PEER_COUNT - ROOT_COUNT
         node = Cluster.ClusterActor(NodeInfo("#$(length(cluster))"), rootaddresses, emptycore(scheduler.service))
-        node.servicename = ""
         push!(cluster, node)
         spawn(scheduler, node)
         if rand() < 0.2  # Simulate parallel joins
