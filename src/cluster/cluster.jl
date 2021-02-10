@@ -37,11 +37,12 @@ Circo.schedule_stop(cluster::ClusterServiceImpl, scheduler) = begin
 end
 
 mutable struct NodeInfo
+    extrainfo::Dict{Symbol,Any}
     name::String
     addr::Addr
     pos::Pos
-    NodeInfo(name) = new(name)
-    NodeInfo() = new()
+    NodeInfo(name) = new(Dict(), name)
+    NodeInfo() = new(Dict())
 end
 Circo.pos(i::NodeInfo) = i.pos
 Circo.addr(i::NodeInfo) = i.addr
@@ -132,6 +133,25 @@ struct ForceAddRoot
     root::PostCode
 end
 
+"""
+    PublishInfo(key::Symbol, info::Any)
+
+Send this to the cluster actor to publish any info in the "extrainfo"
+dict of the node's NodeInfo, which is (currently) synchronized to every
+peer in the cluster.
+"""
+struct PublishInfo
+    key::Symbol
+    info::Any
+end
+
+struct InfoUpdate
+    addr::Addr
+    creditto::Addr
+    key::Symbol
+    info::Any
+end
+
 function requestjoin(me::ClusterActor, service)
     try
         registername(service, NAME, me)
@@ -213,8 +233,9 @@ end
 
 function Circo.onmessage(me::ClusterActor, msg::CircoCore.Registry.NameResponse, service)
     @debug "Got $msg"
-    if msg.query.name != "cluster"
+    if msg.query.name != NAME
         @error "Got unrequested $msg"
+        return nothing
     end
     root = msg.handler
     if isnothing(root)
@@ -225,6 +246,7 @@ function Circo.onmessage(me::ClusterActor, msg::CircoCore.Registry.NameResponse,
     else
         send(service, me, root, JoinRequest(me.myinfo))
     end
+    return nothing
 end
 
 function Circo.onmessage(me::ClusterActor, msg::JoinRequest, service)
@@ -269,21 +291,25 @@ function Circo.onmessage(me::ClusterActor, msg::PeerListResponse, service)
     end
 end
 
+function credit_friend(me::ClusterActor, friend_addr::Addr, service)
+    friend = get(me.upstream_friends, friend_addr, nothing)
+    isnothing(friend) && return
+    friend.score += 1
+    if friend.score == 100
+        replaceafriend(me, service)
+        for f in values(me.upstream_friends)
+            f.score = 0
+        end
+    elseif friend.score % 10 == 0
+        if length(me.upstream_friends) < MIN_FRIEND_COUNT
+            getanewfriend(me, service)
+        end
+    end
+end
+
 function Circo.onmessage(me::ClusterActor, msg::PeerJoinedNotification, service)
     if registerpeer(me, msg.peer, service)
-        friend = get(me.upstream_friends, msg.creditto, nothing)
-        isnothing(friend) && return
-        friend.score += 1
-        if friend.score == 100
-            replaceafriend(me, service)
-            for f in values(me.upstream_friends)
-                f.score = 0
-            end
-        elseif friend.score % 10 == 0
-            if length(me.upstream_friends) < MIN_FRIEND_COUNT
-                getanewfriend(me, service)
-            end
-        end
+        credit_friend(me, msg.creditto, service)
         @debug "$(addr(me)): Peer joined: $(msg.peer.addr)"
     end
 end
@@ -338,6 +364,7 @@ end
 
 function Circo.onmessage(me::ClusterActor, msg::UnfriendRequest, service)
     pop!(me.downstream_friends, msg.requestor)
+    return nothing
 end
 
 function send_leaving(me::ClusterActor, service)
@@ -345,21 +372,28 @@ function send_leaving(me::ClusterActor, service)
     for friend in me.downstream_friends
         send(service, me, friend, notification)
     end
+    return nothing
 end
 
 function removepeer(me::ClusterActor, peer::Addr)
     delete!(me.peers, peer)
     delete!(me.upstream_friends, peer)
     delete!(me.downstream_friends, peer)
+    return nothing
+end
+
+function send_downstream(service, me::ClusterActor, msg)
+    for friend in me.downstream_friends
+        send(service, me, friend, msg)
+    end
+    return nothing
 end
 
 function Circo.onmessage(me::ClusterActor, msg::Leaving, service)
     who = msg.who
     if haskey(me.peers, who)
         nodeinfo  = me.peers[who]
-        for friend in me.downstream_friends
-            send(service, me, friend, PeerLeavingNotification(nodeinfo, addr(me)))
-        end
+        send_downstream(service, me, PeerLeavingNotification(nodeinfo, addr(me)))
     end
     removepeer(me, who)
     @debug "Friend $(msg.who) is left. $(length(me.peers)) peers left."
@@ -368,6 +402,21 @@ end
 function Circo.onmessage(me::ClusterActor, msg::PeerLeavingNotification, service)
     @debug "$(addr(me)): Got leaving notification about $(msg.peer.addr).  $(length(me.peers)) peers left."
     removepeer(me, msg.peer.addr)
+end
+
+isnewinfo(me::ClusterActor, key, info) = get(me.myinfo.extrainfo, key, nothing) != info
+
+function Circo.onmessage(me::ClusterActor, msg::PublishInfo, service)
+    isnewinfo(me, msg.key, msg.info) || return nothing
+    me.myinfo.extrainfo[msg.key] = msg.info
+    send_downstream(service, me, InfoUpdate(addr(me), addr(me), msg.key, msg.info))
+end
+
+function Circo.onmessage(me::ClusterActor, msg::InfoUpdate, service)
+    isnewinfo(me, msg.key, msg.info) || return nothing
+    me.myinfo.extrainfo[msg.key] = msg.info
+    send_downstream(service, me, InfoUpdate(msg.addr, addr(me), msg.key, msg.info))
+    msg.creditto != msg.addr && credit_friend(me, msg.creditto, service)
 end
 
 # TODO: update peers

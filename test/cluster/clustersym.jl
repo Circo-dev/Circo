@@ -45,4 +45,14 @@ ctx = CircoContext()
         @test node1.peers[addr(node2)].addr == addr(node2)
         @test node2.peers[addr(node1)].addr == addr(node1)
     end
+
+    for i=1:30
+        target = rand(cluster)
+        info = rand()
+        send(scheduler, target, Cluster.PublishInfo(:key1, info))
+        scheduler(;remote=false)
+        for checked in cluster
+            @test checked.peers[addr(target)].extrainfo[:key1] == info
+        end
+    end
 end

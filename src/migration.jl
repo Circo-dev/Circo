@@ -59,9 +59,10 @@ mutable struct MigrationServiceImpl <: MigrationService
     movedactors::Dict{ActorId,Addr}
     alternatives::MigrationAlternatives
     helperactor::Any
-    MigrationServiceImpl(;options...) = new(Dict([]),Dict([]), MigrationAlternatives([]))
+    MigrationServiceImpl(::ClusterService; options...) = new(Dict([]),Dict([]), MigrationAlternatives([]))
 end
 
+Plugins.deps(::Type{MigrationServiceImpl}) = [ClusterService]
 __init__() = Plugins.register(MigrationServiceImpl)
 
 mutable struct MigrationHelper{TCore} <: Actor{TCore}
