@@ -30,10 +30,9 @@ Infoton() = Infoton(nullpos, 0.0f0)
 
 abstract type Optimizer <: Plugin end
 mutable struct OptimizerImpl <: Optimizer
-    OptimizerImpl(space::Space; options...) = new()
+    OptimizerImpl(;options...) = new()
 end
 
-Plugins.deps(::Type{OptimizerImpl}) = [Space]
 __init__() = Plugins.register(OptimizerImpl)
 
 abstract type CustomOptimizer <: Optimizer end # for user-defined optimizers
