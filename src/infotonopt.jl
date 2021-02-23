@@ -1,14 +1,12 @@
 module InfotonOpt
 
-using ..Circo, ..Circo.Cluster, Circo.Monitor
+using ..Circo, ..Circo.Cluster, Circo.Monitor, Circo.Migration
 using Plugins
 using LinearAlgebra
 
 export Infoton
 
-const I = 1.0
-const TARGET_DISTANCE = 8.0
-
+# -  -
 """
     Infoton(sourcepos::Pos, energy::Real = 1)
 
@@ -29,21 +27,57 @@ end
 Infoton() = Infoton(nullpos, 0.0f0)
 
 abstract type Optimizer <: Plugin end
-mutable struct OptimizerImpl <: Optimizer
-    OptimizerImpl(;options...) = new()
-end
-
-__init__() = Plugins.register(OptimizerImpl)
-
 abstract type CustomOptimizer <: Optimizer end # for user-defined optimizers
 
+# - Default optimizer plugin - 
+
+const I = 1.0
+const TARGET_DISTANCE = 8.0
+const LOAD_ALPHA = 1e-3
+const MIGRATION_LOAD_THRESHOLD = 10
+
+mutable struct OptimizerImpl <: Optimizer
+    scheduler_load::Float32
+    accepts_migrants::Bool
+    migration::Migration.MigrationService
+    OptimizerImpl(migration;options...) = new(0.0f1, true, migration)
+end
+
+Plugins.symbol(::Optimizer) = :optimizer
+Plugins.deps(::Type{<:Optimizer}) = [Migration.MigrationService]
+__init__() = Plugins.register(OptimizerImpl)
+
+Plugins.customfield(::Optimizer, ::Type{AbstractMsg}) = Plugins.FieldSpec("infoton", Infoton, infotoninit)
 infotoninit() = Infoton()
 infotoninit(sender::Actor, target, body, scheduler; energy = 1.0f0) = begin
     return Infoton(pos(sender), energy)
 end
 infotoninit(sender::Addr, target, body, scheduler; energy = 1.0f0) = Infoton() # Sourcepos not known, better to use zero energy
 
-Plugins.customfield(::Optimizer, ::Type{AbstractMsg}) = Plugins.FieldSpec("infoton", Infoton, infotoninit)
+# - Measure scheduler load -
+
+@inline CircoCore.actor_activity_sparse256(optimizer::Optimizer, scheduler, actor::Actor) = begin
+    update_load!(optimizer, scheduler)
+end
+
+function update_load!(optimizer::Optimizer, scheduler)
+    optimizer.scheduler_load = 
+        LOAD_ALPHA * length(scheduler.msgqueue) +
+        (1.0f0 - LOAD_ALPHA) * optimizer.scheduler_load
+    SWITCH_TOLERANCE = 1.1f0
+    if optimizer.scheduler_load > MIGRATION_LOAD_THRESHOLD * SWITCH_TOLERANCE && optimizer.accepts_migrants
+        accepts_migrants(optimizer, false)
+    elseif optimizer.scheduler_load <MIGRATION_LOAD_THRESHOLD / SWITCH_TOLERANCE && !optimizer.accepts_migrants
+        accepts_migrants(optimizer, true)
+    end
+end
+
+function accepts_migrants(optimizer::Optimizer, accepts_them::Bool)
+    optimizer.accepts_migrants = accepts_them
+    Migration.accepts_migrants(optimizer.migration, accepts_them)
+end
+
+# - Apply Infotons -
 
 @inline Circo.localdelivery(optimizer::Optimizer, scheduler, msg, targetactor) = begin
     apply_infoton(optimizer, targetactor, msg.infoton)

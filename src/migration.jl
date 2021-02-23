@@ -3,7 +3,7 @@ module Migration
 
 export RecipientMoved, MigrationService, migrate_to_nearest, migrate, MigrationAlternatives
 
-using ..Circo, ..Circo.Cluster, Circo.Monitor
+using CircoCore, ..Circo, ..Circo.Cluster, Circo.Monitor
 using Plugins
 using DataStructures, LinearAlgebra
 import Base.length
@@ -55,14 +55,17 @@ Base.length(a::MigrationAlternatives) = Base.length(a.peers)
 
 abstract type MigrationService <: Plugin end
 mutable struct MigrationServiceImpl <: MigrationService
+    registry::CircoCore.LocalRegistry
     movingactors::Dict{ActorId,MovingActor}
     movedactors::Dict{ActorId,Addr}
+    accepts_migrants::Bool
     alternatives::MigrationAlternatives
     helperactor::Any
-    MigrationServiceImpl(::ClusterService; options...) = new(Dict([]),Dict([]), MigrationAlternatives([]))
+    scheduler
+    MigrationServiceImpl(registry::CircoCore.LocalRegistry,::ClusterService; options...) = new(registry,Dict([]),Dict([]),false,MigrationAlternatives([]))
 end
 
-Plugins.deps(::Type{MigrationServiceImpl}) = [ClusterService]
+Plugins.deps(::Type{MigrationServiceImpl}) = [CircoCore.LocalRegistry, ClusterService]
 __init__() = Plugins.register(MigrationServiceImpl)
 
 mutable struct MigrationHelper{TCore} <: Actor{TCore}
@@ -74,22 +77,34 @@ Circo.monitorprojection(::Type{<:MigrationHelper}) = JS("projections.nonimportan
 
 Plugins.symbol(::MigrationServiceImpl) = :migration
 
-function Circo.schedule_start(migration::MigrationServiceImpl, scheduler)
-    migration.helperactor = MigrationHelper(migration, emptycore(scheduler.service))
-    spawn(scheduler.service, migration.helperactor)
+function Circo.schedule_start(migration::MigrationServiceImpl, sdl)
+    migration.scheduler = sdl
+    migration.helperactor = MigrationHelper(migration, emptycore(sdl.service))
+    spawn(sdl.service, migration.helperactor)
+    accepts_migrants(migration, false)
 end
 
 function Circo.onspawn(me::MigrationHelper, service)
     cluster = getname(service, "cluster")
-    if isnothing(cluster)
-        error("Migration depends on cluster, but the name 'cluster' is not registered. Please install ClusterService before MigrationService.")
-    end
+    isnothing(cluster) && error("Migration depends on cluster, but the name 'cluster' is not registered.")
     registername(service, "migration", me)
     send(service, me, cluster, Subscribe{PeerListUpdated}(addr(me)))
 end
 
 function Circo.onmessage(me::MigrationHelper, message::PeerListUpdated, service)
-    me.service.alternatives = MigrationAlternatives(message.peers) # TODO filter if lengthy
+    target_peers = filter(peer -> get(peer.extrainfo, :accepts_migrants, false), message.peers)
+    me.service.alternatives = MigrationAlternatives(target_peers) # TODO strip if lengthy
+end
+
+function accepts_migrants(migration::MigrationServiceImpl, accepts_migrants::Bool)
+    migration.accepts_migrants == accepts_migrants && return false
+    migration.accepts_migrants = accepts_migrants
+    clusteraddr = getname(migration.registry, "cluster")
+    if isnothing(clusteraddr) || !isdefined(migration, :scheduler)
+        return false
+    end
+    send(migration.scheduler, addr(migration.helperactor), clusteraddr, PublishInfo(:accepts_migrants, accepts_migrants))
+    return true
 end
 
 """
@@ -212,4 +227,5 @@ end
     end
     return nothing
 end
+
 end # module

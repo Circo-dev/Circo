@@ -125,7 +125,7 @@ end
 
 function Host(ctx, threadcount::Int; zygote=[])
     hostid = rand(UInt64)
-    schedulers = create_schedulers(ctx, threadcount; zygote = zygote)
+    schedulers = create_schedulers(ctx, threadcount; zygote=zygote)
     return Host(schedulers, hostid)
 end
 

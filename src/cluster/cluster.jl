@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MPL-2.0
 module Cluster
 
-export NodeInfo, PeerListUpdated, ClusterService
+export NodeInfo, PeerListUpdated, ClusterService, PublishInfo
 
 using ..Circo, ..CircoCore.Registry, ..Circo.Monitor
 using Plugins
@@ -13,7 +13,7 @@ cluster_initialized_hook = Plugins.create_lifecyclehook(cluster_initialized)
 
 const NAME = "cluster"
 const MAX_JOINREQUEST_COUNT = 10
-const MAX_DOWNSTREAM_FRIENDS = 25
+const MAX_DOWNSTREAM_FRIENDS = 55
 const TARGET_FRIEND_COUNT = 5
 const MIN_FRIEND_COUNT = 3
 
@@ -85,7 +85,11 @@ ClusterActor(myinfo::NodeInfo, core) = ClusterActor(myinfo, [], core)
 ClusterActor(core;roots=[]) = ClusterActor(NodeInfo("unnamed"), roots, core)
 
 Circo.monitorextra(me::ClusterActor) = (myinfo=me.myinfo, peers=values(me.peers))
-Circo.monitorprojection(::Type{<:ClusterActor}) = JS("projections.nonimportant")
+Circo.monitorprojection(::Type{<:ClusterActor}) = JS("{
+    geometry: new THREE.BoxBufferGeometry(20, 20, 20),
+    scale: { x: 1, y: 1, z: 1 },
+    rotation: { x: 0, y: 0, z: 0 }
+}")
 
 struct JoinRequest
     info::NodeInfo
@@ -208,7 +212,7 @@ end
 function registerpeer(me::ClusterActor, newpeer::NodeInfo, service)
     if setpeer(me, newpeer)
         @debug "$(addr(me)) : PeerList updated"
-        fire(service, me, PeerListUpdated(collect(values(me.peers))))
+        fire(service, me, PeerListUpdated(deepcopy(collect(values(me.peers)))))
         for friend in me.downstream_friends
             send(service, me, friend, PeerJoinedNotification(newpeer, addr(me)))
         end
@@ -219,14 +223,14 @@ end
 
 function Circo.onmessage(me::ClusterActor, messsage::Subscribe{Joined}, service)
     if me.joined # TODO The lately sent event may contain different data. Is that a problem?
-        send(service, me, messsage.subscriber, Joined(collect(values(me.peers)))) #TODO handle late subscription to one-off events automatically
+        send(service, me, messsage.subscriber, Joined(deepcopy(collect(values(me.peers))))) #TODO handle late subscription to one-off events automatically
     end
     send(service, me, me.eventdispatcher, messsage)
 end
 
 function Circo.onmessage(me::ClusterActor, messsage::Subscribe{PeerListUpdated}, service)
     if length(me.peers) > 0
-        send(service, me, messsage.subscriber, PeerListUpdated(collect(values(me.peers)))) # TODO State-change events may need a better (automatic) mechanism for handling initial state
+        send(service, me, messsage.subscriber, PeerListUpdated(deepcopy(collect(values(me.peers))))) # TODO State-change events may need a better (automatic) mechanism for handling initial state
     end
     send(service, me, me.eventdispatcher, messsage)
 end
@@ -244,7 +248,7 @@ function Circo.onmessage(me::ClusterActor, msg::CircoCore.Registry.NameResponse,
     elseif root == addr(me)
         @info "Got own address as cluster"
     else
-        send(service, me, root, JoinRequest(me.myinfo))
+        send(service, me, root, JoinRequest(deepcopy(me.myinfo)))
     end
     return nothing
 end
@@ -257,14 +261,14 @@ function Circo.onmessage(me::ClusterActor, msg::JoinRequest, service)
     if registerpeer(me, newpeer, service)
         @info "Got new peer $(newpeer.addr) . $(length(me.peers)) nodes in cluster."
     end
-    send(service, me, newpeer.addr, JoinResponse(newpeer, me.myinfo, collect(values(me.peers)), true))
+    send(service, me, newpeer.addr, JoinResponse(newpeer, deepcopy(me.myinfo), deepcopy(collect(values(me.peers))), true))
 end
 
 function Circo.onmessage(me::ClusterActor, msg::JoinResponse, service)
     if msg.accepted
         me.joined = true
         initpeers(me, msg.peers, service)
-        send(service, me, me.eventdispatcher, Joined(collect(values(me.peers))))
+        send(service, me, me.eventdispatcher, Joined(deepcopy(collect(values(me.peers)))))
         @info "Joined to cluster using root node $(msg.responderinfo.addr). ($(length(msg.peers)) peers)"
     else
         requestjoin(me, service)
@@ -275,14 +279,14 @@ function initpeers(me::ClusterActor, peers::Array{NodeInfo}, service)
     for peer in peers
         setpeer(me, peer)
     end
-    fire(service, me, PeerListUpdated(collect(values(me.peers))))
+    fire(service, me, PeerListUpdated(deepcopy(collect(values(me.peers)))))
     for i in 1:min(TARGET_FRIEND_COUNT, length(peers))
         getanewfriend(me, service)
     end
 end
 
 function Circo.onmessage(me::ClusterActor, msg::PeerListRequest, service)
-    send(service, me, msg.respondto, PeerListResponse(collect(values(me.peers))))
+    send(service, me, msg.respondto, PeerListResponse(deepcopy(collect(values(me.peers)))))
 end
 
 function Circo.onmessage(me::ClusterActor, msg::PeerListResponse, service)
@@ -405,16 +409,17 @@ function Circo.onmessage(me::ClusterActor, msg::PeerLeavingNotification, service
 end
 
 isnewinfo(me::ClusterActor, key, info) = get(me.myinfo.extrainfo, key, nothing) != info
+isnewinfo(me::ClusterActor, addr, key, info) = get(me.peers[addr].extrainfo, key, nothing) != info
 
 function Circo.onmessage(me::ClusterActor, msg::PublishInfo, service)
     isnewinfo(me, msg.key, msg.info) || return nothing
-    me.myinfo.extrainfo[msg.key] = msg.info
+    @show me.myinfo.extrainfo[msg.key] = msg.info
     send_downstream(service, me, InfoUpdate(addr(me), addr(me), msg.key, msg.info))
 end
 
 function Circo.onmessage(me::ClusterActor, msg::InfoUpdate, service)
-    isnewinfo(me, msg.key, msg.info) || return nothing
-    me.myinfo.extrainfo[msg.key] = msg.info
+    isnewinfo(me, msg.addr, msg.key, msg.info) || return nothing
+    me.peers[msg.addr].extrainfo[msg.key] = msg.info
     send_downstream(service, me, InfoUpdate(msg.addr, addr(me), msg.key, msg.info))
     msg.creditto != msg.addr && credit_friend(me, msg.creditto, service)
 end

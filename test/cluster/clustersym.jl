@@ -3,7 +3,7 @@ using Test
 using Circo, Circo.Cluster
 import Circo:onmessage, onmigrate
 
-const PEER_COUNT = 500
+const PEER_COUNT = 50
 const ROOT_COUNT = 3
 
 ctx = CircoContext()
@@ -46,12 +46,13 @@ ctx = CircoContext()
         @test node2.peers[addr(node1)].addr == addr(node1)
     end
 
-    for i=1:30
-        target = rand(cluster)
-        info = rand()
+    for i=1:1
+        @show target = rand(cluster)
+        @show info = rand()
         send(scheduler, target, Cluster.PublishInfo(:key1, info))
         scheduler(;remote=false)
         for checked in cluster
+            @show checked.peers[addr(target)].extrainfo
             @test checked.peers[addr(target)].extrainfo[:key1] == info
         end
     end
