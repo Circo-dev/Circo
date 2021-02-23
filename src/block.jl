@@ -19,7 +19,7 @@ end
 
 The Block Service allows actors to stop processing messages and wait for a specific signal message.
 
-Messages arriving while the actor is blocked will be queued and delived later.
+Messages arriving while the actor is blocked will be queued and delivered later.
 The wakeup signal is defined by a type: if an incoming message is an instance of it,
 the actor will wake up. It is also possible to specify another message type that
 will still be delivered without waking up the actor (called `process_readonly`).
@@ -49,6 +49,18 @@ Circo.localroutes(bs::BlockService, sdl, msg::AbstractMsg)::Bool = begin
     return true
 end
 
+function block(wakecb::Function, service, me::Actor, wakeon::Type; process_readonly = Nothing)
+    block(service, me, wakeon; process_readonly = process_readonly, wakecb = wakecb)
+end
+
+function block(service, me::Actor, wakeon::Type; process_readonly = Nothing, wakecb = nocb)
+    bs = plugin(service, :block)
+    isnothing(bs) && error("Block plugin not loaded!")
+    bs::BlockService
+    sdl = service.scheduler
+    block(bs, sdl, me, wakeon; process_readonly = process_readonly, wakecb = wakecb)
+end
+
 nocb(_...) = false
 
 function block(bs::BlockService, sdl, actor::Actor, wakeon::Type; process_readonly = Nothing, wakecb = nocb)
@@ -71,18 +83,6 @@ function wake(bs::BlockService, sdl, actor::Actor, msg...)
         CircoCore.deliver!(sdl, delayed_msg)
     end
     return wakeresult
-end
-
-function block(service, me::Actor, wakeon::Type; process_readonly = Nothing, wakecb = nocb)
-    bs = plugin(service, :block)
-    isnothing(bs) && error("Block plugin not loaded!")
-    bs::BlockService
-    sdl = service.scheduler
-    block(bs, sdl, me, wakeon; process_readonly = process_readonly, wakecb = wakecb)
-end
-
-function block(wakecb::Function, service, me::Actor, wakeon::Type; process_readonly = Nothing)
-    block(service, me, wakeon; process_readonly = process_readonly, wakecb = wakecb)
 end
 
 function wake(service, me::Actor)
