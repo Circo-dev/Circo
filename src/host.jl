@@ -178,7 +178,6 @@ function (ts::Host)(;remote=true, exit=false, first_threadidx=2)
     tasks = []
     next_threadid = min(Threads.nthreads(), first_threadidx)
     for scheduler in ts.schedulers
-        sleep(1.0)# TODO: still needed?
         t = onthread(next_threadid) do
             try
                 scheduler(;remote=remote, exit=exit)

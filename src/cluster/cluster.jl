@@ -13,7 +13,7 @@ cluster_initialized_hook = Plugins.create_lifecyclehook(cluster_initialized)
 
 const NAME = "cluster"
 const MAX_JOINREQUEST_COUNT = 10
-const MAX_DOWNSTREAM_FRIENDS = 55
+const MAX_DOWNSTREAM_FRIENDS = 15
 const TARGET_FRIEND_COUNT = 5
 const MIN_FRIEND_COUNT = 3
 
@@ -64,7 +64,7 @@ end
 mutable struct Friend
     addr::Addr
     score::UInt
-    Friend(info) = new(info)
+    Friend(info) = new(info, 0)
 end
 Base.isless(a::Friend,b::Friend) = Base.isless(a.score, b.score)
 
@@ -182,7 +182,7 @@ function sendjoinrequest(me::ClusterActor, root::PostCode, service)
         send(service, me, Addr(root), NameQuery("cluster");timeout=10.0)
     else
         @debug "Got direct root address: $root" # TODO possible only because PostCode==String, which is bad
-        send(service, me, rootaddr, JoinRequest(me.myinfo))
+        send(service, me, rootaddr, JoinRequest(deepcopy(me.myinfo)))
     end
 end
 
@@ -214,7 +214,7 @@ function registerpeer(me::ClusterActor, newpeer::NodeInfo, service)
         @debug "$(addr(me)) : PeerList updated"
         fire(service, me, PeerListUpdated(deepcopy(collect(values(me.peers)))))
         for friend in me.downstream_friends
-            send(service, me, friend, PeerJoinedNotification(newpeer, addr(me)))
+            send(service, me, friend, PeerJoinedNotification(deepcopy(newpeer), addr(me)))
         end
         return true
     end
@@ -253,9 +253,13 @@ function Circo.onmessage(me::ClusterActor, msg::CircoCore.Registry.NameResponse,
     return nothing
 end
 
+function need_upstream_friend(me::ClusterActor)
+    return length(me.upstream_friends) < TARGET_FRIEND_COUNT
+end
+
 function Circo.onmessage(me::ClusterActor, msg::JoinRequest, service)
     newpeer = msg.info
-    if (length(me.upstream_friends) < TARGET_FRIEND_COUNT)
+    if need_upstream_friend(me)
         send(service, me, newpeer.addr, FriendRequest(addr(me)))
     end
     if registerpeer(me, newpeer, service)
@@ -352,6 +356,9 @@ function Circo.onmessage(me::ClusterActor, msg::FriendRequest, service)
     accepted = !friendsalready && length(me.downstream_friends) < MAX_DOWNSTREAM_FRIENDS
     if accepted
         push!(me.downstream_friends, msg.requestor)
+        if !haskey(me.upstream_friends, msg.requestor) # TODO: Friendships start as symmetric for now
+            send(service, me, msg.requestor, FriendRequest(addr(me)))
+        end
     end
     send(service, me, msg.requestor, FriendResponse(addr(me), accepted))
 end
@@ -388,7 +395,7 @@ end
 
 function send_downstream(service, me::ClusterActor, msg)
     for friend in me.downstream_friends
-        send(service, me, friend, msg)
+        send(service, me, friend, deepcopy(msg))
     end
     return nothing
 end
@@ -397,7 +404,7 @@ function Circo.onmessage(me::ClusterActor, msg::Leaving, service)
     who = msg.who
     if haskey(me.peers, who)
         nodeinfo  = me.peers[who]
-        send_downstream(service, me, PeerLeavingNotification(nodeinfo, addr(me)))
+        send_downstream(service, me, PeerLeavingNotification(deepcopy(nodeinfo), addr(me)))
     end
     removepeer(me, who)
     @debug "Friend $(msg.who) is left. $(length(me.peers)) peers left."
@@ -413,11 +420,12 @@ isnewinfo(me::ClusterActor, addr, key, info) = get(me.peers[addr].extrainfo, key
 
 function Circo.onmessage(me::ClusterActor, msg::PublishInfo, service)
     isnewinfo(me, msg.key, msg.info) || return nothing
-    @show me.myinfo.extrainfo[msg.key] = msg.info
+    me.myinfo.extrainfo[msg.key] = msg.info
     send_downstream(service, me, InfoUpdate(addr(me), addr(me), msg.key, msg.info))
 end
 
 function Circo.onmessage(me::ClusterActor, msg::InfoUpdate, service)
+    msg.addr != addr(me) || return nothing
     isnewinfo(me, msg.addr, msg.key, msg.info) || return nothing
     me.peers[msg.addr].extrainfo[msg.key] = msg.info
     send_downstream(service, me, InfoUpdate(msg.addr, addr(me), msg.key, msg.info))
