@@ -34,7 +34,7 @@ abstract type CustomOptimizer <: Optimizer end # for user-defined optimizers
 const I = 1.0
 const TARGET_DISTANCE = 8.0
 const LOAD_ALPHA = 1e-3
-const MIGRATION_LOAD_THRESHOLD = 10
+const MIGRATION_LOAD_THRESHOLD = 25
 
 mutable struct OptimizerImpl <: Optimizer
     scheduler_load::Float32
@@ -65,10 +65,14 @@ function update_load!(optimizer::Optimizer, scheduler)
         LOAD_ALPHA * length(scheduler.msgqueue) +
         (1.0f0 - LOAD_ALPHA) * optimizer.scheduler_load
     SWITCH_TOLERANCE = 1.1f0
-    if optimizer.scheduler_load > MIGRATION_LOAD_THRESHOLD * SWITCH_TOLERANCE && optimizer.accepts_migrants
-        accepts_migrants(optimizer, false)
-    elseif optimizer.scheduler_load <MIGRATION_LOAD_THRESHOLD / SWITCH_TOLERANCE && !optimizer.accepts_migrants
-        accepts_migrants(optimizer, true)
+    if optimizer.accepts_migrants
+        if optimizer.scheduler_load > MIGRATION_LOAD_THRESHOLD * SWITCH_TOLERANCE
+            accepts_migrants(optimizer, false)
+        end
+    else 
+        if optimizer.scheduler_load < MIGRATION_LOAD_THRESHOLD / SWITCH_TOLERANCE
+            accepts_migrants(optimizer, true)
+        end
     end
 end
 

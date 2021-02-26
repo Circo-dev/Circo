@@ -223,7 +223,7 @@ end
     if isnothing(nearest) return nothing end
     if box(nearest.addr) === box(addr(me)) return nothing end
     if norm(pos(me) - pos(nearest)) < (1.0 - tolerance) * norm(pos(me) - pos(service))
-        @info "Migrating to $(postcode(nearest))"
+        #@info "Migrating to $(postcode(nearest))"
         migrate(service, me, postcode(nearest))
     end
     return nothing
