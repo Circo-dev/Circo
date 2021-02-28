@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MPL-2.0
 module Cluster
 
-export NodeInfo, PeerListUpdated, ClusterService, PublishInfo
+export NodeInfo, PeerListUpdated, PeerUpdated, ClusterService, PublishInfo
 
 using ..Circo, ..CircoCore.Registry, ..Circo.Monitor
 using Plugins
@@ -152,6 +152,12 @@ end
 struct InfoUpdate
     addr::Addr
     creditto::Addr
+    key::Symbol
+    info::Any
+end
+
+struct PeerUpdated <: CircoCore.Event
+    addr::Addr
     key::Symbol
     info::Any
 end
@@ -430,6 +436,7 @@ function Circo.onmessage(me::ClusterActor, msg::InfoUpdate, service)
     me.peers[msg.addr].extrainfo[msg.key] = msg.info
     send_downstream(service, me, InfoUpdate(msg.addr, addr(me), msg.key, msg.info))
     msg.creditto != msg.addr && credit_friend(me, msg.creditto, service)
+    fire(service, me, PeerUpdated(msg.addr, msg.key, deepcopy(msg.info))
 end
 
 # TODO: update peers

@@ -52,6 +52,7 @@ mutable struct MigrationAlternatives
     peers::Array{NodeInfo}
 end
 Base.length(a::MigrationAlternatives) = Base.length(a.peers)
+getpeer(a::MigrationAlternatives, addr) = findfirst(a.peers, n -> n.addr == addr)
 
 abstract type MigrationService <: Plugin end
 mutable struct MigrationServiceImpl <: MigrationService
@@ -89,11 +90,28 @@ function Circo.onspawn(me::MigrationHelper, service)
     isnothing(cluster) && error("Migration depends on cluster, but the name 'cluster' is not registered.")
     registername(service, "migration", me)
     send(service, me, cluster, Subscribe{PeerListUpdated}(addr(me)))
+    send(service, me, cluster, Subscribe{PeerUpdated}(addr(me)))
 end
 
 function Circo.onmessage(me::MigrationHelper, message::PeerListUpdated, service)
     target_peers = filter(peer -> get(peer.extrainfo, :accepts_migrants, false), message.peers)
     me.service.alternatives = MigrationAlternatives(target_peers) # TODO strip if lengthy
+end
+
+function Circo.onmessage(me::MigrationHelper, message::PeerUpdated, service)
+    if message.key != :accepts_migrants
+        return
+    end
+    if message.info != true
+        rmpeer(me.service.alternatives, message.addr)
+        return
+    end
+    oldpeer = getpeer(me.service.alternatives, message.addr)
+    if isnothing(oldpeer)
+        addpeer(me.service.alternatives, message.)
+    else
+        oldpeer.extrainfo[message.key] = true
+    end
 end
 
 function accepts_migrants(migration::MigrationServiceImpl, accepts_migrants::Bool)

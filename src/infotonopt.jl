@@ -34,7 +34,7 @@ abstract type CustomOptimizer <: Optimizer end # for user-defined optimizers
 const I = 1.0
 const TARGET_DISTANCE = 8.0
 const LOAD_ALPHA = 1e-3
-const MIGRATION_LOAD_THRESHOLD = 25
+const MIGRATION_LOAD_THRESHOLD = 8
 
 mutable struct OptimizerImpl <: Optimizer
     scheduler_load::Float32
