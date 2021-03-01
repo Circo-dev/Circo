@@ -50,9 +50,25 @@ end
 
 mutable struct MigrationAlternatives
     peers::Array{NodeInfo}
+    cache::Peers
+    MigrationAlternatives() = new([], Peers())
+    MigrationAlternatives(peers) = new(peers, Peers())
 end
 Base.length(a::MigrationAlternatives) = Base.length(a.peers)
-getpeer(a::MigrationAlternatives, addr) = findfirst(a.peers, n -> n.addr == addr)
+Base.getindex(a::MigrationAlternatives, addr) = a.peers[addr]
+refresh!(a::MigrationAlternatives) = a.cache = Peers(a.peers)
+function Base.push!(a::MigrationAlternatives, peer)
+    push!(a.peers, peer)
+    refresh!(a)
+    return a
+end
+function Base.delete!(a::MigrationAlternatives, peeraddr)
+    if haskey(a.cache.cache, peeraddr)
+        delete!(a.cache, peeraddr)
+        refresh!(a)
+    end
+    return a
+end
 
 abstract type MigrationService <: Plugin end
 mutable struct MigrationServiceImpl <: MigrationService
@@ -63,9 +79,9 @@ mutable struct MigrationServiceImpl <: MigrationService
     alternatives::MigrationAlternatives
     helperactor::Any
     scheduler
-    MigrationServiceImpl(registry::CircoCore.LocalRegistry,::ClusterService; options...) = new(registry,Dict([]),Dict([]),false,MigrationAlternatives([]))
+    MigrationServiceImpl(registry::CircoCore.LocalRegistry,::ClusterService; options...) = new(registry,Dict([]),Dict([]),false,MigrationAlternatives())
 end
-
+Plugins.symbol(::MigrationServiceImpl) = :migration
 Plugins.deps(::Type{MigrationServiceImpl}) = [CircoCore.LocalRegistry, ClusterService]
 __init__() = Plugins.register(MigrationServiceImpl)
 
@@ -75,8 +91,6 @@ mutable struct MigrationHelper{TCore} <: Actor{TCore}
 end
 
 Circo.monitorprojection(::Type{<:MigrationHelper}) = JS("projections.nonimportant")
-
-Plugins.symbol(::MigrationServiceImpl) = :migration
 
 function Circo.schedule_start(migration::MigrationServiceImpl, sdl)
     migration.scheduler = sdl
@@ -89,28 +103,40 @@ function Circo.onspawn(me::MigrationHelper, service)
     cluster = getname(service, "cluster")
     isnothing(cluster) && error("Migration depends on cluster, but the name 'cluster' is not registered.")
     registername(service, "migration", me)
-    send(service, me, cluster, Subscribe{PeerListUpdated}(addr(me)))
+    send(service, me, cluster, Subscribe{PeerAdded}(addr(me)))
+    send(service, me, cluster, Subscribe{PeerRemoved}(addr(me)))
     send(service, me, cluster, Subscribe{PeerUpdated}(addr(me)))
+    send(service, me, cluster, PeersRequest(addr(me)))
 end
 
-function Circo.onmessage(me::MigrationHelper, message::PeerListUpdated, service)
-    target_peers = filter(peer -> get(peer.extrainfo, :accepts_migrants, false), message.peers)
+function Circo.onmessage(me::MigrationHelper, msg::PeersResponse, service)
+    target_peers = collect(Iterators.filter(peer -> get(peer.extrainfo, :accepts_migrants, false), values(msg.peers)))
     me.service.alternatives = MigrationAlternatives(target_peers) # TODO strip if lengthy
 end
 
-function Circo.onmessage(me::MigrationHelper, message::PeerUpdated, service)
-    if message.key != :accepts_migrants
+function Circo.onmessage(me::MigrationHelper, msg::PeerAdded, service)
+    if get(msg.peer.extrainfo, :accepts_migrants, false) == true
+        push!(me.service.alternatives, msg.peer)
+    end
+end
+
+function Circo.onmessage(me::MigrationHelper, msg::PeerRemoved, service)
+    delete!(me.service.alternatives, msg.peer.addr)
+end
+
+function Circo.onmessage(me::MigrationHelper, msg::PeerUpdated, service)
+    if msg.key != :accepts_migrants
         return
     end
-    if message.info != true
-        rmpeer(me.service.alternatives, message.addr)
+    if msg.info != true
+        delete!(me.service.alternatives, msg.peer.addr)
         return
     end
-    oldpeer = getpeer(me.service.alternatives, message.addr)
+    oldpeer = get(me.service.alternatives, msg.peer.addr, nothing)
     if isnothing(oldpeer)
-        addpeer(me.service.alternatives, message.)
+        push!(me.service.alternatives, oldpeer)
     else
-        oldpeer.extrainfo[message.key] = true
+        oldpeer.extrainfo[msg.key] = true
     end
 end
 

@@ -3,7 +3,7 @@ using Test
 using Circo, Circo.Cluster
 import Circo:onmessage, onmigrate
 
-const PEER_COUNT = 200
+const PEER_COUNT = 400
 const ROOT_COUNT = 3
 
 ctx = CircoContext()
