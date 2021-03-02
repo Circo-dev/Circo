@@ -3,7 +3,7 @@ module Migration
 
 export RecipientMoved, MigrationService, migrate_to_nearest, migrate, MigrationAlternatives
 
-using ..Circo, ..Circo.Cluster, Circo.Monitor
+using CircoCore, ..Circo, ..Circo.Cluster, Circo.Monitor
 using Plugins
 using DataStructures, LinearAlgebra
 import Base.length
@@ -50,19 +50,40 @@ end
 
 mutable struct MigrationAlternatives
     peers::Array{NodeInfo}
+    cache::Peers
+    MigrationAlternatives() = new([], Peers())
+    MigrationAlternatives(peers) = new(peers, Peers(peers))
 end
 Base.length(a::MigrationAlternatives) = Base.length(a.peers)
+Base.getindex(a::MigrationAlternatives, addr) = a.cache[addr]
+Base.get(a::MigrationAlternatives, k, def) = get(a.cache, k, def)
+refresh!(a::MigrationAlternatives) = a.peers = collect(values(a.cache))
+function Base.push!(a::MigrationAlternatives, peer)
+    a.cache[peer.addr] = peer
+    refresh!(a)
+    return a
+end
+function Base.delete!(a::MigrationAlternatives, peeraddr)
+    if haskey(a.cache.cache, peeraddr)
+        delete!(a.cache, peeraddr)
+        refresh!(a)
+    end
+    return a
+end
 
 abstract type MigrationService <: Plugin end
 mutable struct MigrationServiceImpl <: MigrationService
+    registry::CircoCore.LocalRegistry
     movingactors::Dict{ActorId,MovingActor}
     movedactors::Dict{ActorId,Addr}
+    accepts_migrants::Bool
     alternatives::MigrationAlternatives
     helperactor::Any
-    MigrationServiceImpl(::ClusterService; options...) = new(Dict([]),Dict([]), MigrationAlternatives([]))
+    scheduler
+    MigrationServiceImpl(registry::CircoCore.LocalRegistry,::ClusterService; options...) = new(registry,Dict([]),Dict([]),false,MigrationAlternatives())
 end
-
-Plugins.deps(::Type{MigrationServiceImpl}) = [ClusterService]
+Plugins.symbol(::MigrationServiceImpl) = :migration
+Plugins.deps(::Type{MigrationServiceImpl}) = [CircoCore.LocalRegistry, ClusterService]
 __init__() = Plugins.register(MigrationServiceImpl)
 
 mutable struct MigrationHelper{TCore} <: Actor{TCore}
@@ -72,24 +93,63 @@ end
 
 Circo.monitorprojection(::Type{<:MigrationHelper}) = JS("projections.nonimportant")
 
-Plugins.symbol(::MigrationServiceImpl) = :migration
-
-function Circo.schedule_start(migration::MigrationServiceImpl, scheduler)
-    migration.helperactor = MigrationHelper(migration, emptycore(scheduler.service))
-    spawn(scheduler.service, migration.helperactor)
+function Circo.schedule_start(migration::MigrationServiceImpl, sdl)
+    migration.scheduler = sdl
+    migration.helperactor = MigrationHelper(migration, emptycore(sdl.service))
+    spawn(sdl.service, migration.helperactor)
+    accepts_migrants(migration, true)
 end
 
 function Circo.onspawn(me::MigrationHelper, service)
     cluster = getname(service, "cluster")
-    if isnothing(cluster)
-        error("Migration depends on cluster, but the name 'cluster' is not registered. Please install ClusterService before MigrationService.")
-    end
+    isnothing(cluster) && error("Migration depends on cluster, but the name 'cluster' is not registered.")
     registername(service, "migration", me)
-    send(service, me, cluster, Subscribe{PeerListUpdated}(addr(me)))
+    send(service, me, cluster, Subscribe{PeerAdded}(addr(me)))
+    send(service, me, cluster, Subscribe{PeerRemoved}(addr(me)))
+    send(service, me, cluster, Subscribe{PeerUpdated}(addr(me)))
+    send(service, me, cluster, PeersRequest(addr(me)))
 end
 
-function Circo.onmessage(me::MigrationHelper, message::PeerListUpdated, service)
-    me.service.alternatives = MigrationAlternatives(message.peers) # TODO filter if lengthy
+function Circo.onmessage(me::MigrationHelper, msg::PeersResponse, service)
+    target_peers = collect(Iterators.filter(peer -> get(peer.extrainfo, :accepts_migrants, false), values(msg.peers)))
+    me.service.alternatives = MigrationAlternatives(target_peers) # TODO strip if lengthy
+end
+
+function Circo.onmessage(me::MigrationHelper, msg::PeerAdded, service)
+    if get(msg.peer.extrainfo, :accepts_migrants, false) == true
+        push!(me.service.alternatives, msg.peer)
+    end
+end
+
+function Circo.onmessage(me::MigrationHelper, msg::PeerRemoved, service)
+    delete!(me.service.alternatives, msg.peer.addr)
+end
+
+function Circo.onmessage(me::MigrationHelper, msg::PeerUpdated, service)
+    if msg.key != :accepts_migrants
+        return
+    end
+    if msg.info != true
+        delete!(me.service.alternatives, msg.peer.addr)
+        return
+    end
+    oldpeer = get(me.service.alternatives, msg.peer.addr, nothing)
+    if isnothing(oldpeer)
+        push!(me.service.alternatives, msg.peer)
+    else
+        oldpeer.extrainfo[msg.key] = true
+    end
+end
+
+function accepts_migrants(migration::MigrationServiceImpl, accepts_migrants::Bool)
+    migration.accepts_migrants == accepts_migrants && return false
+    migration.accepts_migrants = accepts_migrants
+    clusteraddr = getname(migration.registry, "cluster")
+    if isnothing(clusteraddr) || !isdefined(migration, :scheduler)
+        return false
+    end
+    send(migration.scheduler, addr(migration.helperactor), clusteraddr, PublishInfo(:accepts_migrants, accepts_migrants))
+    return true
 end
 
 """
@@ -208,8 +268,10 @@ end
     if isnothing(nearest) return nothing end
     if box(nearest.addr) === box(addr(me)) return nothing end
     if norm(pos(me) - pos(nearest)) < (1.0 - tolerance) * norm(pos(me) - pos(service))
+        #@info "Migrating to $(postcode(nearest))"
         migrate(service, me, postcode(nearest))
     end
     return nothing
 end
+
 end # module

@@ -3,7 +3,7 @@ using Test
 using Circo, Circo.Cluster
 import Circo:onmessage, onmigrate
 
-const PEER_COUNT = 500
+const PEER_COUNT = 400
 const ROOT_COUNT = 3
 
 ctx = CircoContext()
@@ -25,11 +25,10 @@ ctx = CircoContext()
         push!(cluster, node)
         spawn(scheduler, node)
         if rand() < 0.2  # Simulate parallel joins
-            scheduler(;remote=false)
+            @time scheduler(;remote=false)
         end
     end
     scheduler(;remote=false)
-    Circo.shutdown!(scheduler)
     avgpeers = sum([length(node.peers) for node in cluster]) / length(cluster)
     maxpeerupdates = maximum([node.peerupdate_count for node in cluster])
     avgpeerupdate = sum([node.peerupdate_count for node in cluster]) / length(cluster)
@@ -46,13 +45,16 @@ ctx = CircoContext()
         @test node2.peers[addr(node1)].addr == addr(node1)
     end
 
-    for i=1:30
+    for i=1:10
         target = rand(cluster)
         info = rand()
         send(scheduler, target, Cluster.PublishInfo(:key1, info))
         scheduler(;remote=false)
         for checked in cluster
-            @test checked.peers[addr(target)].extrainfo[:key1] == info
+            if addr(checked) != addr(target)
+                @test checked.peers[addr(target)].extrainfo[:key1] == info
+            end
         end
     end
+    Circo.shutdown!(scheduler)
 end
