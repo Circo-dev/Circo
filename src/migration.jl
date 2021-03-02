@@ -52,13 +52,14 @@ mutable struct MigrationAlternatives
     peers::Array{NodeInfo}
     cache::Peers
     MigrationAlternatives() = new([], Peers())
-    MigrationAlternatives(peers) = new(peers, Peers())
+    MigrationAlternatives(peers) = new(peers, Peers(peers))
 end
 Base.length(a::MigrationAlternatives) = Base.length(a.peers)
-Base.getindex(a::MigrationAlternatives, addr) = a.peers[addr]
-refresh!(a::MigrationAlternatives) = a.cache = Peers(a.peers)
+Base.getindex(a::MigrationAlternatives, addr) = a.cache[addr]
+Base.get(a::MigrationAlternatives, k, def) = get(a.cache, k, def)
+refresh!(a::MigrationAlternatives) = a.peers = collect(values(a.cache))
 function Base.push!(a::MigrationAlternatives, peer)
-    push!(a.peers, peer)
+    a.cache[peer.addr] = peer
     refresh!(a)
     return a
 end
@@ -134,7 +135,7 @@ function Circo.onmessage(me::MigrationHelper, msg::PeerUpdated, service)
     end
     oldpeer = get(me.service.alternatives, msg.peer.addr, nothing)
     if isnothing(oldpeer)
-        push!(me.service.alternatives, oldpeer)
+        push!(me.service.alternatives, msg.peer)
     else
         oldpeer.extrainfo[msg.key] = true
     end

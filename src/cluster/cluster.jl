@@ -56,6 +56,7 @@ end
 Base.getindex(peers::Peers, addr) = peers.cache[addr]
 Base.setindex!(peers::Peers, peer, addr) = peers.cache[addr] = peer
 Base.delete!(peers::Peers, addr) = delete!(peers.cache, addr)
+Base.get(peers::Peers, k, def) = get(peers.cache, k, def)
 Base.values(peers::Peers) = values(peers.cache)
 Base.length(peers::Peers) = length(peers.cache)
 

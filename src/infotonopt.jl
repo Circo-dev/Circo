@@ -34,7 +34,7 @@ abstract type CustomOptimizer <: Optimizer end # for user-defined optimizers
 const I = 1.0
 const TARGET_DISTANCE = 8.0
 const LOAD_ALPHA = 1e-3
-const MIGRATION_LOAD_THRESHOLD = 8
+const MIGRATION_LOAD_THRESHOLD = 18
 
 mutable struct OptimizerImpl <: Optimizer
     scheduler_load::Float32
@@ -73,6 +73,14 @@ function update_load!(optimizer::Optimizer, scheduler)
         if optimizer.scheduler_load < MIGRATION_LOAD_THRESHOLD / SWITCH_TOLERANCE
             accepts_migrants(optimizer, true)
         end
+    end
+end
+
+@inline function CircoCore.idle(optimizer::Optimizer, scheduler)
+    if optimizer.scheduler_load < 1f-3
+        optimizer.scheduler_load = 0.0f1
+    else
+        update_load!(optimizer, scheduler)
     end
 end
 
