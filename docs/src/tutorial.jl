@@ -37,7 +37,7 @@ end
 
 # ### Feed
 #
-# A `Feed` - our first - actor contains a growing list of posts from different authors.
+# A `Feed` - our first actor - contains a growing list of posts from different authors.
 #
 #
 # Actors in Circo are `mutable struct`s[^encapsulation], subtypes of `Actor`:
