@@ -18,6 +18,7 @@ function Circo.onmessage(me::ClusterActor, msg::PublishInfo, service)
     isnewinfo(me, msg.key, msg.info) || return nothing
     me.myinfo.extrainfo[msg.key] = msg.info
     send_downstream(service, me, InfoUpdate(addr(me), addr(me), msg.key, msg.info))
+    fire(service, me, PeerUpdated(deepcopy(me.myinfo), msg.key, deepcopy(msg.info)))
 end
 
 struct InfoUpdate
