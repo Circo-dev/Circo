@@ -11,7 +11,7 @@ would allow machines to act more naturally,
 thus climb up from the uncanny walley[^uw]
 on the right side.
 
-![^Uncanny Walley](https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/Mori_Uncanny_Valley.svg/1280px-Mori_Uncanny_Valley.svg.png)
+![Uncanny Walley](https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/Mori_Uncanny_Valley.svg/1280px-Mori_Uncanny_Valley.svg.png)
 
 The rise of deep learning initiated an era
 where
