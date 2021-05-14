@@ -312,11 +312,7 @@ end
 
 function Circo.onmessage(me::TreeNode, message::Search, service)
     if isnothing(me.splitvalue)
-        if message.value in me.values
-            send(service, me, message.searcher, SearchResult(message.value, true))
-        else
-            send(service, me, message.searcher, SearchResult(message.value, false))
-        end
+        send(service, me, message.searcher, SearchResult(message.value, message.value in me.values))
     else
         child = message.value > me.splitvalue ? me.right : me.left
         send(service, me, child, message)
