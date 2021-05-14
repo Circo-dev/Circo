@@ -30,12 +30,12 @@ end
 
 abstract type Route end
 
-struct RouteResult
+struct PrefixRoute <: Route
+    prefix::String
     handler::Addr
 end
 
-struct PrefixRoute <: Route
-    prefix::String
+struct RouteResult
     handler::Addr
 end
 
