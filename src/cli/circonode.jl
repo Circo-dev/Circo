@@ -175,18 +175,19 @@ function create_connecting_node(ctx;threads=1, zygote=[], rootsfilename=nothing,
     return host
 end
 
-function runnerquote()
+function runnerquote(includescript = false)
     return quote
         args = Circo.cli.parse_args(ARGS)
         opts = Circo.cli.create_options()
         opts isa Circo.cli.Exit && exit(opts.code)
 
-        if isfile(opts.script)
-            include(opts.script)
-        else
-            @error "Cannot open \$(opts.script)"
+        if $includescript
+            if isfile(opts.script)
+                include(opts.script)
+            else
+                @error "Cannot open \$(opts.script)"
+            end
         end
-
         if @isdefined(options)
             opts = merge(opts, options())
         end

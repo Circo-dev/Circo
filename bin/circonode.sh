@@ -5,7 +5,7 @@
 
 BOOT_SCRIPT=$(cat <<-END
     import Circo
-    eval(Circo.cli.runnerquote())
+    eval(Circo.cli.runnerquote(true))
 END
 )
 CORE_COUNT=1
