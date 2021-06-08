@@ -175,6 +175,49 @@ function create_connecting_node(ctx;threads=1, zygote=[], rootsfilename=nothing,
     return host
 end
 
+function runnerquote()
+    return quote
+        args = Circo.cli.parse_args(ARGS)
+        opts = Circo.cli.create_options()
+        opts isa Circo.cli.Exit && exit(opts.code)
+
+        if isfile(opts.script)
+            include(opts.script)
+        else
+            @error "Cannot open \$(opts.script)"
+        end
+
+        if @isdefined(options)
+            opts = merge(opts, options())
+        end
+        if @isdefined(profile)
+            opts = merge(opts, (profilefn = profile,))
+        end
+        if @isdefined(plugins)
+            opts = merge(opts, (userpluginsfn = plugins,))
+        end
+        ctx = CircoContext(;opts...)
+
+        zygoteresult = []
+        if opts[:iszygote] && @isdefined(zygote)
+            zygoteresult = zygote(ctx)
+            zygoteresult = zygoteresult isa AbstractArray ? zygoteresult : [zygoteresult]
+        end
+
+        node = Circo.cli.circonode(ctx; zygote = zygoteresult, opts...)
+        nodetask = @async node()
+        try
+            while true
+                sleep(1)
+            end
+        catch e
+            @info "Shutting down Circo node..."
+            shutdown!(node)
+            wait(nodetask)
+        end
+    end
+end
+
 export circonode, parse_args
 
 end
