@@ -144,11 +144,11 @@ function appendpostcode(filename, po)
     end
 end
 
-function circonode(ctx; options...)
-    if !haskey(options, :roots) || isempty(options[:roots])
-        return create_first_node(ctx; options...)
+function circonode(ctx; opts...)
+    if !haskey(opts, :roots) || isempty(opts[:roots])
+        return create_first_node(ctx; opts...)
     else
-        return create_connecting_node(ctx; options...)
+        return create_connecting_node(ctx; opts...)
     end
 end
 

@@ -7,30 +7,33 @@ BOOT_SCRIPT=$(cat <<-END
     using Circo
     
     args = Circo.cli.parse_args(ARGS)
-    options = Circo.cli.create_options()
-    options isa Circo.cli.Exit && exit(options.code)
+    opts = Circo.cli.create_options()
+    opts isa Circo.cli.Exit && exit(opts.code)
 
-    if isfile(options.script)
-        include(options.script)
+    if isfile(opts.script)
+        include(opts.script)
     else
-        @error "Cannot open \$(options.script)"
+        @error "Cannot open \$(opts.script)"
     end
 
+    if @isdefined(options)
+        opts = merge(opts, options())
+    end
     if @isdefined(profile)
-        options = merge(options, (profilefn = profile,))
+        opts = merge(opts, (profilefn = profile,))
     end
     if @isdefined(plugins)
-        options = merge(options, (userpluginsfn = plugins,))
+        opts = merge(opts, (userpluginsfn = plugins,))
     end
-    ctx = CircoContext(;options...)
+    ctx = CircoContext(;opts...)
 
     zygoteresult = []
-    if options[:iszygote] && @isdefined(zygote)
+    if opts[:iszygote] && @isdefined(zygote)
         zygoteresult = zygote(ctx)
         zygoteresult = zygoteresult isa AbstractArray ? zygoteresult : [zygoteresult]
     end
 
-    node = Circo.cli.circonode(ctx; zygote = zygoteresult, options...)
+    node = Circo.cli.circonode(ctx; zygote = zygoteresult, opts...)
     nodetask = @async node()
     try
         while true

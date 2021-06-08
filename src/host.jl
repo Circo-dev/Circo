@@ -24,7 +24,7 @@ end
 
 function HostContext(innerctx; hostoptions...)
     options = merge(innerctx.options, hostoptions)
-    profile = HostProfile(innerctx.profile; options = options)
+    profile = HostProfile(innerctx.profile; options...)
     plugins = CircoCore.instantiate_plugins(profile, innerctx.userpluginsfn)
     types = CircoCore.generate_types(plugins)
     @assert types.corestate_type == innerctx.corestate_type
