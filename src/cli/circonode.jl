@@ -175,6 +175,9 @@ function create_connecting_node(ctx;threads=1, zygote=[], rootsfilename=nothing,
     return host
 end
 
+# Returns a quote that starts a node.
+# Quote is for the ability to eval at top level thus
+# allow late code loading
 function runnerquote(includescript = false)
     return quote
         args = Circo.cli.parse_args(ARGS)
