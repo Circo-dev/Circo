@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MPL-2.0
-module TokenTest
+module MonitorTest
 
 using Test
 using Circo, Circo.Monitor

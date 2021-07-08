@@ -68,6 +68,7 @@ include("outer/websocket.jl")
 include("debug/debug.jl")
 include("profiles.jl")
 include("cli/circonode.jl")
+include("identity.jl")
 
 __init__() = Plugins.register(HostServiceImpl)
 end # module
