@@ -24,8 +24,8 @@ makedocs(
 )
 
 deploydocs(
-    repo = "github.com/Circo-dev/Circo-docs.git",
-    branch="main",
+    repo = "github.com/Circo-dev/docs-Circo.git",
+    branch = "main",
     devbranch = "main",
     push_preview = true
 )
