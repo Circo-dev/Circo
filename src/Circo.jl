@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MPL-2.0
 module Circo
 
+using Plugins: include
 using Reexport
 using Plugins
 import Base: show
@@ -41,6 +42,7 @@ function onmigrate(me::Actor, service) end
 const actor_activity_sparse16 = CircoCore.actor_activity_sparse16
 const actor_activity_sparse256 = CircoCore.actor_activity_sparse256
 const letin_remote = CircoCore.letin_remote
+const actor_spawning = CircoCore.actor_spawning
 const localdelivery = CircoCore.localdelivery
 const localroutes = CircoCore.localroutes
 const prepare = CircoCore.prepare
@@ -68,7 +70,9 @@ include("outer/websocket.jl")
 include("debug/debug.jl")
 include("profiles.jl")
 include("cli/circonode.jl")
-include("identity.jl")
+include("identity/identity.jl")
+include("identity/transaction.jl")
+include("identity/single_phase_commit.jl")
 
 __init__() = Plugins.register(HostServiceImpl)
 end # module
