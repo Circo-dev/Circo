@@ -2,9 +2,7 @@
 
 ![Lifecycle](https://img.shields.io/badge/lifecycle-experimental-blue.svg)
 [![CI](https://github.com/Circo-dev/Circo/actions/workflows/ci.yml/badge.svg)](https://github.com/Circo-dev/Circo/actions/workflows/ci.yml)
-<!--[![codecov.io](http://codecov.io/github/Circo-dev/Circo/coverage.svg?branch=master)](http://codecov.io/github/Circo-dev/Circo?branch=master)
-[![Documentation](https://img.shields.io/badge/docs-stable-blue.svg)](https://Circo-dev.github.io/Circo.jl/stable)-->
-[![Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://Circo-dev.github.io/Circo-docs/dev)
+[![Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://circo-dev.github.io/docs-Circo/dev/)
 
 
 A fast, scalable and extensible actor system.
