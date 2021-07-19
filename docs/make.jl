@@ -23,9 +23,11 @@ makedocs(
     # checkdocs = :exports,
 )
 
-deploydocs(
-    repo = "github.com/Circo-dev/docs-Circo.git",
-    branch = "main",
-    devbranch = "main",
-    push_preview = true
-)
+withenv("GITHUB_REPOSITORY" => "Circo-dev/docs-Circo") do
+    deploydocs(
+        repo = "github.com/Circo-dev/docs-Circo.git",
+        branch = "main",
+        devbranch = "main",
+        push_preview = true
+    )
+end
