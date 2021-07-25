@@ -4,6 +4,7 @@ using CircoCore, Circo, Circo.DistributedIdentities, Circo.Transactions
 
 mutable struct SPCTester <: Actor{Any}
     arr::Vector{Float64}
+    eventdispatcher
     @distid_field
     core
     SPCTester() = new([])
@@ -15,12 +16,11 @@ Transactions.consistency_style(::Type{SPCTester}) = Inconsistency()
     ctx = CircoContext(;profile=Circo.Profiles.ClusterProfile(),userpluginsfn=(;_...)->[DistIdService])
     tester = SPCTester()
     sdl = Scheduler(ctx, [tester])
-    sdl(;exit=true)
-    println("Exited")
+    sdl(;exit=true, remote=false)
     commit!(tester, Write(:arr, 1, 42), sdl.service)
-    sdl(;exit=true)
+    sdl(;exit=true, remote=false)
     @test tester.arr[1] == 42
-    @show testers = filter(a -> a isa SPCTester, collect(values(sdl.actorcache)))
+    testers = filter(a -> a isa SPCTester, collect(values(sdl.actorcache)))
     @test length(testers) > 2
 end
 

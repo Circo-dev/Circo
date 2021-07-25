@@ -4,6 +4,7 @@ using CircoCore, Circo, Circo.DistributedIdentities, Circo.Debug
 
 mutable struct DistIdTester <: Actor{Any}
     @distid_field
+    eventdispatcher
     core
     DistIdTester() = new()
     DistIdTester(distid) = new(distid)
@@ -41,7 +42,7 @@ macro t()
                     error_reported = false
                     actor = rand(idactors)
                     @info "Killing a random actor: $(addr(actor))"
-                    send(sdl, actor, Circo.DistributedIdentity.Die())
+                    send(sdl, actor, Circo.DistributedIdentities.Die())
                 end
             catch e
                 @error "Exception in killer", e

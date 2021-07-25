@@ -34,7 +34,7 @@ function Circo.onmessage(me::Blocker, msg::ReadVal, service)
     send(service, me, me.tester, ValResponse(me.val))
 end
 
-struct Write val end
+struct Write_ val end
 struct WriteAndBlock val end
 struct UnBlockAndWrite val end
 struct Die end
@@ -48,7 +48,7 @@ function Circo.onmessage(me::BlockTester, msg::ValResponse, service)
         me.state = block_sent
     elseif me.state == blocked
         @test msg.val == 42
-        send(service, me, me.blocker, Write(:delayed))
+        send(service, me, me.blocker, Write_(:delayed))
         if me.valresp_count < 100
             send(service, me, me.blocker, ReadVal())
         else
@@ -68,7 +68,7 @@ end
 struct BlockResponse end
 struct CbNotification end
 
-function Circo.onmessage(me::Blocker, msg::Write, service)
+function Circo.onmessage(me::Blocker, msg::Write_, service)
     @test me.val == :unblock || me.val == msg.val
     me.val = msg.val
 end

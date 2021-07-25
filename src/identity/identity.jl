@@ -8,7 +8,9 @@ module DistributedIdentities
 #   - Provide hooks
 #   - Implement sparse identity
 
-export DistIdService, @distid_field, DistributedIdentity, DenseDistributedIdentity, distid, peers
+export DistIdService,
+    @distid_field, DistributedIdentity, DenseDistributedIdentity,
+    distid, peers
 
 using Plugins
 using ..Circo
@@ -39,6 +41,16 @@ abstract type DistributedIdentityStyle <: IdentityStyle end
 struct DenseDistributedIdentity <: DistributedIdentityStyle end
 
 identity_style(::Type) = ActorIdentity()
+
+struct PeerRemoved <: Event
+    distid::DistIdId
+    addr::Addr
+end
+
+struct PeerAdded <: Event
+    distid::DistIdId
+    addr::Addr
+end
 
 abstract type DistIdService <: Plugin end
 mutable struct DistIdServiceImpl <: DistIdService
@@ -90,7 +102,8 @@ end
 mutable struct DistributedIdentity
     id::DistIdId
     peers::Dict{Addr,Peer}
-    redundancy::Int            
+    redundancy::Int
+    eventdispatcher::Addr     
     DistributedIdentity(id = rand(DistIdId), peers=[]; redundancy=3) = new(id, Dict(map(p_addr -> p_addr => Peer(p_addr), peers)), redundancy)
 end
 
@@ -117,6 +130,10 @@ function distid(me)
     return me.distid.id
 end
 
+function addrs(me)
+    return [peers(me)..., addr(me)]
+end
+
 struct Hello
     respondto::Addr
 end
@@ -136,6 +153,7 @@ onidspawn(::DenseDistributedIdentity, me, service) = begin
     if !isdefined(me, :distid)
         me.distid = DistributedIdentity()
     end
+    me.eventdispatcher = spawn(service, EventDispatcher(emptycore(service)))
     spawnpeer_ifneeded(me, service)
     sendtopeers(service, me, Hello(addr(me)))
     settimeout(service, me, PING_INTERVAL * (abs(randn()) * 0.2 + 1))
@@ -146,12 +164,14 @@ function spawnpeer_ifneeded(me, service)
         newpeer = create_peer(me, service)
         newpeer.distid = deepcopy(me.distid)
         newpeer.distid.peers[addr(me)] = Peer(addr(me))
-        spawn(service, newpeer)
+        newpeer_addr = spawn(service, newpeer)
+        fire(service, me, PeerAdded(me.distid.id, newpeer_addr))
     end
 end
 
 onidmessage(::DenseDistributedIdentity, me, msg::Hello, service) = begin
-    peer = get!(me.distid.peers, msg.respondto) do 
+    peer = get!(me.distid.peers, msg.respondto) do
+        fire(service, me, PeerAdded(me.distid.id, msg.respondto))
         Peer(msg.respondto)
     end
     peer.lastseen = time()
@@ -214,7 +234,7 @@ function nonresponding_peer_found(me, nonresp_peer, service)
          nonresp_peer.mylastvote.kill == true
         return 
     end
-    #@debug "$(box(me)): Non-responding peer found: $(addr(nonresp_peer))"
+    @debug "$(box(me)): Non-responding peer found: $(addr(nonresp_peer))"
     if isnothing(nonresp_peer.killvotes)
         nonresp_peer.killvotes = []
     end
@@ -296,6 +316,7 @@ function kill_and_spawn_other(me, target, service)
     send(service, me, target, Die())
     delete!(me.distid.peers, addr(target))
     sendtopeers(service, me, Killed(target))
+    fire(service, me, PeerRemoved(me.distid.id, target))
     spawnpeer_ifneeded(me, service)
 end
 
@@ -316,5 +337,7 @@ end
 function commit!(callback::Function, me::Actor, selector::Symbol, value)
     
 end
+
+include("reference.jl")
 
 end # module

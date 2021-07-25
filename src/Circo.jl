@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: MPL-2.0
 module Circo
 
-using Plugins: include
 using Reexport
 using Plugins
 import Base: show
@@ -68,11 +67,11 @@ include("infotonopt.jl")
 include("outer/http.jl")
 include("outer/websocket.jl")
 include("debug/debug.jl")
-include("profiles.jl")
-include("cli/circonode.jl")
 include("identity/identity.jl")
 include("identity/transaction.jl")
 include("identity/single_phase_commit.jl")
+include("profiles.jl")
+include("cli/circonode.jl")
 
 __init__() = Plugins.register(HostServiceImpl)
 end # module

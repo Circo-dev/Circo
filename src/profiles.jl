@@ -1,5 +1,5 @@
 module Profiles
-using ..Circo, Circo.Migration, Circo.Cluster, Circo.WebSocket, Circo.Monitor, Circo.InfotonOpt
+using ..Circo, Circo.Migration, Circo.Cluster, Circo.WebSocket, Circo.Monitor, Circo.InfotonOpt, Circo.DistributedIdentities
 import CircoCore
 
 const AbstractProfile = CircoCore.Profiles.AbstractProfile
@@ -19,6 +19,7 @@ function CircoCore.Profiles.core_plugins(profile::ClusterProfile)
         InfotonOpt.Optimizer,
         MigrationService,
         ClusterService,
+        DistIdService,
         WebsocketService,
         MonitorService,
         core_plugins(DefaultProfile(;options...))...,
