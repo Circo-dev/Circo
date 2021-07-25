@@ -9,31 +9,33 @@ using ..DistributedIdentities
 
 const TransactionId = UInt64
 
-struct PropertySelector
+abstract type Write end
+
+struct PropertyWrite{TValue} <: Write
     propertyname::Symbol
+    value::TValue
+    PropertyWrite(propertyname, value) = new{typeof(value)}(propertyname, value)
 end
 
-struct IdxSelector
+struct IdxWrite{TValue} <: Write
     idx::Int
+    value::TValue
+    IdxWrite(idx, value) = new{typeof(value)}(idx, value)
 end
 
-struct SubArraySelector
+struct SubArrayWrite{TValue} <: Write
     fromidx::Int
     toidx::Int
-    SubArraySelector(fromidx, toidx) = new(fromidx, toidx)
-    SubArraySelector(subarray::UnitRange{Int}) = SubArraySelector(subarray.start, subarray.stop)
+    value::TValue
+    SubArrayWrite(fromidx, toidx, value) = new{typeof(value)}(fromidx, toidx, value)
+    SubArrayWrite(subarray::UnitRange{Int}, value) = SubArrayWrite(subarray.start, subarray.stop, value)
 end
 
-struct Write{TSelector, TValue}
-    selector::TSelector
-    value::TValue
-    Write(selector, value) = new{typeof(selector), typeof(value)}(selector, value)
-    Write(field::Symbol, value) = Write(PropertySelector(field), value)
-    Write(idx::Int, value) = Write(IdxSelector(idx), value)
-    Write(subarray::UnitRange{Int}, value) = Write(SubArraySelector(subarray), value)
-    Write(field1, fieldorsub2, value) = Write(field1, Write(fieldorsub2, value))
-    Write(field1, field2, fieldorsub3, value) = Write(field1, Write(field2, Write(fieldorsub3, value)))
-end
+Write(field::Symbol, value) = PropertyWrite(field, value)
+Write(idx::Int, value) = IdxWrite(idx, value)
+Write(subarray::UnitRange{Int}, value) = SubArrayWrite(subarray, value)
+Write(field1, fieldorsub2, value) = Write(field1, Write(fieldorsub2, value))
+Write(field1, field2, fieldorsub3, value) = Write(field1, Write(field2, Write(fieldorsub3, value)))
 
 struct Transaction{TWrites}
     id::TransactionId
@@ -43,37 +45,43 @@ struct Transaction{TWrites}
     Transaction(me, writes) = new{typeof(writes)}(rand(TransactionId), distid(me), writes, addr(me))
 end
 
-function select(from, selector::PropertySelector)
-    return getproperty(from, selector.propertyname)
+function select(from, write::PropertyWrite)
+    return getproperty(from, write.propertyname)
 end
 
-function select(from, selector::IdxSelector)
-    return getindex(from, selector.idx)
+function select(from, write::IdxWrite)
+    return getindex(from, write.idx)
 end
 
-_set!(target, selector::PropertySelector, value) = setproperty!(target, selector.propertyname, value)
+_set!(target, write::PropertyWrite) = setproperty!(target, write.propertyname, write.value)
 
-function _set!(target, selector::IdxSelector, value)
-    if length(target) < selector.idx
-        resize!(target, selector.idx)
+function _set!(target, write::IdxWrite)
+    if length(target) < write.idx
+        resize!(target, write.idx)
     end
-    target[selector.idx] = value
+    target[write.idx] = write.value
 end
 
-function apply!(target, write::Union{Write{PropertySelector}, Write{IdxSelector}})
+function apply!(target, write::Union{PropertyWrite, IdxWrite})
     if write.value isa Write
-        prop = select(target, write.selector)
+        prop = select(target, write)
         apply!(prop, write.value)
     else
-        _set!(target, write.selector, write.value)
+        _set!(target, write)
     end
 end
 
-function apply!(target, write::Write{SubArraySelector})
+function apply!(target, write::SubArrayWrite)
     if length(target) < write.selector.toidx
         resize!(target, write.selector.toidx)
     end
     copyto!(target, write.selector.fromidx, write.value, 1, length(write.value))
+end
+
+function apply!(target, writes::Vector)
+    for write in writes
+        apply!(target, write) # TODO error handling
+    end
 end
 
 abstract type ConsistencyStyle end
@@ -81,8 +89,8 @@ struct Inconsistency <: ConsistencyStyle end
 
 consistency_style(::Type) = Inconsistency
 
-function commit!(me, write, service)
-    commit!(consistency_style(typeof(me)), me, write, service)
+function commit!(me, writes, service)
+    commit!(consistency_style(typeof(me)), me, writes, service)
 end
 
 end # module

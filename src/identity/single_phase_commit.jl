@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 module SinglePhaseCommit
 
 using ..Circo, ..Transactions, ..DistributedIdentities
