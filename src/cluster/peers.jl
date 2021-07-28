@@ -4,7 +4,7 @@ function requestjoin(me::ClusterActor, service)
     catch e
         @warn "Cannot register $NAME: $e"
     end
-    if length(me.roots) == 0
+    if isempty(me.roots)
         registerpeer(me, me.myinfo, service)
         return
     end

@@ -1,6 +1,15 @@
+# SPDX-License-Identifier: MPL-2.0
 module Profiles
-using ..Circo, Circo.Migration, Circo.Cluster, Circo.WebSocket, Circo.Monitor, Circo.InfotonOpt, Circo.DistributedIdentities
+
 import CircoCore
+using ..Circo,
+    Circo.Migration,
+    Circo.Cluster,
+    Circo.WebSocket,
+    Circo.Monitor,
+    Circo.InfotonOpt,
+    Circo.DistributedIdentities,
+    Circo.IdRegistry
 
 const AbstractProfile = CircoCore.Profiles.AbstractProfile
 const core_plugins = CircoCore.Profiles.core_plugins
@@ -20,6 +29,7 @@ function CircoCore.Profiles.core_plugins(profile::ClusterProfile)
         MigrationService,
         ClusterService,
         DistIdService,
+        IdRegistryService,
         WebsocketService,
         MonitorService,
         core_plugins(DefaultProfile(;options...))...,

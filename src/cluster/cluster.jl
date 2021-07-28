@@ -7,8 +7,8 @@ using ..Circo, ..CircoCore.Registry, ..Circo.Monitor
 using Plugins
 using Logging
 
-function cluster_initialized end # TODO not in use. Remove?
-cluster_initialized(::Plugin, args...) = nothing
+function cluster_initialized end
+cluster_initialized(::Plugin, sdl, cluster) = nothing
 cluster_initialized_hook = Plugins.create_lifecyclehook(cluster_initialized)
 
 const NAME = "cluster"
@@ -26,8 +26,10 @@ end
 Plugins.symbol(::ClusterService) = :cluster
 __init__() = Plugins.register(ClusterServiceImpl)
 
+roots(c::ClusterService) = c.roots
+
 Circo.schedule_start(cluster::ClusterServiceImpl, scheduler) = begin
-    cluster.helper = ClusterActor(emptycore(scheduler.service);roots=cluster.roots)
+    cluster.helper = ClusterActor(emptycore(scheduler.service); roots=cluster.roots)
     spawn(scheduler.service, cluster.helper)
     Circo.call_lifecycle_hook(scheduler, cluster_initialized_hook, cluster)
 end

@@ -3,7 +3,7 @@ module Reference
 
 using ....Circo
 using Circo.Migration
-import ..DistributedIdentities: DistIdId, Peer, PeerAdded, PeerRemoved, addrs, DistributedIdentity
+import ..DistributedIdentities: DistIdId, Peer, PeerAdded, PeerRemoved, addrs, distid, DistributedIdentity
 
 export IdRef
 
@@ -11,7 +11,7 @@ mutable struct IdRef{TCore} <: Actor{TCore}
     id::DistIdId
     peer_addrs::Vector{Addr}
     core::TCore
-    IdRef(id, distid::DistributedIdentity, core) = new{typeof(core)}(id, addrs(distid), core)
+    IdRef(distributed_id_peer::Actor, core) = new{typeof(core)}(distid(distributed_id_peer), addrs(distributed_id_peer), core)
     IdRef(id, peers::Vector{Addr}, core) = new{typeof(core)}(id, peers, core)
 end
 

@@ -70,6 +70,7 @@ include("debug/debug.jl")
 include("identity/identity.jl")
 include("identity/transaction.jl")
 include("identity/single_phase_commit.jl")
+include("identity/idregistry.jl")
 include("profiles.jl")
 include("cli/circonode.jl")
 

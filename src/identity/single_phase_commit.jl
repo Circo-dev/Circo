@@ -8,13 +8,13 @@ struct Commit
 end
 
 Transactions.commit!(::Inconsistency, me, writes, service) = begin
-    Transactions.apply!(me, writes)
+    Transactions.apply!(me, writes, service)
     bulksend(service, me, peers(me), Commit(Transaction(me, writes)))
 end
 
 DistributedIdentities.onidmessage(::DistributedIdentities.DistributedIdentityStyle, me, msg::Commit, service) = begin
     # TODO: validate
-    Transactions.apply!(me, msg.transaction.writes)
+    Transactions.apply!(me, msg.transaction.writes, service)
 end
 
 end # module
