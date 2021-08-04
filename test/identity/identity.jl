@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MPL-2.0
 using Test
-using CircoCore, Circo, Circo.DistributedIdentities, Circo.Debug
+using Circo, Circo.CircoCore, Circo.DistributedIdentities, Circo.Debug
 
 mutable struct DistIdTester <: Actor{Any}
     @distid_field

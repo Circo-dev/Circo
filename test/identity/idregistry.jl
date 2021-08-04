@@ -1,7 +1,12 @@
 # SPDX-License-Identifier: MPL-2.0
+module IdRegistryTest
+
 using Test
-using CircoCore, Circo, Circo.DistributedIdentities, Circo.Debug
+using Circo, Circo.CircoCore, Circo.DistributedIdentities, Circo.Debug, Circo.DistributedIdentities.Reference
 using Circo.IdRegistry
+
+include("../helper/testactors.jl");
+import .TestActors: Puppet, msgcount, msgs
 
 mutable struct DistIdForRegistryTest <: Actor{Any}
     @distid_field
@@ -12,33 +17,39 @@ mutable struct DistIdForRegistryTest <: Actor{Any}
 end
 DistributedIdentities.identity_style(::Type{DistIdForRegistryTest}) = DenseDistributedIdentity()
 
-mutable struct RegistryTester <: Actor{Any}
-    gotregistered_count::Int
-    got_already_count::Int
-    core
-    RegistryTester() = new(0, 0)
-end
-
-Circo.onmessage(me::RegistryTester, msg::IdentityRegistered, service) = me.gotregistered_count += 1
-Circo.onmessage(me::RegistryTester, msg::AlreadyRegistered, service) = me.got_already_count += 1
+const IDREG_TEST_KEY = "key.sub"
 
 @testset "Identity Registry" begin
-    ctx = CircoContext(;profile=Circo.Profiles.ClusterProfile())
+    ctx = CircoContext(; target_module=@__MODULE__, profile=Circo.Profiles.ClusterProfile())
     distid_root = DistIdForRegistryTest()
-    tester = RegistryTester()
+    tester = Puppet()
     sdl = Scheduler(ctx, [distid_root, tester])
     sdl(;exit=true, remote=false)
 
     # Register
-    @show registry = getname(sdl.service, IdRegistry.REGISTRY_NAME)
-    send(sdl, registry, RegisterIdentity(addr(tester), "key.sub", distid(distid_root), peers(distid_root)))
+    registry = getname(sdl.service, IdRegistry.REGISTRY_NAME)
+    @test !isnothing(registry)
+    send(tester, registry, RegisterIdentity(addr(tester), IDREG_TEST_KEY, IdRef(distid_root, emptycore(sdl))))
     sdl(;exit=true, remote=false)
-    @test tester.gotregistered_count == 1
-    @test tester.got_already_count == 0
+    @test msgcount(tester, IdentityRegistered) == 1
+    @test msgcount(tester, AlreadyRegistered) == 0
 
     # AlreadyRegistered when registering the same key again
-    send(sdl, registry, RegisterIdentity(addr(tester), "key.sub", distid(distid_root), peers(distid_root)))
+    send(tester, registry, RegisterIdentity(addr(tester), IDREG_TEST_KEY, IdRef(distid_root, emptycore(sdl))))
     sdl(;exit=true, remote=false)
-    @test tester.gotregistered_count == 1
-    @test tester.got_already_count == 1
+    @test msgcount(tester, IdentityRegistered) == 1
+    @test msgcount(tester, AlreadyRegistered) == 1
+
+    # Registry request
+    send(tester, registry, RegistryQuery(addr(tester), IDREG_TEST_KEY))
+    sdl(;exit=true, remote=false)
+    @test msgcount(tester, RegistryResponse) == 1
+    @show msgs(tester, RegistryResponse)
+    ref = msgs(tester, RegistryResponse)[1].ref
+    @test ref isa IdRef
+    @test ref.id == distid(distid_root)
+
+    # TODO test that early registry requests get postponed and served correctly
 end
+
+end # module

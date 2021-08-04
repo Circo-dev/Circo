@@ -3,7 +3,7 @@
 To get familiar with the plugin system, please read the documentation of [Plugins.jl](https://tisztamo.github.io/Plugins.jl/dev/)
 
 
-For sample code, look for any plugin in the source code. E.g. [OnMessage](https://github.com/Circo-dev/CircoCore.jl/blob/master/src/onmessage.jl) is trivial, [MsgStats](https://github.com/Circo-dev/Circo/blob/master/src/debug/msgstats.jl) and [Event](https://github.com/Circo-dev/CircoCore.jl/blob/master/src/event.jl) are a bit more involved.
+For sample code, look for any plugin in the source code. E.g. [OnMessage](https://github.com/Circo-dev/CircoCore.jl/blob/main/src/onmessage.jl) is trivial, [MsgStats](https://github.com/Circo-dev/Circo/blob/main/src/debug/msgstats.jl) and [Event](https://github.com/Circo-dev/CircoCore.jl/blob/main/src/event.jl) are a bit more involved.
 
 ## Plugin Lifecycle
 

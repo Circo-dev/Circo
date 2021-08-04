@@ -6,20 +6,25 @@ module IdRegistry
 using Plugins
 using CircoCore, Circo, Circo.Cluster, Circo.DistributedIdentities, Circo.Transactions, Circo.DistributedIdentities.Reference
 
-export IdRegistryService, RegisterIdentity, IdentityRegistered, AlreadyRegistered
+export IdRegistryService, RegisterIdentity, IdentityRegistered, AlreadyRegistered, RegistryQuery, RegistryResponse
 
 const REGISTRY_NAME = "global_registry"
 
 mutable struct IdRegistryService <: Plugin
-    IdRegistryService(;opts...) = new()
+    roots
+    acquirer
+    IdRegistryService(; opts...) = new()
 end
 Plugins.symbol(::IdRegistryService) = :idregistry
 
 __init__() = Plugins.register(IdRegistryService)
 
 Circo.Cluster.cluster_initialized(me::IdRegistryService, sdl, cluster) = begin
-    roots = deepcopy(Cluster.roots(cluster))
-    if isempty(roots)
+    me.roots = deepcopy(Cluster.roots(cluster))
+end
+
+Circo.schedule_start(me::IdRegistryService, sdl) = begin
+    if isempty(me.roots)
         host = plugin(sdl, :host)
         if isnothing(host) || host.hostroot == postcode(sdl)
             @warn "First node in cluster, starting global identity registry"
@@ -29,10 +34,10 @@ Circo.Cluster.cluster_initialized(me::IdRegistryService, sdl, cluster) = begin
             registername(sdl, REGISTRY_NAME, ref)
             return
         else
-            push!(roots, host.hostroot)
+            push!(me.roots, host.hostroot)
         end
     end
-    spawn(sdl, RegistryRefAcquirer(roots))
+    me.acquirer = spawn(sdl, RegistryRefAcquirer(me.roots))
 end
 
 mutable struct IdRegistryPeer <: Actor{Any}
@@ -51,6 +56,8 @@ struct RegisterIdentity
     key::String
     id::DistributedIdentities.DistIdId
     peers::Vector{Addr}
+    RegisterIdentity(respondto, key, id, peers) = new(respondto, key, id, peers)
+    RegisterIdentity(respondto, key, ref::IdRef) = new(respondto, key, distid(ref), peers(ref))
 end
 struct IdentityRegistered
     key::String
@@ -94,13 +101,16 @@ function isregistered(me::IdRegistryPeer, name)
     return haskey(me.registered_ids, name)
 end
 
-struct RegistryQuery
+struct RegistryQuery <: Request
     respondto::Addr
     key::String
+    token::Token
+    RegistryQuery(respondto, key) = new(respondto, key, Token())
 end
-struct RegistryResponse
+struct RegistryResponse <: Response
     key::String
     ref::IdRef
+    token::Token
 end
 struct NotFound
     key::String
@@ -115,7 +125,7 @@ Circo.onmessage(me::IdRegistryPeer, msg::RegistryQuery, service) = begin
     id = get(me.registered_ids, msg.key, nothing)
     if isnothing(id)
         if msg.key == REGISTRY_NAME # Send a ref to ourself
-            send(service, me, msg.respondto, RegistryResponse(msg.key, IdRef(distid(me), deepcopy(peers(me)), emptycore(service))))
+            send(service, me, msg.respondto, RegistryResponse(msg.key, IdRef(distid(me), deepcopy(peers(me)), emptycore(service)), msg.token))
         end
         return send(service, me, msg.respondto, NotFound(msg.key))
     end
@@ -124,28 +134,39 @@ Circo.onmessage(me::IdRegistryPeer, msg::RegistryQuery, service) = begin
         @error "Ref not found for id $id"
         return
     end
-    newref = IdRef(myref.id, deepcopy(myref.peers), emptycore(service))
-    send(service, me, msg.respondto, RegistryResponse(msg.key, newref))
+    send(service, me, myref, ForwardedRegistryQuery(msg))
 end
 
+struct ForwardedRegistryQuery
+    orig::RegistryQuery
+end
+
+# Extend IdRef with a copy and pack
+Circo.onmessage(me::IdRef, msg::ForwardedRegistryQuery, service) = begin
+    copyofme = IdRef(me.id, deepcopy(me.peer_addrs), emptycore(service))
+    send(service, me, msg.orig.respondto, RegistryResponse(msg.orig.key, copyofme, msg.orig.token))
+end
 
 mutable struct RegistryRefAcquirer <: Actor{Any}
     roots::Vector{PostCode}
     ref::Union{Addr, Nothing}
     queries_sent::Int
+    postponed_queries::Vector{RegistryQuery}
+    done::Bool
     core
-    RegistryRefAcquirer(roots) = new(roots, nothing, 0)
+    RegistryRefAcquirer(roots) = new(roots, nothing, 0, [], false)
 end
 
 Circo.onspawn(me::RegistryRefAcquirer, service) = begin
     send_namequery(me, service)
+    registername(service, REGISTRY_NAME, me)
 end
 
 function send_namequery(me::RegistryRefAcquirer, service)
     if me.queries_sent >= 10
         error("Unable to acquire reference to the global identity registry.")
     end
-    send(service, Addr(rand(me.roots), 0), NameQuery(REGISTRY_NAME))
+    send(service, me, Addr(rand(me.roots), 0), NameQuery(REGISTRY_NAME))
     me.queries_sent += 1
 end
 
@@ -153,17 +174,24 @@ Circo.onmessage(me::RegistryRefAcquirer, msg::NameResponse, service) = begin
     if isnothing(msg.handler)
         send_namequery(me, service)
     else
-        send(service, msg.handler, RegistryQuery(me, REGISTRY_NAME))
+        send(service, me, msg.handler, RegistryQuery(me, REGISTRY_NAME))
     end
 end
 
 Circo.onmessage(me::RegistryRefAcquirer, msg::RegistryResponse, service) = begin
     ref = spawn(service, msg.ref)
     registername(service, REGISTRY_NAME, ref)
+    for req in me.postponed_queries
+        send(service, me, ref, req)
+    end
 end
 
 Circo.onmessage(me::RegistryRefAcquirer, msg::Timeout, service) = begin
    send_namequery(me, service) 
+end
+
+Circo.onmessage(me::RegistryRefAcquirer, msg::RegistryQuery, service) = begin
+    push!(me.postponed_queries, msg)
 end
 
 

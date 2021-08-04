@@ -4,13 +4,13 @@ using Test
 using Circo, Circo.Migration, Circo.Cluster
 
 function Circo.onmessage(me::Migrant, message::MigrateCommand, service)
-    @debug "MigrateCommand"
+    @debug "$message"
     me.stayeraddress = message.stayeraddress
     migrate(service, me, message.topostcode)
 end
 
 function Circo.onmessage(me::Stayer, message::MigrateDone, service)
-    @debug "MigrateDone received: $message"
+    @debug "$message"
     me.newaddress_selfreport = message.newaddress
     send(service, me, me.oldmigrantaddress, SimpleRequest(addr(me)))
 end

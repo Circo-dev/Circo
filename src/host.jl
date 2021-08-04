@@ -10,10 +10,15 @@ struct HostProfile{TInner <: CircoCore.Profiles.AbstractProfile} <: CircoCore.Pr
     HostProfile(innerprofile; options...) = new{typeof(innerprofile)}(innerprofile, options)
 end
 
-CircoCore.Profiles.core_plugins(p::HostProfile) = [
-    HostService,
-    CircoCore.Profiles.core_plugins(p.innerprofile)...
-]
+CircoCore.Profiles.core_plugins(p::HostProfile) = begin
+    retval = CircoCore.Profiles.core_plugins(p.innerprofile)
+    po_idx = findfirst(p -> p isa Type{<:Circo.Cluster.ClusterService}, retval) # Insert the HostService just before the ClusterService (Dirty way to get initialization order right)
+    if isnothing(po_idx)
+        po_idx = 1
+    end
+    insert!(retval, po_idx, HostService)
+    return retval
+end
 
 struct HostContext{TInner <: CircoCore.AbstractContext} <: CircoCore.AbstractContext
     innerctx::TInner
@@ -24,9 +29,10 @@ end
 
 function HostContext(innerctx; hostoptions...)
     options = merge(innerctx.options, hostoptions)
+    target_module = get(options, :target_module, Main)
     profile = HostProfile(innerctx.profile; options...)
     plugins = CircoCore.instantiate_plugins(profile, innerctx.userpluginsfn)
-    types = CircoCore.generate_types(plugins)
+    types = CircoCore.generate_types(plugins; target_module)
     @assert types.corestate_type == innerctx.corestate_type
     @assert types.msg_type == innerctx.msg_type
     return HostContext(innerctx, options, profile, plugins)
@@ -74,14 +80,15 @@ function Circo.schedule_start(hs::HostServiceImpl, scheduler)
     cluster = scheduler.plugins[:cluster]
     @async begin # TODO eliminate
         if hs.hostroot != postcode(hs) && length(cluster.roots) == 0
-            send(scheduler, cluster.helper, Circo.Cluster.ForceAddRoot(hs.hostroot))
+            forceadd_msg = Circo.Cluster.ForceAddRoot(hs.hostroot)
+            send(scheduler, cluster.helper, forceadd_msg)
         end
     end
 end
 
 @inline function CircoCore.remoteroutes(hostservice::HostServiceImpl, scheduler, msg)::Bool
     target_postcode = postcode(target(msg))
-    if CircoCore.network_host(target_postcode) !=  CircoCore.network_host(hostservice.postcode)
+    if CircoCore.network_host(target_postcode) != CircoCore.network_host(hostservice.postcode)
         return false
     end
     @debug "remoteroutes in host.jl $msg"

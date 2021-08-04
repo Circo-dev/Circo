@@ -31,4 +31,4 @@ are list item actors. Actors are scheduled on the scheduler that is closest in t
 As you can see, Circo's infoton optimization found out the structure of the list without using any "domain" knowledge,
 just by monitoring the communication of actors. It was also able to cut the list into 6 similarly sized segments (5 V-shaped and an I-shaped at the end of the list (bottom)). This solution minimizes the communication between schedulers.
 
-The source code of the sample is at [examples/linkedlist.jl](https://github.com/Circo-dev/Circo/blob/master/examples/linkedlist.jl).
+The source code of the sample is at [examples/linkedlist.jl](https://github.com/Circo-dev/Circo/blob/main/examples/linkedlist.jl).

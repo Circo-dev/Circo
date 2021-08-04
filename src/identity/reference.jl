@@ -15,6 +15,9 @@ mutable struct IdRef{TCore} <: Actor{TCore}
     IdRef(id, peers::Vector{Addr}, core) = new{typeof(core)}(id, peers, core)
 end
 
+Circo.DistributedIdentities.peers(me::IdRef) = me.peer_addrs
+Circo.DistributedIdentities.distid(me::IdRef) = me.id
+
 Circo.onspawn(me::IdRef, service) = begin
     for peer_addr in me.peer_addrs # TODO: only connect to a subset
         connect_peer(me, peer_addr, service)

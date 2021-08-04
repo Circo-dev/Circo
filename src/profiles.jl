@@ -26,10 +26,10 @@ function CircoCore.Profiles.core_plugins(profile::ClusterProfile)
     options = profile.options
     return [
         InfotonOpt.Optimizer,
+        IdRegistryService,
+        DistIdService,
         MigrationService,
         ClusterService,
-        DistIdService,
-        IdRegistryService,
         WebsocketService,
         MonitorService,
         core_plugins(DefaultProfile(;options...))...,

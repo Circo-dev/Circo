@@ -65,17 +65,17 @@ end
 function apply!(target, write::Union{PropertyWrite, IdxWrite}, service)
     if write.value isa Write
         prop = select(target, write)
-        apply!(prop, write.value)
+        apply!(prop, write.value, service)
     else
         _set!(target, write)
     end
 end
 
 function apply!(target, write::SubArrayWrite, service)
-    if length(target) < write.selector.toidx
-        resize!(target, write.selector.toidx)
+    if length(target) < write.toidx
+        resize!(target, write.toidx)
     end
-    copyto!(target, write.selector.fromidx, write.value, 1, length(write.value))
+    copyto!(target, write.fromidx, write.value, 1, length(write.value))
 end
 
 function apply!(target, writes::Vector, service)

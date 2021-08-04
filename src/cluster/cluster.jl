@@ -21,7 +21,7 @@ abstract type ClusterService <: Plugin end
 mutable struct ClusterServiceImpl <: ClusterService
     roots::Array{PostCode}
     helper::Actor
-    ClusterServiceImpl(;roots=[], _...) = new(roots)
+    ClusterServiceImpl(; roots=[], _...) = new(roots)
 end
 Plugins.symbol(::ClusterService) = :cluster
 __init__() = Plugins.register(ClusterServiceImpl)

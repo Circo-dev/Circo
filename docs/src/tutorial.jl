@@ -279,7 +279,7 @@ sleep(1.0) # hide
 #
 # Nothing more is needed to start coding in Circo. The best way to learn is to make something yourself.
 #
-# For closer-to-life Circo programs look into the [examples](https://github.com/Circo-dev/Circo/tree/master/examples)
+# For closer-to-life Circo programs look into the [examples](https://github.com/Circo-dev/Circo/tree/main/examples)
 # folder of the repo.
 #
 # Have fun!

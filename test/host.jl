@@ -75,7 +75,7 @@ function onmessage(me::PingPonger, message::RecipientMoved, service)
         send(service, me, me.peer, message.originalmessage)
 end
 
-ctx = CircoContext(;profile=Circo.Profiles.ClusterProfile())
+ctx = CircoContext(; target_module=@__MODULE__, profile=Circo.Profiles.ClusterProfile())
 @testset "Host" begin
      @testset "Empty host creation and run" begin
          host = Host(ctx, 3)
@@ -88,7 +88,7 @@ ctx = CircoContext(;profile=Circo.Profiles.ClusterProfile())
      end
 
     @testset "Inter-thread Ping-Pong inside Host" begin
-        pingers = [PingPonger(nothing, emptycore(ctx)) for i=1:25]
+        pingers = [PingPonger(nothing, emptycore(ctx)) for i=1:250]
         host = Host(ctx, 2; zygote=pingers)
         for pinger in pingers
             send(host, addr(pinger), CreatePeer(postcode(host.schedulers[end])))
@@ -101,10 +101,10 @@ ctx = CircoContext(;profile=Circo.Profiles.ClusterProfile())
             @test pinger.pongs_got > 1
         end
 
-        @info "Measuring inter-thread ping-pong performance"
+        @info "Measuring inter-thread ping-pong performance (10 secs)"
         startpingcounts = [pinger.pings_sent for pinger in pingers]
         startts = Base.time_ns()
-        sleep(3.0)
+        sleep(10.0)
         rounds_made = sum([pingers[i].pings_sent - startpingcounts[i] for i=1:length(pingers)])
         wall_time_used = Base.time_ns() - startts
         @test pingers[1].pings_sent > 1e2
@@ -115,7 +115,7 @@ ctx = CircoContext(;profile=Circo.Profiles.ClusterProfile())
         @test pingers[1].pongs_got in [pingers[1].pings_sent, pingers[1].pings_sent - 1]
         sleep(0.1)
         @test endpingcount === pingers[1].pings_sent
-        @printf "Inter-thread ping-pong performance: %f rounds/sec\n" (rounds_made / wall_time_used * 1e9)
+        @printf "Inter-thread ping-pong performance (in a max throughput setting, %d pingers): %f rounds/sec\n" length(pingers) (rounds_made / wall_time_used * 1e9)
     end
 
     @testset "In-thread Ping-Pong inside Host" begin

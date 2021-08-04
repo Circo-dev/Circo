@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MPL-2.0
 using Test
-using CircoCore, Circo, Circo.DistributedIdentities, Circo.Transactions
+using Circo, Circo.DistributedIdentities, Circo.Transactions
 
 mutable struct SPCTester <: Actor{Any}
     arr::Vector{Float64}

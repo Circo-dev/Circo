@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MPL-2.0
 using Test
-using CircoCore, Circo, Circo.DistributedIdentities, Circo.DistributedIdentities.Reference
+using Circo, Circo.CircoCore, Circo.DistributedIdentities, Circo.DistributedIdentities.Reference
 
 const REQ_COUNT = 5
 

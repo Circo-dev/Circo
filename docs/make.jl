@@ -17,7 +17,8 @@ makedocs(
         "plugindev.md",
         "reference.md",
         "troubleshooting.md",
-    ]
+    ],
+    doctest = false,
     # strict = true,
     # clean = true,
     # checkdocs = :exports,

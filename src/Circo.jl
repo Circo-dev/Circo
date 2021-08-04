@@ -6,6 +6,7 @@ using Plugins
 import Base: show
 
 @reexport using CircoCore
+export CircoCore
 
 export Debug, Host, JS, registermsg,
     Joined, PeerListUpdated
