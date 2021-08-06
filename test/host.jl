@@ -95,7 +95,7 @@ ctx = CircoContext(; target_module=@__MODULE__, profile=Circo.Profiles.ClusterPr
         end
         hosttask = @async host()
         @info "Sleeping to allow ping-pong to start."
-        sleep(20.0) # TODO use conditions
+        sleep(30.0) # TODO use conditions
         for pinger in pingers
             @test pinger.pings_sent > 1
             @test pinger.pongs_got > 1
@@ -127,7 +127,7 @@ ctx = CircoContext(; target_module=@__MODULE__, profile=Circo.Profiles.ClusterPr
         hosttask = @async host(; remote = false, exit = true)
 
         @info "Sleeping to allow ping-pong to start."
-        sleep(8.0)
+        sleep(15.0)
         for pinger in pingers
             @test pinger.pings_sent > 1e3
             @test pinger.pongs_got > 1e3

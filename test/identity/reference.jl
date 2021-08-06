@@ -65,11 +65,11 @@ end
         tokill = rand(keys(testid_root.distid.peers))
         @info "Killing $tokill"
         send(sdl, tokill, Circo.DistributedIdentities.Die())
-        sleep(13)
+        sleep(20)
         @show testref
         tester = ReferenceTester(addr(testref))
         spawn(sdl, tester)
-        sleep(1)
+        sleep(2)
         @test count(a -> a isa Addr, tester.responses_from) == REQ_COUNT
     end
 end
