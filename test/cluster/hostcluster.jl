@@ -12,7 +12,7 @@ ctx = CircoContext(; target_module=@__MODULE__, profile=Circo.Profiles.ClusterPr
     @testset "Host cluster with internal root" begin
         host = Host(ctx, CLUSTER_SIZE)
         hosttask = @async host()
-        sleep(CLUSTER_SIZE * 0.5 + 15.0)
+        sleep(CLUSTER_SIZE * 1.0 + 15.0)
         for i in 1:CLUSTER_SIZE
             scheduler = host.schedulers[i]
             helperactor = scheduler.plugins[:cluster].helper
