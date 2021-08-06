@@ -72,7 +72,7 @@ function onmessage(me::PingPonger, message::RecipientMoved, service)
     else
         throw("Unknown peer in RecipientMoved")
     end
-        send(service, me, me.peer, message.originalmessage)
+    send(service, me, me.peer, message.originalmessage)
 end
 
 ctx = CircoContext(; target_module=@__MODULE__, profile=Circo.Profiles.ClusterProfile())
