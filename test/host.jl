@@ -88,14 +88,14 @@ ctx = CircoContext(; target_module=@__MODULE__, profile=Circo.Profiles.ClusterPr
      end
 
     @testset "Inter-thread Ping-Pong inside Host" begin
-        pingers = [PingPonger(nothing, emptycore(ctx)) for i=1:250]
+        pingers = [PingPonger(nothing, emptycore(ctx)) for i=1:50]
         host = Host(ctx, 2; zygote=pingers)
         for pinger in pingers
             send(host, addr(pinger), CreatePeer(postcode(host.schedulers[end])))
         end
         hosttask = @async host()
         @info "Sleeping to allow ping-pong to start."
-        sleep(30.0) # TODO use conditions
+        sleep(40.0) # TODO use conditions
         for pinger in pingers
             @test pinger.pings_sent > 1
             @test pinger.pongs_got > 1
@@ -115,7 +115,7 @@ ctx = CircoContext(; target_module=@__MODULE__, profile=Circo.Profiles.ClusterPr
         @test pingers[1].pongs_got in [pingers[1].pings_sent, pingers[1].pings_sent - 1]
         sleep(0.1)
         @test endpingcount === pingers[1].pings_sent
-        @printf "Inter-thread ping-pong performance (in a max throughput setting, %d pingers): %f rounds/sec\n" length(pingers) (rounds_made / wall_time_used * 1e9)
+        @printf "Inter-thread ping-pong performance (in a high throughput setting, %d pingers): %f rounds/sec\n" length(pingers) (rounds_made / wall_time_used * 1e9)
     end
 
     @testset "In-thread Ping-Pong inside Host" begin
