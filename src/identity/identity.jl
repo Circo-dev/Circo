@@ -103,11 +103,10 @@ end
 
 mutable struct DistributedIdentity
     id::DistIdId
-    spawnat::Float64
     peers::Dict{Addr,Peer}
     redundancy::Int
     eventdispatcher::Addr     
-    DistributedIdentity(id = rand(DistIdId), peers=[]; redundancy=3) = new(id, time(), Dict(map(p_addr -> p_addr => Peer(p_addr), peers)), redundancy)
+    DistributedIdentity(id = rand(DistIdId), peers=[]; redundancy=3) = new(id, Dict(map(p_addr -> p_addr => Peer(p_addr), peers)), redundancy)
 end
 
 macro distid_field()
@@ -159,6 +158,9 @@ onidspawn(::DenseDistributedIdentity, me, service) = begin
     me.eventdispatcher = spawn(service, EventDispatcher(emptycore(service)))
     spawnpeer_ifneeded(me, service)
     sendtopeers(service, me, Hello(addr(me)))
+    for peer in values(me.distid.peers)
+        peer.lastseen = time() + START_CHECK_AFTER
+    end
     settimeout(service, me, PING_INTERVAL + PING_INTERVAL * (abs(randn()) * 0.2 + 1))
 end
 
@@ -215,9 +217,7 @@ function check_peers(me, service)
 end
 
 onidmessage(::DenseDistributedIdentity, me, ::Timeout, service) = begin
-    if me.distid.spawnat < time() - START_CHECK_AFTER
-        check_peers(me, service)   
-    end
+    check_peers(me, service)   
     settimeout(service, me, PING_INTERVAL)
 end
 

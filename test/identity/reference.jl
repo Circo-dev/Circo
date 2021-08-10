@@ -47,7 +47,7 @@ end
 
 @testset "DistId references" begin
     ctx = CircoContext(;profile=Circo.Profiles.ClusterProfile())
-    testid_root = DistIdForRefTest(DistributedIdentity(42; redundancy = 4))
+    testid_root = DistIdForRefTest(DistributedIdentity(42; redundancy = 3))
     sdl = Scheduler(ctx, [testid_root])
     sdl(;exit=true, remote=false)
     
