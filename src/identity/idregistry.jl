@@ -172,7 +172,10 @@ end
 
 Circo.onmessage(me::RegistryRefAcquirer, msg::NameResponse, service) = begin
     if isnothing(msg.handler)
-        send_namequery(me, service)
+        @async begin
+            sleep(1.0)
+            send_namequery(me, service)
+        end
     else
         send(service, me, msg.handler, RegistryQuery(me, REGISTRY_NAME))
     end
