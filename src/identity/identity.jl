@@ -38,7 +38,7 @@ function showerror(io::IO, e::DistributedIdentityException)
 end
 
 function dbg_hdr(me)
-    return "$(Dates.now()) 0x$(string(box(me), base=16)):"
+    return "$(Dates.now()) me: $(string(box(me), base=16))"
 end
 
 abstract type IdentityStyle end
@@ -101,9 +101,10 @@ end
 mutable struct Peer
     addr::Addr
     lastseen::Float64
+    lastpinged::Float64
     mylastvote::Union{KillVote, Nothing}
     killvotes::Union{Vector{KillVote}, Nothing}
-    Peer(addr, _time = time()) = new(addr, _time, nothing, nothing)
+    Peer(addr, _time = time()) = new(addr, _time, 0, nothing, nothing)
 end
 
 mutable struct DistributedIdentity
@@ -210,13 +211,15 @@ onidmessage(::DenseDistributedIdentity, me, msg::Pong, service) = begin
 end
 
 function check_peers(me, service)
-    ping_threshold = time() - PING_INTERVAL
-    nonresp_threshold = time() - MISSING_THRESHOLD
+    ts = time()
+    ping_threshold = ts - PING_INTERVAL
+    nonresp_threshold = ts - MISSING_THRESHOLD
     for peer in values(me.distid.peers)
-        if peer.lastseen < nonresp_threshold
+        if peer.lastseen < nonresp_threshold && peer.lastpinged > peer.lastseen
             nonresponding_peer_found(me, peer, service)
         elseif peer.lastseen < ping_threshold
             send(service, me, peer.addr, Ping(addr(me)))
+            peer.lastpinged = ts
         end 
     end
 end
