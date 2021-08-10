@@ -270,7 +270,7 @@ onidmessage(::DenseDistributedIdentity, me, msg::NonResponding, service) = begin
     if iamforkill
         killvotes = nonresp_peer.killvotes
         if !isnothing(killvotes) && killvotes[1].voter == addr(me) # I already have started another vote.
-            if dbg_hdr(me) < box(msg.respondto)   # Am I stronger?
+            if box(me) < box(msg.respondto)   # Am I stronger?
                 iamforkill = false
             else
                 cancel_voting(me, nonresp_peer)
