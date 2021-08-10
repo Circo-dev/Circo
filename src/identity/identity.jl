@@ -22,6 +22,8 @@ const MISSING_THRESHOLD = 4 * PING_INTERVAL # Peer is considered missing (kill v
 const VOTE_FOR_KILL_THRESHOLD = 2 * PING_INTERVAL # Not answering for this long is enough for a kill vote
 const NO_NEW_VOTING_AFTER_VOTED = PING_INTERVAL # When voted for kill a peer, don't start another vote
 
+const START_CHECK_AFTER = 10 # Do not check for missing actors immediately after spawn to allow compilation/initialization
+
 struct DistributedIdentityException <: Exception
     distid::Union{DistIdId, Nothing}
     message::String
@@ -101,10 +103,11 @@ end
 
 mutable struct DistributedIdentity
     id::DistIdId
+    spawnat::Float64
     peers::Dict{Addr,Peer}
     redundancy::Int
     eventdispatcher::Addr     
-    DistributedIdentity(id = rand(DistIdId), peers=[]; redundancy=3) = new(id, Dict(map(p_addr -> p_addr => Peer(p_addr), peers)), redundancy)
+    DistributedIdentity(id = rand(DistIdId), peers=[]; redundancy=3) = new(id, time(), Dict(map(p_addr -> p_addr => Peer(p_addr), peers)), redundancy)
 end
 
 macro distid_field()
@@ -156,7 +159,7 @@ onidspawn(::DenseDistributedIdentity, me, service) = begin
     me.eventdispatcher = spawn(service, EventDispatcher(emptycore(service)))
     spawnpeer_ifneeded(me, service)
     sendtopeers(service, me, Hello(addr(me)))
-    settimeout(service, me, PING_INTERVAL * (abs(randn()) * 0.2 + 1))
+    settimeout(service, me, PING_INTERVAL + PING_INTERVAL * (abs(randn()) * 0.2 + 1))
 end
 
 function spawnpeer_ifneeded(me, service)
@@ -199,7 +202,7 @@ onidmessage(::DenseDistributedIdentity, me, msg::Pong, service) = begin
     peer.lastseen = time()
 end
 
-onidmessage(::DenseDistributedIdentity, me, ::Timeout, service) = begin
+function check_peers(me, service)
     ping_threshold = time() - PING_INTERVAL
     nonresp_threshold = time() - MISSING_THRESHOLD
     for peer in values(me.distid.peers)
@@ -208,6 +211,12 @@ onidmessage(::DenseDistributedIdentity, me, ::Timeout, service) = begin
         elseif peer.lastseen < ping_threshold
             send(service, me, peer.addr, Ping(addr(me)))
         end 
+    end
+end
+
+onidmessage(::DenseDistributedIdentity, me, ::Timeout, service) = begin
+    if me.distid.spawnat < time() - START_CHECK_AFTER
+        check_peers(me, service)   
     end
     settimeout(service, me, PING_INTERVAL)
 end
