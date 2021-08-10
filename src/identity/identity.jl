@@ -22,7 +22,7 @@ const MISSING_THRESHOLD = 4 * PING_INTERVAL # Peer is considered missing (kill v
 const VOTE_FOR_KILL_THRESHOLD = 2 * PING_INTERVAL # Not answering for this long is enough for a kill vote
 const NO_NEW_VOTING_AFTER_VOTED = PING_INTERVAL # When voted for kill a peer, don't start another vote
 
-const START_CHECK_AFTER = 10 # Do not check for missing actors immediately after spawn to allow compilation/initialization
+const START_CHECK_AFTER = 20 # Do not check for missing actors immediately after spawn to allow compilation/initialization
 
 struct DistributedIdentityException <: Exception
     distid::Union{DistIdId, Nothing}

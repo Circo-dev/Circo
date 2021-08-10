@@ -61,7 +61,7 @@ end
     @test count(a -> a isa Addr, tester.responses_from) == REQ_COUNT
 
     @async sdl(;exit=true)
-    sleep(10)
+    sleep(20)
 
     for i = 1:10
         tokill = rand(keys(testid_root.distid.peers))
