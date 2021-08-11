@@ -163,7 +163,7 @@ Circo.onspawn(me::RegistryRefAcquirer, service) = begin
 end
 
 function send_namequery(me::RegistryRefAcquirer, service)
-    if me.queries_sent >= 10
+    if me.queries_sent >= 30
         error("Unable to acquire reference to the global identity registry.")
     end
     send(service, me, Addr(rand(me.roots), 0), NameQuery(REGISTRY_NAME))
