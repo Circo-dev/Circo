@@ -91,7 +91,12 @@ function Circo.onspawn(me::ClusterActor, service)
     me.myinfo.addr = addr(me)
     me.myinfo.pos = pos(service)
     me.eventdispatcher = spawn(service, EventDispatcher(emptycore(service)))
-    requestjoin(me, service)
+    try
+        registername(service, NAME, me)
+    catch e
+        @warn "Cannot register $NAME: $e"
+    end
+    @async requestjoin(me, service)
 end
 
 include("peers.jl")

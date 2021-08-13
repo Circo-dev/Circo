@@ -95,6 +95,9 @@ Circo.monitorprojection(::Type{<:MigrationHelper}) = JS("projections.nonimportan
 
 function Circo.schedule_start(migration::MigrationServiceImpl, sdl)
     migration.scheduler = sdl
+end
+
+Circo.Cluster.cluster_initialized(migration::MigrationServiceImpl, sdl, cluster) = begin
     migration.helperactor = MigrationHelper(migration, emptycore(sdl.service))
     spawn(sdl.service, migration.helperactor)
     accepts_migrants(migration, true)

@@ -27,7 +27,7 @@ Circo.onmessage(me::DistIdForRefTest, msg::TestReq, service) = begin
     send(service, me, msg.respondto, TestResp(msg.id, addr(me)))
 end
 
-mutable struct ReferenceTester <: Actor{Any}
+mutable struct ReferenceTester <: Actor{Any} # TODO <: Puppet
     refaddr::Addr
     responses_from::Vector{Addr}
     core
