@@ -1,3 +1,5 @@
+Circo.onmessage(me::ClusterActor, ::RequestJoin, service) = requestjoin(me, service)
+
 function requestjoin(me::ClusterActor, service)
     if isempty(me.roots)
         registerpeer(me, me.myinfo, service)
