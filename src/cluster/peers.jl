@@ -1,9 +1,6 @@
+Circo.onmessage(me::ClusterActor, ::RequestJoin, service) = requestjoin(me, service)
+
 function requestjoin(me::ClusterActor, service)
-    try
-        registername(service, NAME, me)
-    catch e
-        @warn "Cannot register $NAME: $e"
-    end
     if isempty(me.roots)
         registerpeer(me, me.myinfo, service)
         return

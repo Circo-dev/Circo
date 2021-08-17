@@ -27,7 +27,7 @@ Circo.onmessage(me::DistIdForRefTest, msg::TestReq, service) = begin
     send(service, me, msg.respondto, TestResp(msg.id, addr(me)))
 end
 
-mutable struct ReferenceTester <: Actor{Any}
+mutable struct ReferenceTester <: Actor{Any} # TODO <: Puppet
     refaddr::Addr
     responses_from::Vector{Addr}
     core
@@ -47,7 +47,7 @@ end
 
 @testset "DistId references" begin
     ctx = CircoContext(;profile=Circo.Profiles.ClusterProfile())
-    testid_root = DistIdForRefTest()
+    testid_root = DistIdForRefTest(DistributedIdentity(42; redundancy = 3))
     sdl = Scheduler(ctx, [testid_root])
     sdl(;exit=true, remote=false)
     
@@ -61,11 +61,13 @@ end
     @test count(a -> a isa Addr, tester.responses_from) == REQ_COUNT
 
     @async sdl(;exit=true)
+    sleep(20)
+
     for i = 1:10
         tokill = rand(keys(testid_root.distid.peers))
         @info "Killing $tokill"
         send(sdl, tokill, Circo.DistributedIdentities.Die())
-        sleep(20)
+        sleep(12)
         @show testref
         tester = ReferenceTester(addr(testref))
         spawn(sdl, tester)
