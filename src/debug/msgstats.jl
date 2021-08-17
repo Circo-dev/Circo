@@ -13,6 +13,7 @@ Circo.symbol(::MsgStats) = :msgstats
 
 mutable struct MsgStatsHelper <: Actor{Any}
     stats::MsgStats
+    fixedpos
     core
     MsgStatsHelper(stats) = new(stats)
 end
@@ -24,12 +25,14 @@ struct ResetStats
 end
 registermsg(ResetStats, ui=true)
 
-Circo.monitorextra(me::MsgStatsHelper) = (
-    (total_count = me.stats.total_count,
-     local_rate = me.stats.local_count / me.stats.total_count,
-     (Symbol(k) => v for (k,v) in me.stats.typefrequencies)...
+function Circo.monitorextra(me::MsgStatsHelper)
+    me.core.pos = me.fixedpos
+    return (
+        total_count = me.stats.total_count,
+        local_rate = me.stats.local_count / me.stats.total_count,
+        (Symbol(k) => v for (k,v) in me.stats.typefrequencies)...
     )
-)
+end
 
 Circo.monitorprojection(::Type{MsgStatsHelper}) = JS("{
     geometry: new THREE.BoxBufferGeometry(10, 10, 10)
@@ -38,7 +41,8 @@ Circo.monitorprojection(::Type{MsgStatsHelper}) = JS("{
 Circo.schedule_start(stats::MsgStats, scheduler) = begin
     stats.helper = MsgStatsHelper(stats)
     spawn(scheduler, stats.helper)
-    stats.helper.core.pos = pos(scheduler) == nullpos ? nullpos : pos(scheduler) - (pos(scheduler) * (1 / norm(pos(scheduler))) * 15.0)
+    stats.helper.fixedpos = pos(scheduler) == nullpos ? nullpos : pos(scheduler) - (pos(scheduler) * (1 / norm(pos(scheduler))) * 15.0)
+    stats.helper.core.pos = stats.helper.fixedpos
 end
 
 @inline function Circo.localdelivery(stats::MsgStats, scheduler, msg::Circo.AbstractMsg{T}, targetactor) where T
@@ -54,6 +58,7 @@ Circo.onmessage(me::MsgStatsHelper, msg::ResetStats, service) = begin
     empty!(me.stats.typefrequencies)
     me.stats.local_count = 0
     me.stats.total_count = 0
+    me.core.pos = me.fixedpos
 end
 
 # function Base.show(io::IO, stats::MsgStats)
