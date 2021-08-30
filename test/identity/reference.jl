@@ -51,7 +51,7 @@ end
     sdl = Scheduler(ctx, [testid_root])
     sdl(;exit=true, remote=false)
     
-    testref = IdRef(testid_root, emptycore(ctx))
+    testref = ReferencePeer(testid_root, emptycore(ctx))
     spawn(sdl, testref)
     sdl(;exit=true, remote=false)
 

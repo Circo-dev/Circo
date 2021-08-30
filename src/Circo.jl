@@ -18,6 +18,8 @@ const deliver! = CircoCore.deliver!
 # Actor lifecycle callbacks
 const onspawn = CircoCore.onspawn
 const onmessage = CircoCore.onmessage
+const onbecome = CircoCore.onbecome
+const ondeath = CircoCore.ondeath
 
 """
     onmigrate(me::Actor, service)
@@ -38,7 +40,7 @@ end
 """
 function onmigrate(me::Actor, service) end
 
-# Hooks
+# Plugin Hooks
 const actor_activity_sparse16 = CircoCore.actor_activity_sparse16
 const actor_activity_sparse256 = CircoCore.actor_activity_sparse256
 const letin_remote = CircoCore.letin_remote
@@ -72,6 +74,7 @@ include("identity/identity.jl")
 include("identity/transaction.jl")
 include("identity/single_phase_commit.jl")
 include("identity/idregistry.jl")
+include("identity/leadgroup.jl")
 include("profiles.jl")
 include("cli/circonode.jl")
 

@@ -3,33 +3,33 @@ module Reference
 
 using ....Circo
 using Circo.Migration
-import ..DistributedIdentities: DistIdId, Peer, PeerAdded, PeerRemoved, addrs, distid, DistributedIdentity
+import ..DistributedIdentities: DistIdId, Peer, PeerJoined, PeerLeaved, addrs, distid, DistributedIdentity
 
-export IdRef
+export ReferencePeer
 
-mutable struct IdRef{TCore} <: Actor{TCore}
+mutable struct ReferencePeer{TCore} <: Actor{TCore}
     id::DistIdId
     peer_addrs::Vector{Addr}
     core::TCore
-    IdRef(distributed_id_peer::Actor, core) = new{typeof(core)}(distid(distributed_id_peer), addrs(distributed_id_peer), core)
-    IdRef(id, peers::Vector{Addr}, core) = new{typeof(core)}(id, peers, core)
+    ReferencePeer(distributed_id_peer::Actor, core) = new{typeof(core)}(distid(distributed_id_peer), addrs(distributed_id_peer), core)
+    ReferencePeer(id, peers::Vector{Addr}, core) = new{typeof(core)}(id, peers, core)
 end
 
-Circo.DistributedIdentities.peers(me::IdRef) = me.peer_addrs
-Circo.DistributedIdentities.distid(me::IdRef) = me.id
+Circo.DistributedIdentities.peers(me::ReferencePeer) = me.peer_addrs
+Circo.DistributedIdentities.distid(me::ReferencePeer) = me.id
 
-Circo.onspawn(me::IdRef, service) = begin
+Circo.onspawn(me::ReferencePeer, service) = begin
     for peer_addr in me.peer_addrs # TODO: only connect to a subset
         connect_peer(me, peer_addr, service)
     end
 end
 
-function connect_peer(me::IdRef, peer_addr, service)
-    send(service, me, peer_addr, Subscribe{PeerAdded}(me))
-    send(service, me, peer_addr, Subscribe{PeerRemoved}(me))
+function connect_peer(me::ReferencePeer, peer_addr, service)
+    send(service, me, peer_addr, Subscribe{PeerJoined}(me))
+    send(service, me, peer_addr, Subscribe{PeerLeaved}(me))
 end
 
-Circo.onmessage(me::IdRef, msg::PeerAdded, service) = begin
+Circo.onmessage(me::ReferencePeer, msg::PeerJoined, service) = begin
     msg.distid == me.id || return
     idx = findfirst(a -> a == msg.addr, me.peer_addrs)
     if isnothing(idx)
@@ -38,7 +38,7 @@ Circo.onmessage(me::IdRef, msg::PeerAdded, service) = begin
     end
 end
 
-Circo.onmessage(me::IdRef, msg::PeerRemoved, service) = begin
+Circo.onmessage(me::ReferencePeer, msg::PeerLeaved, service) = begin
     msg.distid == me.id || return
     idx = findfirst(a -> a == msg.addr, me.peer_addrs)
     if !isnothing(idx)
@@ -46,11 +46,11 @@ Circo.onmessage(me::IdRef, msg::PeerRemoved, service) = begin
     end
 end
 
-Circo.onmessage(me::IdRef, msg, service) = begin
+Circo.onmessage(me::ReferencePeer, msg, service) = begin
     send(service, me, rand(me.peer_addrs), msg) # TODO routing
 end
 
-Circo.onmessage(me::IdRef, msg::RecipientMoved, service) = begin
+Circo.onmessage(me::ReferencePeer, msg::RecipientMoved, service) = begin
     replace!(me.peer_addrs, msg.oldaddress => msg.newaddress)
     send(service, me, message.newaddress, message.originalmessage)
 end

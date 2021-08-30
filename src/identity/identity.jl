@@ -49,12 +49,12 @@ struct DenseDistributedIdentity <: DistributedIdentityStyle end
 
 identity_style(::Type) = ActorIdentity()
 
-struct PeerRemoved <: Event
+struct PeerLeaved <: Event
     distid::DistIdId
     addr::Addr
 end
 
-struct PeerAdded <: Event
+struct PeerJoined <: Event
     distid::DistIdId
     addr::Addr
 end
@@ -76,6 +76,7 @@ function onidspawn(idstyle, me, service) end
 
 Circo.actor_spawning(::DistIdServiceImpl, scheduler, actor) = begin
     onidspawn(identity_style(typeof(actor)), actor, scheduler.service)
+    initialized(actor, scheduler.service)
     return false
 end
 
@@ -89,6 +90,27 @@ function create_peer(prototype::Actor, service)
     retval.core = emptycore(service)
     return retval
 end
+
+"""
+    function peer_leaved(me, peer::Addr, service)
+
+Will be called when a peer was removed from the identity.
+"""
+function peer_leaved(me, peer, service) end
+
+"""
+    function peer_joined(me, peer::Addr, service)
+
+Will be called to inform that a new peer joined.
+"""
+function peer_joined(me, peer::Addr, service) end
+
+"""
+    function initialized(me, service)
+
+Will be called at spawn, after the distid field is initialized.
+"""
+function initialized(me, service) end
 
 struct KillVote
     target::Addr
@@ -175,15 +197,21 @@ function spawnpeer_ifneeded(me, service)
         newpeer = create_peer(me, service)
         newpeer.distid = deepcopy(me.distid)
         newpeer.distid.peers[addr(me)] = Peer(addr(me))
-        newpeer_addr = spawn(service, newpeer)
-        fire(service, me, PeerAdded(me.distid.id, newpeer_addr))
+        spawn(service, newpeer)
     end
 end
 
+function fire_peerjoined(me, newpeer_addr, service)
+    peer_joined(me, newpeer_addr, service)
+    fire(service, me, PeerJoined(me.distid.id, newpeer_addr))
+end
+
 onidmessage(::DenseDistributedIdentity, me, msg::Hello, service) = begin
-    peer = get!(me.distid.peers, msg.respondto) do
-        fire(service, me, PeerAdded(me.distid.id, msg.respondto))
-        Peer(msg.respondto)
+    peer = get(me.distid.peers, msg.respondto, nothing)
+    if isnothing(peer)
+        peer = Peer(msg.respondto)
+        me.distid.peers[msg.respondto] = peer
+        fire_peerjoined(me, msg.respondto, service)
     end
     peer.lastseen = time()
     #@debug "$(dbg_hdr(me)): New peer (Now $(length(me.distid.peers)) peers): $(msg.respondto)."
@@ -333,7 +361,8 @@ function kill_and_spawn_other(me, target, service)
     send(service, me, target, Die())
     delete!(me.distid.peers, addr(target))
     sendtopeers(service, me, Killed(target))
-    fire(service, me, PeerRemoved(me.distid.id, target))
+    peer_leaved(me, target, service)
+    fire(service, me, PeerLeaved(me.distid.id, target))
     spawnpeer_ifneeded(me, service)
 end
 
