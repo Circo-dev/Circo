@@ -97,10 +97,18 @@ function Circo.schedule_start(migration::MigrationServiceImpl, sdl)
     migration.scheduler = sdl
 end
 
+struct AcceptMigrants
+    accept::Bool
+end
+
 Circo.Cluster.cluster_initialized(migration::MigrationServiceImpl, sdl, cluster) = begin
     migration.helperactor = MigrationHelper(migration, emptycore(sdl.service))
-    spawn(sdl.service, migration.helperactor)
-    accepts_migrants(migration, true)
+    helperaddr = spawn(sdl.service, migration.helperactor)
+    send(sdl.service, migration.helperactor, helperaddr, AcceptMigrants(true))
+end
+
+Circo.onmessage(me::MigrationHelper, msg::AcceptMigrants, service) = begin
+    accepts_migrants(me.service, true)
 end
 
 function Circo.onspawn(me::MigrationHelper, service)

@@ -27,9 +27,10 @@ Circo.schedule_start(me::IdRegistryService, sdl) = begin
     if isempty(me.roots)
         host = plugin(sdl, :host)
         if isnothing(host) || host.hostroot == postcode(sdl)
-            @warn "First node in cluster, starting global identity registry"
+            @info "First node in cluster, starting global identity registry"
             registry_root = IdRegistryPeer()
             spawn(sdl, registry_root)
+            @warn "Global identity registry started: $(distid(registry_root))"
             ref = spawn(sdl, ReferencePeer(registry_root, emptycore(sdl)))
             registername(sdl, REGISTRY_NAME, ref)
             return
