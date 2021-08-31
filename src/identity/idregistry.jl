@@ -51,6 +51,7 @@ mutable struct IdRegistryPeer <: Actor{Any}
 end
 DistributedIdentities.identity_style(::Type{IdRegistryPeer}) = DenseDistributedIdentity()
 Transactions.consistency_style(::Type{IdRegistryPeer}) = Inconsistency() # TODO implement multi-stage commit
+Circo.monitorprojection(::Type{IdRegistryPeer}) = Circo.Monitor.JS("projections.nonimportant")
 
 struct RegisterIdentity
     respondto::Addr
@@ -157,6 +158,7 @@ mutable struct RegistryRefAcquirer <: Actor{Any}
     core
     RegistryRefAcquirer(roots) = new(roots, nothing, 0, [], false)
 end
+Circo.monitorprojection(::Type{RegistryRefAcquirer}) = Circo.Monitor.JS("projections.nonimportant")
 
 Circo.onspawn(me::RegistryRefAcquirer, service) = begin
     send_namequery(me, service)
