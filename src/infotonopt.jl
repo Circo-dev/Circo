@@ -27,6 +27,8 @@ end
 Infoton() = Infoton(nullpos, 0.0f0)
 
 abstract type Optimizer <: Plugin end
+Plugins.symbol(::Optimizer) = :infoton_optimizer
+
 abstract type CustomOptimizer <: Optimizer end # for user-defined optimizers
 
 # - Default optimizer plugin - 
@@ -43,7 +45,6 @@ mutable struct OptimizerImpl <: Optimizer
     OptimizerImpl(migration;options...) = new(0.0f1, true, migration)
 end
 
-Plugins.symbol(::Optimizer) = :optimizer
 Plugins.deps(::Type{<:Optimizer}) = [Migration.MigrationService]
 __init__() = Plugins.register(OptimizerImpl)
 

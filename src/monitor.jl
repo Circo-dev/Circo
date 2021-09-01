@@ -161,8 +161,12 @@ function Plugins.setup!(monitor::MonitorServiceImpl, scheduler)
     registername(scheduler.service, "monitor", monitor.actor)
 end
 
-function Circo.onmessage(me::MonitorActor, request::ActorListRequest, service)
+function _updatepos(me::MonitorActor)
     me.core.pos = me.monitor.scheduler.pos
+end
+
+function Circo.onmessage(me::MonitorActor, request::ActorListRequest, service)
+    _updatepos(me)
     result = [monitorinfo(actor) for actor in values(me.monitor.scheduler.actorcache)]
     send(service, me, request.respondto, ActorListResponse(result, request.token))
 end

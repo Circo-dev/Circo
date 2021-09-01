@@ -206,3 +206,10 @@ function Circo.shutdown!(host::Host)
         CircoCore.shutdown!(scheduler)
     end
 end
+
+function Circo.pause!(host::Host)
+    for scheduler in host.schedulers
+        CircoCore.pause!(scheduler)
+    end
+end
+
