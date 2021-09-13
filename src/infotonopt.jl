@@ -1,6 +1,6 @@
 module InfotonOpt
 
-using ..Circo, ..Circo.Cluster, Circo.Monitor, Circo.Migration
+using ..Circo, ..Circo.Cluster, Circo.Monitor
 using Plugins
 using LinearAlgebra
 
@@ -36,16 +36,12 @@ abstract type CustomOptimizer <: Optimizer end # for user-defined optimizers
 const I = 1.0
 const TARGET_DISTANCE = 8.0
 const LOAD_ALPHA = 1e-3
-const MIGRATION_LOAD_THRESHOLD = 18
 
 mutable struct OptimizerImpl <: Optimizer
     scheduler_load::Float32
-    accepts_migrants::Bool
-    migration::Migration.MigrationService
-    OptimizerImpl(migration;options...) = new(0.0f1, true, migration)
+    OptimizerImpl(;options...) = new(0.0f1)
 end
 
-Plugins.deps(::Type{<:Optimizer}) = [Migration.MigrationService]
 __init__() = Plugins.register(OptimizerImpl)
 
 Plugins.customfield(::Optimizer, ::Type{AbstractMsg}) = Plugins.FieldSpec("infoton", Infoton, infotoninit)
@@ -65,29 +61,14 @@ function update_load!(optimizer::Optimizer, scheduler)
     optimizer.scheduler_load = 
         LOAD_ALPHA * length(scheduler.msgqueue) +
         (1.0f0 - LOAD_ALPHA) * optimizer.scheduler_load
-    SWITCH_TOLERANCE = 1.1f0
-    if optimizer.accepts_migrants
-        if optimizer.scheduler_load > MIGRATION_LOAD_THRESHOLD * SWITCH_TOLERANCE
-            accepts_migrants(optimizer, false)
-        end
-    else 
-        if optimizer.scheduler_load < MIGRATION_LOAD_THRESHOLD / SWITCH_TOLERANCE
-            accepts_migrants(optimizer, true)
-        end
-    end
 end
 
-@inline function CircoCore.idle(optimizer::Optimizer, scheduler)
+function CircoCore.idle(optimizer::Optimizer, scheduler)
     if optimizer.scheduler_load < 1f-3
         optimizer.scheduler_load = 0.0f1
     else
         update_load!(optimizer, scheduler)
     end
-end
-
-function accepts_migrants(optimizer::Optimizer, accepts_them::Bool)
-    optimizer.accepts_migrants = accepts_them
-    Migration.accepts_migrants(optimizer.migration, accepts_them)
 end
 
 # - Apply Infotons -

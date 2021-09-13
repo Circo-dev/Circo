@@ -76,11 +76,10 @@ mutable struct MigrationServiceImpl <: MigrationService
     registry::CircoCore.LocalRegistry
     movingactors::Dict{ActorId,MovingActor}
     movedactors::Dict{ActorId,Addr}
-    accepts_migrants::Bool
     alternatives::MigrationAlternatives
     helperactor::Any
     scheduler
-    MigrationServiceImpl(registry::CircoCore.LocalRegistry,::ClusterService; options...) = new(registry,Dict([]),Dict([]),false,MigrationAlternatives())
+    MigrationServiceImpl(registry::CircoCore.LocalRegistry,::ClusterService; options...) = new(registry,Dict([]),Dict([]),MigrationAlternatives())
 end
 Plugins.symbol(::MigrationServiceImpl) = :migration
 Plugins.deps(::Type{MigrationServiceImpl}) = [CircoCore.LocalRegistry, ClusterService]
@@ -97,18 +96,9 @@ function Circo.schedule_start(migration::MigrationServiceImpl, sdl)
     migration.scheduler = sdl
 end
 
-struct AcceptMigrants
-    accept::Bool
-end
-
 Circo.Cluster.cluster_initialized(migration::MigrationServiceImpl, sdl, cluster) = begin
     migration.helperactor = MigrationHelper(migration, emptycore(sdl.service))
-    helperaddr = spawn(sdl.service, migration.helperactor)
-    send(sdl.service, migration.helperactor, helperaddr, AcceptMigrants(true))
-end
-
-Circo.onmessage(me::MigrationHelper, msg::AcceptMigrants, service) = begin
-    accepts_migrants(me.service, true)
+    spawn(sdl.service, migration.helperactor)
 end
 
 function Circo.onspawn(me::MigrationHelper, service)
@@ -117,50 +107,20 @@ function Circo.onspawn(me::MigrationHelper, service)
     registername(service, "migration", me)
     send(service, me, cluster, Subscribe{PeerAdded}(addr(me)))
     send(service, me, cluster, Subscribe{PeerRemoved}(addr(me)))
-    send(service, me, cluster, Subscribe{PeerUpdated}(addr(me)))
     send(service, me, cluster, PeersRequest(addr(me)))
 end
 
 function Circo.onmessage(me::MigrationHelper, msg::PeersResponse, service)
-    target_peers = collect(Iterators.filter(peer -> get(peer.extrainfo, :accepts_migrants, false), values(msg.peers)))
+    target_peers = collect(values(msg.peers))
     me.service.alternatives = MigrationAlternatives(target_peers) # TODO strip if lengthy
 end
 
 function Circo.onmessage(me::MigrationHelper, msg::PeerAdded, service)
-    if get(msg.peer.extrainfo, :accepts_migrants, false) == true
-        push!(me.service.alternatives, msg.peer)
-    end
+    push!(me.service.alternatives, msg.peer)
 end
 
 function Circo.onmessage(me::MigrationHelper, msg::PeerRemoved, service)
     delete!(me.service.alternatives, msg.peer.addr)
-end
-
-function Circo.onmessage(me::MigrationHelper, msg::PeerUpdated, service)
-    if msg.key != :accepts_migrants
-        return
-    end
-    if msg.info != true
-        delete!(me.service.alternatives, msg.peer.addr)
-        return
-    end
-    oldpeer = get(me.service.alternatives, msg.peer.addr, nothing)
-    if isnothing(oldpeer)
-        push!(me.service.alternatives, msg.peer)
-    else
-        oldpeer.extrainfo[msg.key] = true
-    end
-end
-
-function accepts_migrants(migration::MigrationServiceImpl, accepts_migrants::Bool)
-    migration.accepts_migrants == accepts_migrants && return false
-    migration.accepts_migrants = accepts_migrants
-    clusteraddr = getname(migration.registry, "cluster")
-    if isnothing(clusteraddr) || !isdefined(migration, :scheduler)
-        return false
-    end
-    send(migration.scheduler, addr(migration.helperactor), clusteraddr, PublishInfo(:accepts_migrants, accepts_migrants))
-    return true
 end
 
 """

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MPL-2.0
 module Cluster
 
-export NodeInfo, Peers, PeerAdded, PeerRemoved, PeerUpdated, ClusterService, PublishInfo, PeersRequest, PeersResponse
+export NodeInfo, Peers, PeerAdded, PeerRemoved, PeerUpdated, ClusterService, PeersRequest, PeersResponse
 
 using ..Circo, ..CircoCore.Registry, ..Circo.Monitor
 using Plugins
@@ -103,6 +103,5 @@ end
 
 include("peers.jl")
 include("friends.jl")
-include("publishing.jl")
 
 end # module

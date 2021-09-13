@@ -58,12 +58,6 @@ struct PeerRemoved <: CircoCore.Event
     peer::NodeInfo
 end
 
-struct PeerUpdated <: CircoCore.Event
-    peer::NodeInfo
-    key::Symbol
-    info::Any
-end
-
 struct PeerJoinedNotification
     peer::NodeInfo
     creditto::Addr
