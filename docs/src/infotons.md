@@ -1,5 +1,9 @@
 # Infoton Optimization
 
+## Published Papers
+
+- [Exploiting the structure of communication in actor systems](http://publikacio.uni-eszterhazy.hu/7010/1/AMI_53_from271to282.pdf)
+
 ### Introduction
 
 An old issue of distributed systems comes from the layered cost&latency structure of communication: Networks are slow and bandwidth-limited, whereas inter-thread communication is much faster, but still slow compared to in-thread data passing. Thus communication is often the performance bottleneck that limits scalability and needs to be optimized.
