@@ -200,7 +200,7 @@ function runnerquote(includescript = false)
         if @isdefined(plugins)
             opts = merge(opts, (userpluginsfn = plugins,))
         end
-        ctx = CircoContext(;opts...)
+        ctx = Circo.CircoContext(;opts...)
 
         zygoteresult = []
         if opts[:iszygote] && @isdefined(zygote)

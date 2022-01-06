@@ -331,6 +331,6 @@ end
 
 end
 
-zygote(ctx) = [SearchTreeTest.Coordinator(emptycore(ctx)) for i = 1:1]
-plugins(;options...) = [Debug.MsgStats]
+zygote(ctx) = [SearchTreeTest.Coordinator(Circo.emptycore(ctx)) for i = 1:1]
+plugins(;options...) = [Circo.Debug.MsgStats]
 profile(;options...) = Circo.Profiles.ClusterProfile(;options...)

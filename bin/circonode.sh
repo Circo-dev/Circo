@@ -4,6 +4,7 @@
 # Starts a Circo node. For more info, call with -h
 
 BOOT_SCRIPT=$(cat <<-END
+    import CircoCore
     import Circo
     eval(Circo.cli.runnerquote(true))
 END
