@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # SPDX-License-Identifier: MPL-2.0
 
 # Starts a Circo node. For more info, call with -h

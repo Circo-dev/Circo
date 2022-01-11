@@ -216,7 +216,7 @@ function runnerquote(includescript = false)
             end
         catch e
             @info "Shutting down Circo node..."
-            shutdown!(node)
+            Circo.shutdown!(node)
             wait(nodetask)
         end
     end
