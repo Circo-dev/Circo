@@ -4,7 +4,7 @@ module LoadTester
 
 export TestCase, Worker, TaskedWorker, TaskDone
 
-using Circo, Circo.Migration
+using Circo, Circo.Migration, Circo.InfotonOpt
 using LinearAlgebra
 
 struct TestCase
@@ -114,7 +114,7 @@ const TARGET_DISTANCE = 80.0
 const SCHEDULER_TARGET_LOAD = 11
 const SCHEDULER_LOAD_FORCE_STRENGTH = 1e-5
 
-@inline @fastmath function Circo.scheduler_infoton(scheduler, actor::Union{TaskedWorker})
+@inline @fastmath function InfotonOpt.scheduler_infoton(scheduler, actor::Union{TaskedWorker})
     dist = norm(scheduler.pos - actor.core.pos)
     loaddiff = Float64(SCHEDULER_TARGET_LOAD - length(scheduler.msgqueue))
     (loaddiff == 0.0 || dist == 0.0) && return Infoton(scheduler.pos, 0.0)
@@ -137,7 +137,7 @@ end
     return nothing
 end
 
-@inline @fastmath Circo.apply_infoton(space::Space, targetactor::Actor, infoton::Infoton) = begin
+@inline @fastmath InfotonOpt.apply_infoton(space::Space, targetactor::Actor, infoton::Infoton) = begin
     diff = infoton.sourcepos - targetactor.core.pos
     difflen = norm(diff)
     difflen == 0 && return nothing

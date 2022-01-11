@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MPL-2.0
-using Circo.Http
+using Circo, Circo.Http
 
 mutable struct API{TCore} <: Actor{TCore}
     msg_count::Int
