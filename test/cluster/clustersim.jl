@@ -6,7 +6,7 @@ import Circo:onmessage, onmigrate
 const PEER_COUNT = 400
 const ROOT_COUNT = 3
 
-ctx = CircoContext()
+ctx = CircoContext(target_module=@__MODULE__)
 
 @testset "Cluster" begin
     cluster = []

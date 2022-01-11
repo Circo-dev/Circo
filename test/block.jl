@@ -113,7 +113,7 @@ end
 
 @testset "Blocking" begin
     tester = BlockTester()
-    ctx = CircoContext(userpluginsfn=() -> [BlockService])
+    ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [BlockService])
     scheduler = Scheduler(ctx, [tester])
     scheduler(;exit=true)
     Circo.shutdown!(scheduler)

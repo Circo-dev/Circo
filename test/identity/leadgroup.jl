@@ -22,7 +22,7 @@ LeadGroup.onelected(me::LeadGroupPeer, service) = begin
 end
 
 @testset "LeadGroup basics" begin
-    ctx = CircoContext(; target_module=@__MODULE__,
+    ctx = CircoContext(target_module=@__MODULE__,
                          profile=Circo.Profiles.ClusterProfile(),
                          userpluginsfn=(;_...)->[DistIdService])
     tester = LeadGroupTestPeer()

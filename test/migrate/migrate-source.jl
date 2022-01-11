@@ -27,7 +27,7 @@ function Circo.onmessage(me::Stayer, message::SimpleResponse, service)
     die(service, me)
 end
 
-ctx = CircoContext(; userpluginsfn = () -> [MigrationService, ClusterService])
+ctx = CircoContext(userpluginsfn = () -> [MigrationService, ClusterService])
 
 function migratetoremote(targetpostcode, resultsholder_address)
     migrant = Migrant()

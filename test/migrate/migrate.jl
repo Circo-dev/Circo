@@ -3,22 +3,20 @@ using Test
 using Circo, Circo.Migration, Circo.Cluster
 import Circo:onmessage
 
-include("migrate-base.jl")
-
-function Circo.onmigrate(me::Migrant, service)
+function Circo.onmigrate(me::Main.Migrant, service)
     @debug "Successfully migrated to $me"
-    send(service, me, me.stayeraddress, MigrateDone(addr(me)))
+    send(service, me, me.stayeraddress, Main.MigrateDone(addr(me)))
 end
 
-function onmessage(me::Migrant, message::SimpleRequest, service)
-    send(service, me, message.responseto, SimpleResponse())
+function onmessage(me::Main.Migrant, message::Main.SimpleRequest, service)
+    send(service, me, message.responseto, Main.SimpleResponse())
 end
 
-function onmessage(me::Migrant, message::Results, service)
+function onmessage(me::Main.Migrant, message::Main.Results, service)
     die(service, me)
 end
 
-function onmessage(me::ResultsHolder, message::Results, service)
+function onmessage(me::Main.ResultsHolder, message::Main.Results, service)
     println("Got results $message")
     me.results = message
     die(service, me)
@@ -31,8 +29,8 @@ function startsource(targetpostcode, resultsholder_address)
 end
 
 @testset "Migration" begin
-    resultsholder = ResultsHolder()
-    ctx = CircoContext(userpluginsfn=() -> [MigrationService, ClusterService])
+    resultsholder = Main.ResultsHolder()
+    ctx = CircoContext(userpluginsfn = () -> [MigrationService, ClusterService])
     scheduler = Scheduler(ctx, [resultsholder])
     startsource(postcode(scheduler),addr(resultsholder))
     scheduler(;exit=true)

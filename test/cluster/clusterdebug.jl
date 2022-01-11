@@ -14,7 +14,7 @@ end
 const PEER_COUNT = 50
 const ROOT_COUNT = 1
 
-ctx = CircoContext(;profile=Circo.Profiles.ClusterProfile())
+ctx = CircoContext(target_module=@__MODULE__, profile=Circo.Profiles.ClusterProfile())
 
 cluster = []
 scheduler = Scheduler(ctx, [])

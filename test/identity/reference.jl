@@ -46,7 +46,7 @@ Circo.onmessage(me::ReferenceTester, msg::TestResp, service) = begin
 end
 
 @testset "DistId references" begin
-    ctx = CircoContext(;profile=Circo.Profiles.ClusterProfile())
+    ctx = CircoContext(target_module=@__MODULE__, profile=Circo.Profiles.ClusterProfile())
     testid_root = DistIdForRefTest(DistributedIdentity(42; redundancy = 3))
     sdl = Scheduler(ctx, [testid_root])
     sdl(;exit=true, remote=false)

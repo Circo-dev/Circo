@@ -20,7 +20,7 @@ DistributedIdentities.identity_style(::Type{DistIdForRegistryTest}) = DenseDistr
 const IDREG_TEST_KEY = "key.sub"
 
 @testset "Identity Registry" begin
-    ctx = CircoContext(; target_module=@__MODULE__, profile=Circo.Profiles.ClusterProfile())
+    ctx = CircoContext(target_module=@__MODULE__, profile=Circo.Profiles.ClusterProfile())
     distid_root = DistIdForRegistryTest()
     tester = Puppet()
     sdl = Scheduler(ctx, [distid_root, tester])

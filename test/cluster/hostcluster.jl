@@ -6,7 +6,7 @@ import Circo:onspawn, onmessage, onmigrate
 
 const CLUSTER_SIZE = 30
 
-ctx = CircoContext(; target_module=@__MODULE__, profile=Circo.Profiles.ClusterProfile())
+ctx = CircoContext(target_module=@__MODULE__, profile=Circo.Profiles.ClusterProfile())
 
 @testset "HostCluster" begin
     @testset "Host cluster with internal root" begin

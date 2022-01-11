@@ -171,7 +171,7 @@ Circo.specialmsg(migration::MigrationServiceImpl, scheduler, message::AbstractMs
         @info " $(Threads.threadid()) Got MigrationResponse for $(box(response.to)), but it is not moving."
     end
     if response.success
-        @debug "$(response.from) migrated to $(response.to) (at $(postcode(scheduler)))"
+        @debug "Succesful migration: $(response.from) to $(response.to) (at $(postcode(scheduler)))"
         migration.movedactors[box(response.from)] = response.to
         if !isnothing(movingactor) 
             for message in movingactor.messages
@@ -183,7 +183,7 @@ Circo.specialmsg(migration::MigrationServiceImpl, scheduler, message::AbstractMs
             schedule!(scheduler, movingactor.actor) # TODO callback + tests
         end
     end
-    return nothing
+    return true
 end
 
 Circo.localroutes(migration::MigrationServiceImpl, scheduler, message::AbstractMsg)::Bool = begin

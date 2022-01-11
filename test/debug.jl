@@ -29,7 +29,7 @@ function Circo.onmessage(me::StatsTester, msg::Sample, service)
     send(service, me, addr(me), Ack())
 end
 
-ctx = CircoContext(;userpluginsfn=() -> [Debug.MsgStats])
+ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [Debug.MsgStats])
 
 @testset "Debug" begin
     tester = StatsTester()
