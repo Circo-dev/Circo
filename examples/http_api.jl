@@ -29,6 +29,6 @@ function Circo.onmessage(me::API, msg::HttpRequest, service)
 end
 
 zygote(ctx) = [API(emptycore(ctx))]
-plugins(;options...) = [Debug.MsgStats, HttpService]
+plugins(;options...) = [Debug.MsgStats, HttpServer]
 profile(;options...) = Circo.Profiles.ClusterProfile(;options...)
 

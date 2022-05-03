@@ -154,7 +154,7 @@ function handle_connection(service::WebsocketServiceImpl, ws, scheduler)
                 @error "Exception while handling websocket frame" exception=(e, catch_backtrace())
             else
                 @error "Exception while handling websocket frame: $e"
-                @error "Cannot print stack trace due to an unknown issue in Base or HTTP.jl. Rerun with JULIA_NUM_THREADS=1 to get more info"
+                @error "Cannot print stack trace due to an unknown issue in Base or httpserver.jl. Rerun with JULIA_NUM_THREADS=1 to get more info"
             end
         end
     end

@@ -8,5 +8,5 @@ Open the JavaScript console (F12) and reload the page. You should see exactly on
 
 #### Sometimes the backend crashes when the browser disconnects
 
-This seems like a bug in HTTP.jl or in Julia itself, partially workarounded, so happens rarely. Work on fixing this hasn't yet started, the only known workaround at the time is not closing the browser and not reloading the page while connected to the backend. Note that using the monitoring
+This seems like a bug in httpserver.jl or in Julia itself, partially workarounded, so happens rarely. Work on fixing this hasn't yet started, the only known workaround at the time is not closing the browser and not reloading the page while connected to the backend. Note that using the monitoring
 frontend is optional.
