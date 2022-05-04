@@ -17,7 +17,7 @@ struct StartMsg end
 struct StartHttpTest <: CircoCore.AbstractMsg{Any}
     sender::CircoCore.Addr
     target::CircoCore.Addr
-    body::VmiMas
+    body::StartMsg
 end
 
 function Circo.onspawn(me::HttpTestCaller, service)
@@ -53,7 +53,7 @@ end
     tester = HttpTestCaller(emptycore(ctx))
 
     scheduler = Scheduler(ctx, [tester])
-    scheduler([StartHttpTest(tester, tester, VmiMas())] ;exit=true)
+    scheduler([StartHttpTest(tester, tester, StartMsg())] ;exit=true)
     
     Circo.shutdown!(scheduler)
     println("After circo.shutdown! $(scheduler.msgqueue)")
