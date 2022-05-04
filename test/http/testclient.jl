@@ -9,7 +9,15 @@ mutable struct HttpTestCaller <: Actor{Any}
     reqidsent::Integer
     reqidarrived::Integer
 
-    HttpTestCaller() = new()
+    HttpTestCaller(core) = new(core)
+end
+
+struct StartMsg end
+
+struct StartHttpTest <: CircoCore.AbstractMsg{Any}
+    sender::CircoCore.Addr
+    target::CircoCore.Addr
+    body::VmiMas
 end
 
 function Circo.onspawn(me::HttpTestCaller, service)
@@ -17,7 +25,10 @@ function Circo.onspawn(me::HttpTestCaller, service)
     me.responsearrived = false
     me.reqidsent = 12
     me.reqidarrived = 0
+end
 
+#TODO This can be incorporated into the HttpTestCaller's onspawn after the problem with zygote handling solved ( Problem: zygote starts before the plugin's actors can be registered )
+function Circo.onmessage(me::HttpTestCaller, ::StartMsg, service)
     httpactor = getname(service, "httpclient")
     request = HttpRequest(me.reqidsent, addr(me), "GET", "http://localhost:8080/test")
     
@@ -37,15 +48,17 @@ function Circo.onmessage(me::HttpTestCaller, msg::HttpResponse, service)
     die(service, me)
 end
 
-# @testset "Httpclient" begin
-    tester = HttpTestCaller()
+@testset "Httpclient" begin
     ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [HttpClient])
+    tester = HttpTestCaller(emptycore(ctx))
+
     scheduler = Scheduler(ctx, [tester])
-    scheduler(;exit=true)
+    scheduler([StartHttpTest(tester, tester, VmiMas())] ;exit=true)
+    
     Circo.shutdown!(scheduler)
     println("After circo.shutdown! $(scheduler.msgqueue)")
 
     @test tester.requestsent == true
     @test tester.responsearrived == true
     @test tester.reqidsent == tester.reqidarrived
-# end
+end
