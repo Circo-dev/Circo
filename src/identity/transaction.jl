@@ -17,10 +17,10 @@ struct PropertyWrite{TValue} <: Write
     PropertyWrite(propertyname, value) = new{typeof(value)}(propertyname, value)
 end
 
-struct IdxWrite{TValue} <: Write
-    idx::Int
+struct IdxWrite{TIdx, TValue} <: Write
+    idx::TIdx
     value::TValue
-    IdxWrite(idx, value) = new{typeof(value)}(idx, value)
+    IdxWrite(idx, value) = new{typeof(idx), typeof(value)}(idx, value)
 end
 
 struct SubArrayWrite{TValue} <: Write

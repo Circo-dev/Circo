@@ -35,6 +35,7 @@ ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [Debug.MsgStat
     tester = StatsTester()
     scheduler = Scheduler(ctx, [tester])
     stats = scheduler.plugins[:msgstats]
+    scheduler(;remote = false, exit = true) # to spawn the zygote
     send(scheduler, addr(tester), Start())
     scheduler(;remote = false, exit = true)
     @show stats

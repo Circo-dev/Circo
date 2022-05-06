@@ -32,6 +32,7 @@ ctx = CircoContext(userpluginsfn = () -> [MigrationService, ClusterService])
 function migratetoremote(targetpostcode, resultsholder_address)
     migrant = Migrant()
     scheduler = Scheduler(ctx, [migrant])
+    scheduler(;remote = false, exit = true) # to spawn the zygote
     stayer = Stayer(addr(migrant), Addr(resultsholder_address))
     schedule!(scheduler, stayer)
     cmd = MigrateCommand(targetpostcode, addr(stayer))

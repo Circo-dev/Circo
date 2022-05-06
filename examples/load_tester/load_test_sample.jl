@@ -1,6 +1,8 @@
 using Circo, HTTP
 include("load_tester.jl");  using .LoadTester
 
+const BASE_URL = "http://stage.stereotic.com:8000/"
+
 mutable struct User1{TCore} <: TaskedWorker{TCore}
     manager::Addr
     case::TestCase
@@ -18,15 +20,15 @@ LoadTester.tasks(me::User1) = [SampleTask1(), SampleTask2()]
 function Circo.onmessage(me::User1, task::SampleTask1, service)
     @async begin
         try
-            HTTP.request("GET", "http://localhost:8080/api"; connection_limit = 30)
+            HTTP.request("GET", BASE_URL; connection_limit = 30)
             sleep(0.2)
-            HTTP.request("GET", "http://localhost:8080/api/1"; connection_limit = 30)
+            HTTP.request("GET", "$(BASE_URL)apps/screener/index.html"; connection_limit = 30)
             sleep(0.1)
         catch e
             @info "$e"
         end
         try
-            send(service, me, me.manager, TaskDone(task, me.id))
+            send(service, me, me.manager, TaskDone(task, me.id); energy=0.02)
             if !isnothing(me.migration_target)
                 Circo.Migration.migrate(service, me, me.migration_target)
                 me.migration_target = nothing
@@ -40,11 +42,11 @@ end
 function Circo.onmessage(me::User1, task::SampleTask2, service)
     @async begin
         try
-            HTTP.request("GET", "http://localhost:8080/api/2"; connection_limit = 30)
+            HTTP.request("GET", "$(BASE_URL)data/history/bitcoin/chart1.json"; connection_limit = 30)
         catch e
             @info "$e"
         end
-        send(service, me, me.manager, TaskDone(task, me.id))
+        send(service, me, me.manager, TaskDone(task, me.id); energy=0.02)
         if !isnothing(me.migration_target)
             migrate(service, me, me.migration_target)
             me.migration_target = nothing

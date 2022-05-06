@@ -90,6 +90,7 @@ ctx = CircoContext(; target_module=@__MODULE__, profile=Circo.Profiles.ClusterPr
     @testset "Inter-thread Ping-Pong inside Host" begin
         pingers = [PingPonger(nothing, emptycore(ctx)) for i=1:50]
         host = Host(ctx, 2; zygote=pingers)
+        host(;remote=false, exit=true)
         for pinger in pingers
             send(host, addr(pinger), CreatePeer(postcode(host.schedulers[end])))
         end
@@ -121,6 +122,7 @@ ctx = CircoContext(; target_module=@__MODULE__, profile=Circo.Profiles.ClusterPr
     @testset "In-thread Ping-Pong inside Host" begin
         pingers = [PingPonger(nothing, emptycore(ctx)) for i=1:1]
         host = Host(ctx, 1; zygote=pingers)
+        host(;remote=false, exit=true)
         for pinger in pingers
             send(host, addr(pinger), CreatePeer(nothing))
         end

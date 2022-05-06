@@ -5,15 +5,15 @@
 module SearchTreeTest
 
 # Tree parameters
-const ITEM_COUNT = 200_000
+const ITEM_COUNT = 400_000
 const ITEMS_PER_LEAF = 1000
-const FILL_RATE = 0.01
+const FILL_RATE = 0.3
 const FULLSPEED_PARALLELISM = 200
 
 # Infoton optimization parameters
 const I = 1.0
 const TARGET_DISTANCE = 180.0
-const SCHEDULER_TARGET_LOAD = 20
+const SCHEDULER_TARGET_LOAD = 15
 const SCHEDULER_LOAD_FORCE_STRENGTH = 0.01
 const SIBLINGINFO_FREQ = 1 #0..255
 const SIBLINGINFO_ENERGY = -1.0

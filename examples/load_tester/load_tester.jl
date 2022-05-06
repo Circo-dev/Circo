@@ -109,10 +109,10 @@ Circo.monitorextra(me::Worker)  = (
     mng = box(me.manager),
 )
 
-const I = 1.0
+const I = .20
 const TARGET_DISTANCE = 80.0
-const SCHEDULER_TARGET_LOAD = 11
-const SCHEDULER_LOAD_FORCE_STRENGTH = 1e-5
+const SCHEDULER_TARGET_LOAD = 50
+const SCHEDULER_LOAD_FORCE_STRENGTH = 1e-6
 
 @inline @fastmath function InfotonOpt.scheduler_infoton(scheduler, actor::Union{TaskedWorker})
     dist = norm(scheduler.pos - actor.core.pos)
