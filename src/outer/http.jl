@@ -15,7 +15,7 @@ struct HttpRequest
     respondto::Addr
     raw::HTTP.Messages.Request
 
-    
+    HttpRequest(id, respondto, request::HTTP.Messages.Request) = new(id, respondto, request)
     HttpRequest(id, respondto, method, url) = new(id, respondto, HTTP.Messages.Request(method, url) )
     HttpRequest(id, respondto, method, url, headers) = new(id, respondto, HTTP.Messages.Request(method, url, headers))
     HttpRequest(id, respondto, method, url, headers, body) = new(id, respondto, HTTP.Messages.Request(method, url, headers, body))

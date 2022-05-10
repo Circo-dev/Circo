@@ -65,6 +65,8 @@ function Circo.setup!(http::HttpServerImpl, scheduler)
 end
 
 function Circo.schedule_start(http::HttpServerImpl, scheduler)
+    @debug "HttpService's dispatcher address" addr(http.dispatcher)
+
     listenport = 8080 + port(postcode(scheduler)) - CircoCore.PORT_RANGE[1]
     ipaddr = Sockets.IPv4(0) # TODO config
     try
@@ -75,15 +77,33 @@ function Circo.schedule_start(http::HttpServerImpl, scheduler)
     end
     dispatcher_addr = addr(http.dispatcher)
     @async HTTP.listen(ipaddr, listenport; server=http.socket) do raw_http
+        
+        @debug "Server got a message"
         response_chn = Channel{HttpResponse}(2)
-        send(scheduler, dispatcher_addr, TaskedRequest(HttpRequest(rand(HttpReqId), dispatcher_addr, raw_http.message), response_chn))
+        taskedRequest = TaskedRequest(HttpRequest(rand(HttpReqId), dispatcher_addr, raw_http.message), response_chn)
+        send(scheduler, dispatcher_addr, taskedRequest)
+
         response = take!(response_chn)
+
+        # we need to read all character to send response7
+        # TODO use data from Stream to set HttpRequest.body  
+        while !eof(raw_http)
+            data = readavailable(raw_http)
+        end
+
         HTTP.setstatus(raw_http, response.status)
         for header in response.headers
             HTTP.setheader(raw_http, header)
         end
+
         startwrite(raw_http)
         write(raw_http, response.body)
+
+        @debug "http.ntoread" raw_http.ntoread
+        @debug "http.ntoread != unknown_length" raw_http.readchunked != typemax(Int)
+        @debug "http.readchunked" raw_http.readchunked
+        @debug "http listen return"
+
         return nothing
     end
 end
@@ -95,7 +115,7 @@ end
 function Circo.onmessage(me::HttpDispatcher, msg::TaskedRequest, service)
     me.reqs[msg.req.id] = msg
     routeresult = route(me.router, msg.req)
-    println("Circo.routeresult \n $routeresult")
+    @debug "Circo.routeresult $routeresult"
     if isnothing(routeresult)
         send(service, me, addr(me), HttpResponse(msg.req.id, 404, [], Vector{UInt8}("No route found for $(msg.req.raw.target)") ))
         return nothing
@@ -115,5 +135,7 @@ end
 function Circo.onmessage(me::HttpDispatcher, msg::Route, service)
     push!(me.router, msg)
     @info "Added route: $msg"
+    
+    # TODO create a feedback to actor
     return nothing
 end

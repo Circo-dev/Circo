@@ -23,16 +23,23 @@ function Circo.schedule_start(http::HttpClientImpl, scheduler)
 end
 
 function Circo.onmessage(me::HttpClientActor, msg::HttpRequest, service)
-    println("Actor with address : $(addr(me)) got message!")
-    response = HTTP.request(msg.raw.method, msg.raw.target, msg.raw.headers, msg.raw.body; connection_limit=30)
-    println(response.status)
-    address = msg.respondto
-    println("Sending HttpResponse message to $address")
-    
-    ownresponse = HttpResponse(msg.id, response.status, response.headers, response.body)
-    send(service.scheduler, address , ownresponse)
+    println("HttpClientActor Actor with address : $(addr(me)) got message!")
+    @async begin
+        response = HTTP.request(msg.raw.method, msg.raw.target, msg.raw.headers, msg.raw.body; 
+        connection_limit=30 
+        # , connect_timeout = 0
+        , retry = false
+        )
+        println("HTTP.request returned to HttpClientActor")
+        address = msg.respondto
+        println("Sending HttpResponse message to $address")
+        
+        ownresponse = HttpResponse(msg.id, response.status, response.headers, response.body)
+        send(service.scheduler, address , ownresponse)
+    end
 end
 
+# This function is only for testing TODO replace
 function Circo.onmessage(me::HttpClientActor, msg::HttpResponse, service)
     address = addr(me)
     println("Response arrived! $address")
