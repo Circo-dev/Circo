@@ -79,17 +79,20 @@ function Circo.schedule_start(http::HttpServerImpl, scheduler)
     @async HTTP.listen(ipaddr, listenport; server=http.socket) do raw_http
         
         @debug "Server got a message"
+
+        # we need to read all character to send response7
+        # TODO use data from Stream to set HttpRequest.body  
+        data = nothing
+        while !eof(raw_http)
+            data = readavailable(raw_http)
+        end
+        raw_http.message.body = data
+
         response_chn = Channel{HttpResponse}(2)
         taskedRequest = TaskedRequest(HttpRequest(rand(HttpReqId), dispatcher_addr, raw_http.message), response_chn)
         send(scheduler, dispatcher_addr, taskedRequest)
 
         response = take!(response_chn)
-
-        # we need to read all character to send response7
-        # TODO use data from Stream to set HttpRequest.body  
-        while !eof(raw_http)
-            data = readavailable(raw_http)
-        end
 
         HTTP.setstatus(raw_http, response.status)
         for header in response.headers

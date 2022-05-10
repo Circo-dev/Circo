@@ -3,6 +3,10 @@ using Circo, Circo.Http
 import Sockets
 import Circo:onmessage, onspawn
 
+
+const RESPONSE_BODY_MSG = "Message arrived. Processing succesfull by "
+const REQUEST_BODY_MSG= "Test Message"
+
 mutable struct HttpTestCaller <: Actor{Any}
     core::Any
     requestsent::Bool
@@ -22,6 +26,7 @@ struct StartMsg
 end
 
 struct VerificationMsg
+    responsebody
 end
 
 struct StartHttpTest <: CircoCore.AbstractMsg{Any}
@@ -40,7 +45,7 @@ end
 function Circo.onmessage(me::HttpTestCaller, msg::StartMsg, service)
     httpactor = getname(service, "httpclient")
     println("Prepare message to $(msg.url)")
-    request = HttpRequest(me.reqidsent, addr(me), "GET", msg.url, [], "Test Message")
+    request = HttpRequest(me.reqidsent, addr(me), "GET", msg.url, [], REQUEST_BODY_MSG)
     
     address = addr(me)
     println("Actor with address $address sending httpRequest with httpRequestId :  $(request.id) message to $httpactor")
@@ -50,11 +55,13 @@ end
 
 function Circo.onmessage(me::HttpTestCaller, msg::HttpResponse, service)
     address = addr(me)
+    responsebody = String(msg.body)
     println("HttpTestCaller with address $address got httpResponse message with httpRequestId : $(msg.reqid)")
+    println("Message : $(responsebody)")
     me.responsearrived = true
     me.reqidarrived = msg.reqid
 
-    send(service.scheduler, me.orchestrator, VerificationMsg())
+    send(service.scheduler, me.orchestrator, VerificationMsg(responsebody))
     println("HttpTestCaller at $me goint to die")
     die(service, me)
 end
@@ -84,7 +91,8 @@ function Circo.onmessage(me::HttpRequestProcessor, msg::HttpRequest, service)
 
     #Ha a 200 -> "200" -at írok akkor Addr-re akarja konvertálni ...
     stateCode = 200
-    response = Http.HttpResponse(msg.id, stateCode, [], Vector{UInt8}("Message $(msg.raw.body) arrived. Processing succesfull by $me"))
+    msgbody = String(msg.raw.body)
+    response = Http.HttpResponse(msg.id, stateCode, [], Vector{UInt8}("\"$(msgbody)\" " * RESPONSE_BODY_MSG * "$me"))
 
     me.requestProcessed = true
     println("Sending http response to message with reqid : $(msg.id) ")
@@ -114,13 +122,14 @@ function Circo.onmessage(me::TestOrchestrator, ::StartMsg, service)
 end
 
 #HttpTestCaller finished, start verifying
-function Circo.onmessage(me::TestOrchestrator, ::VerificationMsg, service)
+function Circo.onmessage(me::TestOrchestrator, msg::VerificationMsg, service)
     println("Verification starts")
 
     @test me.httpcalleractor.requestsent == true
     @test me.httpcalleractor.responsearrived == true
     @test me.httpcalleractor.reqidsent == me.httpcalleractor.reqidarrived
     @test me.processoractor.requestProcessed == true
+    @test startswith(msg.responsebody, "\"$REQUEST_BODY_MSG\" $RESPONSE_BODY_MSG")  
 
     println("TestOrchestrator at $me goint to die")
     die(service, me)
