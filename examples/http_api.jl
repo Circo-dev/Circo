@@ -9,7 +9,7 @@ mutable struct API{TCore} <: Actor{TCore}
 end
 
 function Circo.onspawn(me::API, service)
-    http = getname(service, "http")
+    http = getname(service, "httpserver")
     isnothing(http) && error("No http service found")
     send(service, me, http, PrefixRoute("/api", addr(me)))
     @async begin # This is not part of the state, so it is unreliable, e.g. cannot migrate
