@@ -38,14 +38,3 @@ function Circo.onmessage(me::HttpClientActor, msg::HttpRequest, service)
         send(service.scheduler, address , ownresponse)
     end
 end
-
-# This function is only for testing TODO replace
-function Circo.onmessage(me::HttpClientActor, msg::HttpResponse, service)
-    address = addr(me)
-    println("Response arrived! $address")
-    println(msg.status)
-
-    println("Get registered Actor named : 'httpclient'")
-    pluginActor = getname(service, "httpclient")
-    println("Plugin actor's address $pluginActor")
-end
