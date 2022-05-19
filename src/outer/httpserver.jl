@@ -54,12 +54,17 @@ mutable struct HttpServerImpl <: HttpServer
     router::Router
     socket::Sockets.TCPServer
     dispatcher
+    maxrequestsizeinbyte::Number
+
     HttpServerImpl(;options...) = new()
 end
 
 
 function Circo.setup!(http::HttpServerImpl, scheduler)
     http.dispatcher = _HttpDispatcher(emptycore(scheduler.service))
+    http.maxrequestsizeinbyte = parse(Int, get(ENV, "MAX_SIZE_OF_REQUEST", string(1024 * 1024)))
+    @info "Allowed maximum size of a request payload : $(http.maxrequestsizeinbyte / 1024)"
+
     schedule!(scheduler, http.dispatcher)
     registername(scheduler.service, "httpserver", http.dispatcher)
 end
@@ -81,7 +86,23 @@ function Circo.schedule_start(http::HttpServerImpl, scheduler)
 
         @debug "Server got a message"
 
-        @debug "length" length(httprequest.body)
+        
+        msglength = length(httprequest.body)
+        @debug "Payload length" msglength
+
+        if msglength > http.maxrequestsizeinbyte
+            @warn "Payload size is too big!" msglength
+            retval = HTTP.Response(
+                413
+                , []
+                ; body = "Payload size is too big! Accepted maximum $(http.maxrequestsizeinbyte)"
+                , request = raw_http
+            )
+    
+            @debug "Responding with"  retval
+            return retval
+        end
+
 
         response_chn = Channel{HttpResponse}(2)
         taskedRequest = TaskedRequest(HttpRequest(rand(HttpReqId), dispatcher_addr, httprequest), response_chn)
