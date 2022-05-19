@@ -76,38 +76,28 @@ function Circo.schedule_start(http::HttpServerImpl, scheduler)
         @warn "Http unable to listen on $(ipaddr):$(listenport)", e
     end
     dispatcher_addr = addr(http.dispatcher)
-    @async HTTP.listen(ipaddr, listenport; server=http.socket) do raw_http
-        
+    @async HTTP.serve(ipaddr, listenport; server=http.socket) do raw_http
+        httprequest = raw_http
+
         @debug "Server got a message"
 
-        # we need to read all character to send response7
-        # TODO use data from Stream to set HttpRequest.body  
-        data = nothing
-        while !eof(raw_http)
-            data = readavailable(raw_http)
-        end
-        raw_http.message.body = data
+        @debug "length" length(httprequest.body)
 
         response_chn = Channel{HttpResponse}(2)
-        taskedRequest = TaskedRequest(HttpRequest(rand(HttpReqId), dispatcher_addr, raw_http.message), response_chn)
+        taskedRequest = TaskedRequest(HttpRequest(rand(HttpReqId), dispatcher_addr, httprequest), response_chn)
         send(scheduler, dispatcher_addr, taskedRequest)
 
         response = take!(response_chn)
 
-        HTTP.setstatus(raw_http, response.status)
-        for header in response.headers
-            HTTP.setheader(raw_http, header)
-        end
+        retval = HTTP.Response(
+            response.status
+            , response.headers
+            ; body = response.body
+            , request = raw_http
+        )
 
-        startwrite(raw_http)
-        write(raw_http, response.body)
-
-        @debug "http.ntoread" raw_http.ntoread
-        @debug "http.ntoread != unknown_length" raw_http.readchunked != typemax(Int)
-        @debug "http.readchunked" raw_http.readchunked
-        @debug "http listen return"
-
-        return nothing
+        @debug "Responding with"  retval
+        return retval
     end
 end
 
@@ -128,6 +118,7 @@ function Circo.onmessage(me::HttpDispatcher, msg::TaskedRequest, service)
 end
 
 function Circo.onmessage(me::HttpDispatcher, msg::HttpResponse, service)
+    println("Circo.onmessage(me::HttpDispatcher, msg::HttpResponse, service)")
     tasked = get(me.reqs, msg.reqid, nothing)
     isnothing(tasked) && return nothing
     delete!(me.reqs, msg.reqid)
