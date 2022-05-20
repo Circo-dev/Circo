@@ -18,11 +18,12 @@ mutable struct HttpTestCaller <: Actor{Any}
     HttpTestCaller(core) = new(core)
 end
 
-struct StartMsg 
+mutable struct StartMsg 
+    method
+    body
     url::AbstractString
 
-    StartMsg() = new("")
-    StartMsg(url) = new(url)
+    StartMsg(method, body) = new(method, body)
 end
 
 struct VerificationMsg
@@ -45,7 +46,7 @@ end
 function Circo.onmessage(me::HttpTestCaller, msg::StartMsg, service)
     httpactor = getname(service, "httpclient")
     println("Prepare message to $(msg.url)")
-    request = HttpRequest(me.reqidsent, addr(me), "GET", msg.url, [], REQUEST_BODY_MSG)
+    request = HttpRequest(me.reqidsent, addr(me), msg.method, msg.url, [], msg.body)
     
     address = addr(me)
     println("Actor with address $address sending httpRequest with httpRequestId :  $(request.id) message to $httpactor")
@@ -95,7 +96,7 @@ function Circo.onmessage(me::HttpRequestProcessor, msg::HttpRequest, service)
     response = Http.HttpResponse(msg.id, stateCode, [], Vector{UInt8}("\"$(msgbody)\" " * RESPONSE_BODY_MSG * "$me"))
 
     me.requestProcessed = true
-    println("Sending http response to message with reqid : $(msg.id) ")
+    println("Sending http response to $(msg.respondto) with reqid : $(msg.id) ")
     send(service.scheduler, msg.respondto, response)
 
     println("HttpRequestProcessor at $me goint to die")
@@ -104,13 +105,16 @@ end
 
 mutable struct TestOrchestrator <: Actor{Any}
     core::Any
+    expectedresponsebody
+    requestprocessedbyactor::Bool
     processoractor::HttpRequestProcessor
     httpcalleractor::HttpTestCaller
 
-    TestOrchestrator(core) = new(core)
+    TestOrchestrator(core, expectedbody) = new(core, expectedbody, true)
+    TestOrchestrator(core, expectedbody, requestprocessed) = new(core, expectedbody, requestprocessed)
 end
 
-function Circo.onmessage(me::TestOrchestrator, ::StartMsg, service)
+function Circo.onmessage(me::TestOrchestrator, msg::StartMsg, service)
     # code duplication. Copied from httpserver Circo.schedule_start 
     # TODO Get url from HttpServer plugin.
     listenport = 8080 + port(postcode(service.scheduler)) - CircoCore.PORT_RANGE[1]
@@ -118,7 +122,8 @@ function Circo.onmessage(me::TestOrchestrator, ::StartMsg, service)
     url = "http://$(ipaddr):$(listenport)"
 
     println("Sending StartMsg to HttpTestCaller")
-    send(service.scheduler, me.httpcalleractor, StartMsg(url))
+    msg.url = url
+    send(service.scheduler, me.httpcalleractor, msg)
 end
 
 #HttpTestCaller finished, start verifying
@@ -128,8 +133,8 @@ function Circo.onmessage(me::TestOrchestrator, msg::VerificationMsg, service)
     @test me.httpcalleractor.requestsent == true
     @test me.httpcalleractor.responsearrived == true
     @test me.httpcalleractor.reqidsent == me.httpcalleractor.reqidarrived
-    @test me.processoractor.requestProcessed == true
-    @test startswith(msg.responsebody, "\"$REQUEST_BODY_MSG\" $RESPONSE_BODY_MSG")  
+    @test me.processoractor.requestProcessed == me.requestprocessedbyactor
+    @test startswith(msg.responsebody, me.expectedresponsebody)  
 
     println("TestOrchestrator at $me goint to die")
     die(service, me)
@@ -138,23 +143,60 @@ function Circo.onmessage(me::TestOrchestrator, msg::VerificationMsg, service)
     Circo.shutdown!(service.scheduler)
 end
 
-@testset "Httpclientserver" begin
-    println("Httpclientserver test starts")
-    ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [HttpServer, HttpClient])
+@testset "Http modul tests" begin
+    @testset "Http client and server test" begin
+        println("Httpclientserver test starts")
+        ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [HttpServer, HttpClient])
 
-    caller = HttpTestCaller(emptycore(ctx))
-    processor = HttpRequestProcessor(emptycore(ctx))
-    orchestrator = TestOrchestrator(emptycore(ctx))
+        caller = HttpTestCaller(emptycore(ctx))
+        processor = HttpRequestProcessor(emptycore(ctx))
+        orchestrator = TestOrchestrator(emptycore(ctx), "\"$REQUEST_BODY_MSG\" $RESPONSE_BODY_MSG")
 
-    scheduler = Scheduler(ctx, [orchestrator, processor,caller])
-    scheduler(;remote=false, exit=true) # to spawn the zygote
-    orchestrator.processoractor = processor
-    orchestrator.httpcalleractor = caller
-    caller.orchestrator = orchestrator
+        scheduler = Scheduler(ctx, [orchestrator, processor,caller])
+        scheduler(;remote=false, exit=true) # to spawn the zygote
+        orchestrator.processoractor = processor
+        orchestrator.httpcalleractor = caller
+        caller.orchestrator = orchestrator
 
-    scheduler([
-        StartHttpTest(orchestrator, orchestrator, StartMsg())
-        ] ;remote = true, exit=true)  # with remote,exit flags the scheduler won't stop.   
+        msg = StartMsg("GET", REQUEST_BODY_MSG)
 
-    println("Httpclientserver test ends")
+        scheduler([
+            StartHttpTest(orchestrator, orchestrator, msg)
+            ] ;remote = true, exit=true)  # with remote,exit flags the scheduler won't stop.   
+
+        println("Httpclientserver test ends")
+    end
+
+    @testset "request_bigger_than_allowed" begin
+        maxsizeofrequest = get(ENV, "MAX_SIZE_OF_REQUEST", nothing)
+        try
+            ENV["MAX_SIZE_OF_REQUEST"] = 10
+            println("Httpclientserver test starts")
+            ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [HttpServer, HttpClient])
+
+            caller = HttpTestCaller(emptycore(ctx))
+            processor = HttpRequestProcessor(emptycore(ctx))
+            orchestrator = TestOrchestrator(emptycore(ctx), "Payload size is too big! Accepted maximum", false)
+
+            scheduler = Scheduler(ctx, [orchestrator, processor,caller])
+            scheduler(;remote=false, exit=true) # to spawn the zygote
+            orchestrator.processoractor = processor
+            orchestrator.httpcalleractor = caller
+            caller.orchestrator = orchestrator
+
+            msg = StartMsg("GET", REQUEST_BODY_MSG)
+            
+            scheduler([
+                StartHttpTest(orchestrator, orchestrator, msg)
+                ] ;remote = true, exit=true)  # with remote,exit flags the scheduler won't stop.   
+
+            println("Httpclientserver test ends")
+        finally
+            if maxsizeofrequest === nothing
+                delete!(ENV, "MAX_SIZE_OF_REQUEST")
+            else 
+                ENV["MAX_SIZE_OF_REQUEST"] = maxsizeofrequest
+            end
+        end
+    end
 end

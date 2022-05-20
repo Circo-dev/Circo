@@ -63,7 +63,7 @@ end
 function Circo.setup!(http::HttpServerImpl, scheduler)
     http.dispatcher = _HttpDispatcher(emptycore(scheduler.service))
     http.maxrequestsizeinbyte = parse(Int, get(ENV, "MAX_SIZE_OF_REQUEST", string(1024 * 1024)))
-    @info "Allowed maximum size of a request payload : $(http.maxrequestsizeinbyte / 1024)"
+    @info "Allowed maximum size of a request payload : $(http.maxrequestsizeinbyte / 1024) KB"
 
     schedule!(scheduler, http.dispatcher)
     registername(scheduler.service, "httpserver", http.dispatcher)
@@ -95,7 +95,7 @@ function Circo.schedule_start(http::HttpServerImpl, scheduler)
             retval = HTTP.Response(
                 413
                 , []
-                ; body = "Payload size is too big! Accepted maximum $(http.maxrequestsizeinbyte)"
+                ; body = "Payload size is too big! Accepted maximum size $(http.maxrequestsizeinbyte /1024) KB"
                 , request = raw_http
             )
     

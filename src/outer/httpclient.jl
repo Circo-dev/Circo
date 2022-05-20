@@ -19,20 +19,23 @@ function Circo.schedule_start(http::HttpClientImpl, scheduler)
     registername(scheduler.service, "httpclient", http.helper)
 
     address = addr(http.helper)
-    println("HttpClientActor.addr : $address")
+    @debug "HttpClientActor.addr : $address"
 end
 
 function Circo.onmessage(me::HttpClientActor, msg::HttpRequest, service)
-    println("HttpClientActor Actor with address : $(addr(me)) got message!")
+    @debug "HttpClientActor Actor with address : $(addr(me)) got message!"
+
     @async begin
         response = HTTP.request(msg.raw.method, msg.raw.target, msg.raw.headers, msg.raw.body; 
-        connection_limit=30 
-        # , connect_timeout = 0
-        , retry = false
-        )
-        println("HTTP.request returned to HttpClientActor")
+            connection_limit=30 
+           # , connect_timeout = 0
+            , retry = false
+            , status_exception = false
+            )
+
+        @debug "HTTP.request returned to HttpClientActor" response
         address = msg.respondto
-        println("Sending HttpResponse message to $address")
+        @debug "Sending HttpResponse message to $address"
         
         ownresponse = HttpResponse(msg.id, response.status, response.headers, response.body)
         send(service.scheduler, address , ownresponse)
