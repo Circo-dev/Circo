@@ -105,7 +105,12 @@ function Circo.schedule_start(http::HttpServerImpl, scheduler)
 
 
         response_chn = Channel{HttpResponse}(2)
-        httprequest = HttpRequest(rand(HttpReqId), dispatcher_addr, httprequest.method, httprequest.target, httprequest.headers, httprequest.body)
+        httprequest = HttpRequest(;
+                respondto = dispatcher_addr
+                , method = httprequest.method
+                , target = httprequest.target
+                , headers = httprequest.headers
+                , body = httprequest.body)
 
         taskedRequest = TaskedRequest(httprequest, response_chn)
         send(scheduler, dispatcher_addr, taskedRequest)

@@ -50,13 +50,26 @@ function Circo.onmessage(me::HttpTestCaller, msg::StartMsg, service)
     
     request = nothing
     if msg.withkeywordparams == true 
-        keywordarg = ( retry = true
+        keywordargs = ( retry = true
                 , status_exception = true
                 , readtimeout = 1
             )
-        request = HttpRequest(me.reqidsent, addr(me), msg.method, msg.url, [], msg.body; keywordarg)
+        request = HttpRequest(;
+            id = me.reqidsent
+            , respondto = addr(me)
+            , method = msg.method
+            , target = msg.url
+            , headers = []
+            , body = msg.body
+            , keywordargs = keywordargs)
     else
-        request = HttpRequest(me.reqidsent, addr(me), msg.method, msg.url, [], msg.body)
+        request = HttpRequest(
+            id = me.reqidsent
+            , respondto = addr(me)
+            , method = msg.method
+            , target = msg.url
+            , headers = []
+            , body = msg.body)    
     end
     
     address = addr(me)
