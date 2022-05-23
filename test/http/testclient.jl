@@ -21,9 +21,10 @@ end
 mutable struct StartMsg 
     method
     body
+    withkeywordparams::Bool
     url::AbstractString
 
-    StartMsg(method, body) = new(method, body)
+    StartMsg(method, body, withkeywordparams) = new(method, body, withkeywordparams)
 end
 
 struct VerificationMsg
@@ -46,7 +47,17 @@ end
 function Circo.onmessage(me::HttpTestCaller, msg::StartMsg, service)
     httpactor = getname(service, "httpclient")
     println("Prepare message to $(msg.url)")
-    request = HttpRequest(me.reqidsent, addr(me), msg.method, msg.url, [], msg.body)
+    
+    request = nothing
+    if msg.withkeywordparams == true 
+        keywordarg = ( retry = true
+                , status_exception = true
+                , readtimeout = 1
+            )
+        request = HttpRequest(me.reqidsent, addr(me), msg.method, msg.url, [], msg.body; keywordarg)
+    else
+        request = HttpRequest(me.reqidsent, addr(me), msg.method, msg.url, [], msg.body)
+    end
     
     address = addr(me)
     println("Actor with address $address sending httpRequest with httpRequestId :  $(request.id) message to $httpactor")
@@ -92,7 +103,7 @@ function Circo.onmessage(me::HttpRequestProcessor, msg::HttpRequest, service)
 
     #Ha a 200 -> "200" -at írok akkor Addr-re akarja konvertálni ...
     stateCode = 200
-    msgbody = String(msg.raw.body)
+    msgbody = String(msg.body)
     response = Http.HttpResponse(msg.id, stateCode, [], Vector{UInt8}("\"$(msgbody)\" " * RESPONSE_BODY_MSG * "$me"))
 
     me.requestProcessed = true
@@ -158,7 +169,7 @@ end
         orchestrator.httpcalleractor = caller
         caller.orchestrator = orchestrator
 
-        msg = StartMsg("GET", REQUEST_BODY_MSG)
+        msg = StartMsg("GET", REQUEST_BODY_MSG, false)
 
         scheduler([
             StartHttpTest(orchestrator, orchestrator, msg)
@@ -184,7 +195,7 @@ end
             orchestrator.httpcalleractor = caller
             caller.orchestrator = orchestrator
 
-            msg = StartMsg("GET", REQUEST_BODY_MSG)
+            msg = StartMsg("GET", REQUEST_BODY_MSG, false)
             
             scheduler([
                 StartHttpTest(orchestrator, orchestrator, msg)
@@ -198,5 +209,28 @@ end
                 ENV["MAX_SIZE_OF_REQUEST"] = maxsizeofrequest
             end
         end
+    end
+
+    @testset "Http client and server test with keywordargs" begin
+        println("Httpclientserver test starts")
+        ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [HttpServer, HttpClient])
+
+        caller = HttpTestCaller(emptycore(ctx))
+        processor = HttpRequestProcessor(emptycore(ctx))
+        orchestrator = TestOrchestrator(emptycore(ctx), "\"$REQUEST_BODY_MSG\" $RESPONSE_BODY_MSG")
+
+        scheduler = Scheduler(ctx, [orchestrator, processor,caller])
+        scheduler(;remote=false, exit=true) # to spawn the zygote
+        orchestrator.processoractor = processor
+        orchestrator.httpcalleractor = caller
+        caller.orchestrator = orchestrator
+
+        msg = StartMsg("GET", REQUEST_BODY_MSG, true)
+
+        scheduler([
+            StartHttpTest(orchestrator, orchestrator, msg)
+            ] ;remote = true, exit=true)  # with remote,exit flags the scheduler won't stop.   
+
+        println("Httpclientserver test ends")
     end
 end

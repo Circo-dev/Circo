@@ -17,7 +17,7 @@ struct RouteResult
 end
 
 function route(route::PrefixRoute, req::HttpRequest)::Union{RouteResult, Nothing}
-    if startswith(req.raw.target, route.prefix)
+    if startswith(req.target, route.prefix)
         return RouteResult(route.handler)
     end
     return nothing
@@ -105,7 +105,9 @@ function Circo.schedule_start(http::HttpServerImpl, scheduler)
 
 
         response_chn = Channel{HttpResponse}(2)
-        taskedRequest = TaskedRequest(HttpRequest(rand(HttpReqId), dispatcher_addr, httprequest), response_chn)
+        httprequest = HttpRequest(rand(HttpReqId), dispatcher_addr, httprequest.method, httprequest.target, httprequest.headers, httprequest.body)
+
+        taskedRequest = TaskedRequest(httprequest, response_chn)
         send(scheduler, dispatcher_addr, taskedRequest)
 
         response = take!(response_chn)

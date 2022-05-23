@@ -13,12 +13,15 @@ HttpReqId = UInt64
 struct HttpRequest
     id::HttpReqId
     respondto::Addr
-    raw::HTTP.Messages.Request
+    target::String
+    method::String
+    headers::Vector{Pair{String,String}}
+    body
+    keywordargs::NamedTuple
 
-    HttpRequest(id, respondto, request::HTTP.Messages.Request) = new(id, respondto, request)
-    HttpRequest(id, respondto, method, url) = new(id, respondto, HTTP.Messages.Request(method, url) )
-    HttpRequest(id, respondto, method, url, headers) = new(id, respondto, HTTP.Messages.Request(method, url, headers))
-    HttpRequest(id, respondto, method, url, headers, body) = new(id, respondto, HTTP.Messages.Request(method, url, headers, body))
+    HttpRequest(id, respondto, method, url) = new(id, respondto, url, method )
+    HttpRequest(id, respondto, method, url, headers) = new(id, respondto, url, method, headers)
+    HttpRequest(id, respondto, method, url, headers, body; keywordarg = NamedTuple()) = new(id, respondto, url, method, headers, body, keywordarg)
 end
 
 struct HttpResponse
