@@ -86,8 +86,7 @@ function Circo.onmessage(me::HttpTestCaller, msg::HttpResponse, service)
     me.responsearrived = true
     me.reqidarrived = msg.reqid
 
-    send(service.scheduler, me.orchestrator, VerificationMsg(responsebody))
-    println("HttpTestCaller at $me goint to die")
+    send(service, me, me.orchestrator, VerificationMsg(responsebody))
     die(service, me)
 end
 
@@ -105,25 +104,19 @@ function Circo.onspawn(me::HttpRequestProcessor, service)
     println("Sending route information from $me to dispatcher : $(httpserveraddr)")
 
     route = PrefixRoute("/" , addr(me))
-    send(service.scheduler, httpserveraddr, route)
+    send(service, me, httpserveraddr, route)
 end
 
 
 # Process incoming message 
 function Circo.onmessage(me::HttpRequestProcessor, msg::HttpRequest, service)
-    println("Circo.onmessage(me::HttpRequestProcessor, msg::HttpRequest, service)")
-
-
-    #Ha a 200 -> "200" -at írok akkor Addr-re akarja konvertálni ...
-    stateCode = 200
     msgbody = String(msg.body)
-    response = Http.HttpResponse(msg.id, stateCode, [], Vector{UInt8}("\"$(msgbody)\" " * RESPONSE_BODY_MSG * "$me"))
+    response = Http.HttpResponse(msg.id, 200, [], Vector{UInt8}("\"$(msgbody)\" " * RESPONSE_BODY_MSG * "$me"))
 
     me.requestProcessed = true
     println("Sending http response to $(msg.respondto) with reqid : $(msg.id) ")
-    send(service.scheduler, msg.respondto, response)
+    send(service, me, msg.respondto, response)
 
-    println("HttpRequestProcessor at $me goint to die")
     die(service, me)
 end
 
@@ -145,14 +138,12 @@ function Circo.onmessage(me::TestOrchestrator, msg::StartMsg, service)
     ipaddr = Sockets.IPv4(0) 
     url = "http://$(ipaddr):$(listenport)"
 
-    println("Sending StartMsg to HttpTestCaller")
     msg.url = url
-    send(service.scheduler, me.httpcalleractor, msg)
+    send(service, me, me.httpcalleractor, msg)
 end
 
 #HttpTestCaller finished, start verifying
 function Circo.onmessage(me::TestOrchestrator, msg::VerificationMsg, service)
-    println("Verification starts")
 
     @test me.httpcalleractor.requestsent == true
     @test me.httpcalleractor.responsearrived == true
@@ -160,16 +151,13 @@ function Circo.onmessage(me::TestOrchestrator, msg::VerificationMsg, service)
     @test me.processoractor.requestProcessed == me.requestprocessedbyactor
     @test startswith(msg.responsebody, me.expectedresponsebody)  
 
-    println("TestOrchestrator at $me goint to die")
     die(service, me)
 
-    println("Call Circo.shutdown on scheduler")
     Circo.shutdown!(service.scheduler)
 end
 
 @testset "Http modul tests" begin
     @testset "Http client and server test" begin
-        println("Httpclientserver test starts")
         ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [HttpServer, HttpClient])
 
         caller = HttpTestCaller(emptycore(ctx))
@@ -187,15 +175,12 @@ end
         scheduler([
             StartHttpTest(orchestrator, orchestrator, msg)
             ] ;remote = true, exit=true)  # with remote,exit flags the scheduler won't stop.   
-
-        println("Httpclientserver test ends")
     end
 
     @testset "request_bigger_than_allowed" begin
-        maxsizeofrequest = get(ENV, "MAX_SIZE_OF_REQUEST", nothing)
+        maxsizeofrequest = get(ENV, "HTTP_MAX_REQUEST_SIZE", nothing)
         try
-            ENV["MAX_SIZE_OF_REQUEST"] = 10
-            println("Httpclientserver test starts")
+            ENV["HTTP_MAX_REQUEST_SIZE"] = 10
             ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [HttpServer, HttpClient])
 
             caller = HttpTestCaller(emptycore(ctx))
@@ -213,19 +198,16 @@ end
             scheduler([
                 StartHttpTest(orchestrator, orchestrator, msg)
                 ] ;remote = true, exit=true)  # with remote,exit flags the scheduler won't stop.   
-
-            println("Httpclientserver test ends")
         finally
             if maxsizeofrequest === nothing
-                delete!(ENV, "MAX_SIZE_OF_REQUEST")
+                delete!(ENV, "HTTP_MAX_REQUEST_SIZE")
             else 
-                ENV["MAX_SIZE_OF_REQUEST"] = maxsizeofrequest
+                ENV["HTTP_MAX_REQUEST_SIZE"] = maxsizeofrequest
             end
         end
     end
 
     @testset "Http client and server test with keywordargs" begin
-        println("Httpclientserver test starts")
         ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [HttpServer, HttpClient])
 
         caller = HttpTestCaller(emptycore(ctx))
@@ -243,7 +225,5 @@ end
         scheduler([
             StartHttpTest(orchestrator, orchestrator, msg)
             ] ;remote = true, exit=true)  # with remote,exit flags the scheduler won't stop.   
-
-        println("Httpclientserver test ends")
     end
 end

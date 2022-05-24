@@ -51,18 +51,18 @@ abstract type HttpServer <: Plugin end
 Plugins.symbol(plugin::HttpServer) = :httpserver
 
 mutable struct HttpServerImpl <: HttpServer
+    maxrequestsizeinbyte::Number
     router::Router
     socket::Sockets.TCPServer
     dispatcher
-    maxrequestsizeinbyte::Number
 
-    HttpServerImpl(;options...) = new()
+    HttpServerImpl(;http_max_request_size = 1024*1024, options...) = new(http_max_request_size)
 end
 
 
 function Circo.setup!(http::HttpServerImpl, scheduler)
     http.dispatcher = _HttpDispatcher(emptycore(scheduler.service))
-    http.maxrequestsizeinbyte = parse(Int, get(ENV, "MAX_SIZE_OF_REQUEST", string(1024 * 1024)))
+    http.maxrequestsizeinbyte = parse(Int, get(ENV, "HTTP_MAX_REQUEST_SIZE", string(http.maxrequestsizeinbyte)))
     @info "Allowed maximum size of a request payload : $(http.maxrequestsizeinbyte / 1024) KB"
 
     schedule!(scheduler, http.dispatcher)
@@ -81,14 +81,8 @@ function Circo.schedule_start(http::HttpServerImpl, scheduler)
         @warn "Http unable to listen on $(ipaddr):$(listenport)", e
     end
     dispatcher_addr = addr(http.dispatcher)
-    @async HTTP.serve(ipaddr, listenport; server=http.socket) do raw_http
-        httprequest = raw_http
-
-        @debug "Server got a message"
-
-        
+    @async HTTP.serve(ipaddr, listenport; server=http.socket) do httprequest
         msglength = length(httprequest.body)
-        @debug "Payload length" msglength
 
         if msglength > http.maxrequestsizeinbyte
             @warn "Payload size is too big!" msglength
@@ -96,7 +90,7 @@ function Circo.schedule_start(http::HttpServerImpl, scheduler)
                 413
                 , []
                 ; body = "Payload size is too big! Accepted maximum size $(http.maxrequestsizeinbyte /1024) KB"
-                , request = raw_http
+                , request = httprequest
             )
     
             @debug "Responding with"  retval
@@ -105,14 +99,14 @@ function Circo.schedule_start(http::HttpServerImpl, scheduler)
 
 
         response_chn = Channel{HttpResponse}(2)
-        httprequest = HttpRequest(;
+        request = HttpRequest(;
                 respondto = dispatcher_addr
                 , method = httprequest.method
                 , target = httprequest.target
                 , headers = httprequest.headers
                 , body = httprequest.body)
 
-        taskedRequest = TaskedRequest(httprequest, response_chn)
+        taskedRequest = TaskedRequest(request, response_chn)
         send(scheduler, dispatcher_addr, taskedRequest)
 
         response = take!(response_chn)
@@ -121,7 +115,7 @@ function Circo.schedule_start(http::HttpServerImpl, scheduler)
             response.status
             , response.headers
             ; body = response.body
-            , request = raw_http
+            , request = httprequest
         )
 
         @debug "Responding with"  retval
