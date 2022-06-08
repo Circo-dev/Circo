@@ -4,7 +4,7 @@ module DistributedIdentities
 # Experimental and incomplete
 # TODO
 #   - Spread in space
-#   - Fix overspwawning when multiple instance dies
+#   - Fix overspwawning when multiple instances die
 #   - Provide hooks
 #   - Implement sparse identity
 
@@ -133,7 +133,6 @@ mutable struct DistributedIdentity
     id::DistIdId
     peers::Dict{Addr,Peer}
     redundancy::Int
-    eventdispatcher::Addr     
     DistributedIdentity(id = rand(DistIdId), peers=[]; redundancy=3) = new(id, Dict(map(p_addr -> p_addr => Peer(p_addr), peers)), redundancy)
 end
 
@@ -183,6 +182,7 @@ onidspawn(::DenseDistributedIdentity, me, service) = begin
     if !isdefined(me, :distid)
         me.distid = DistributedIdentity()
     end
+    # TODO This will clash with non-id events. Lazy init of eventdispatcher?
     me.eventdispatcher = spawn(service, EventDispatcher(emptycore(service)))
     spawnpeer_ifneeded(me, service)
     sendtopeers(service, me, Hello(addr(me)))

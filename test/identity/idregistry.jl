@@ -29,13 +29,13 @@ const IDREG_TEST_KEY = "key.sub"
     # Register
     registry = getname(sdl.service, IdRegistry.REGISTRY_NAME)
     @test !isnothing(registry)
-    send(tester, registry, RegisterIdentity(addr(tester), IDREG_TEST_KEY, ReferencePeer(distid_root, emptycore(sdl))))
+    send(tester, registry, RegisterIdentity(addr(tester), IDREG_TEST_KEY, IdRef(distid_root, emptycore(sdl))))
     sdl(;exit=true, remote=false)
     @test msgcount(tester, IdentityRegistered) == 1
     @test msgcount(tester, AlreadyRegistered) == 0
 
     # AlreadyRegistered when registering the same key again
-    send(tester, registry, RegisterIdentity(addr(tester), IDREG_TEST_KEY, ReferencePeer(distid_root, emptycore(sdl))))
+    send(tester, registry, RegisterIdentity(addr(tester), IDREG_TEST_KEY, IdRef(distid_root, emptycore(sdl))))
     sdl(;exit=true, remote=false)
     @test msgcount(tester, IdentityRegistered) == 1
     @test msgcount(tester, AlreadyRegistered) == 1
@@ -46,7 +46,7 @@ const IDREG_TEST_KEY = "key.sub"
     @test msgcount(tester, RegistryResponse) == 1
     @show msgs(tester, RegistryResponse)
     ref = msgs(tester, RegistryResponse)[1].ref
-    @test ref isa ReferencePeer
+    @test ref isa IdRef
     @test ref.id == distid(distid_root)
 
     # TODO test that early registry requests get postponed and served correctly

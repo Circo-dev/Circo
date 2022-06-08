@@ -51,7 +51,7 @@ end
     sdl = Scheduler(ctx, [testid_root])
     sdl(;exit=true, remote=false)
     
-    testref = ReferencePeer(testid_root, emptycore(ctx))
+    testref = IdRef(testid_root, emptycore(ctx))
     spawn(sdl, testref)
     sdl(;exit=true, remote=false)
 
@@ -74,4 +74,6 @@ end
         sleep(2)
         @test count(a -> a isa Addr, tester.responses_from) == REQ_COUNT
     end
+
+    shutdown!(sdl)
 end

@@ -31,7 +31,7 @@ Circo.schedule_start(me::IdRegistryService, sdl) = begin
             registry_root = IdRegistryPeer()
             spawn(sdl, registry_root)
             @warn "Global identity registry started: $(distid(registry_root))"
-            ref = spawn(sdl, ReferencePeer(registry_root, emptycore(sdl)))
+            ref = spawn(sdl, IdRef(registry_root, emptycore(sdl)))
             registername(sdl, REGISTRY_NAME, ref)
             return
         else
@@ -59,7 +59,7 @@ struct RegisterIdentity
     id::DistributedIdentities.DistIdId
     peers::Vector{Addr}
     RegisterIdentity(respondto, key, id, peers) = new(respondto, key, id, peers)
-    RegisterIdentity(respondto, key, ref::ReferencePeer) = new(respondto, key, distid(ref), peers(ref))
+    RegisterIdentity(respondto, key, ref::IdRef) = new(respondto, key, distid(ref), peers(ref))
 end
 struct IdentityRegistered
     key::String
@@ -81,7 +81,7 @@ function Transactions.apply!(me::IdRegistryPeer, write::RegistryWrite, service)
     if isregistered(me, write.key)
         throw(AlreadyRegistered(write.id, write.key))
     end
-    ref = spawn(service, ReferencePeer(write.id, deepcopy(write.peers), emptycore(service)))
+    ref = spawn(service, IdRef(write.id, deepcopy(write.peers), emptycore(service)))
     me.registered_ids[write.key] = write.id
     me.refs[write.id] = ref
 end
@@ -111,7 +111,7 @@ struct RegistryQuery <: Request
 end
 struct RegistryResponse <: Response
     key::String
-    ref::ReferencePeer
+    ref::IdRef
     token::Token
 end
 struct NotFound
@@ -127,7 +127,7 @@ Circo.onmessage(me::IdRegistryPeer, msg::RegistryQuery, service) = begin
     id = get(me.registered_ids, msg.key, nothing)
     if isnothing(id)
         if msg.key == REGISTRY_NAME # Send a ref to ourself
-            send(service, me, msg.respondto, RegistryResponse(msg.key, ReferencePeer(distid(me), deepcopy(peers(me)), emptycore(service)), msg.token))
+            send(service, me, msg.respondto, RegistryResponse(msg.key, IdRef(distid(me), deepcopy(peers(me)), emptycore(service)), msg.token))
         end
         return send(service, me, msg.respondto, NotFound(msg.key))
     end
@@ -143,9 +143,9 @@ struct ForwardedRegistryQuery
     orig::RegistryQuery
 end
 
-# Extend ReferencePeer with a copy and pack
-Circo.onmessage(me::ReferencePeer, msg::ForwardedRegistryQuery, service) = begin
-    copyofme = ReferencePeer(me.id, deepcopy(me.peer_addrs), emptycore(service))
+# Extend IdRef with a copy and pack
+Circo.onmessage(me::IdRef, msg::ForwardedRegistryQuery, service) = begin
+    copyofme = IdRef(me.id, deepcopy(me.peer_addrs), emptycore(service))
     send(service, me, msg.orig.respondto, RegistryResponse(msg.orig.key, copyofme, msg.orig.token))
 end
 
