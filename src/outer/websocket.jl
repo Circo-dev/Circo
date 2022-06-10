@@ -74,11 +74,13 @@ function Circo.schedule_stop(service::WebsocketServiceImpl, scheduler)
     isdefined(service, :socket) && close(service.socket)
 end
 
-function sendws(msg::AbstractMsg, ws)
+function _sendws(ws_plugin::WebsocketServiceImpl, msg::AbstractMsg, actorid::ActorId, ws)
     try
         write(ws, marshal(msg))
     catch e
-        @error "Unable to write to websocket. Target: $(target(msg)) Message type: $(typeof(body(msg)))" exception=(e, catch_backtrace())
+        @debug "Unable to write to websocket, removing registration of actor $(actorid). Target: $(target(msg)) Message type: $(typeof(body(msg)))" exception=(e, catch_backtrace())
+        delete!(ws_plugin.actor_connections, actorid)
+        try close(ws) catch end
     end
 end
 
@@ -87,7 +89,7 @@ function handlemsg(service::WebsocketServiceImpl, msg::AbstractMsg{RegistrationR
     service.actor_connections[actorid] = ws
     newaddr = Addr(postcode(scheduler), actorid)
     response = TMsg(target(msg), sender(msg), Registered(newaddr, true), Infoton(nullpos))
-    sendws(response, ws)
+    _sendws(service, response, actorid, ws)
     return nothing
 end
 
@@ -101,11 +103,14 @@ function handlemsg(service::WebsocketServiceImpl, query::AbstractMsg{CircoCore.R
     if isnothing(namehandler)
         @info "No handler for $(body(query))"
     end
-    sendws(TMsg(target(query),
-            sender(query),
-            NameResponse(body(query), namehandler, body(query).token),
-            Infoton(nullpos)
-            ), ws)
+    _sendws(service,
+            TMsg(target(query),
+                sender(query),
+                NameResponse(body(query), namehandler, body(query).token),
+                Infoton(nullpos)
+            ),
+            box(sender(query)),
+            ws)
     return nothing
 end
 
@@ -148,6 +153,8 @@ function handle_connection(service::WebsocketServiceImpl, ws, scheduler)
         if e isa MethodError && e.f == convert
             @info "Field of type $(e.args[1]) was not found while unmarshaling type '$(readtypename_safely(buf))'"
             @debug "Erroneous websocket frame: ", buf
+        elseif e isa IOError
+            @debug "Error reading websocket", ws
         else
             # TODO this causes segfault on 1.5.0 with multithreading
             if Threads.nthreads() == 1
@@ -192,7 +199,7 @@ Plugins.shutdown!(service::WebsocketServiceImpl, scheduler) = nothing
 Circo.localroutes(ws_plugin::WebsocketServiceImpl, scheduler, msg::AbstractMsg)::Bool = begin
     ws = get(ws_plugin.actor_connections, box(target(msg)), nothing)
     if !isnothing(ws)
-        sendws(msg, ws)
+        _sendws(ws_plugin, msg, box(target(msg)), ws)
         return true
     end
     return false
