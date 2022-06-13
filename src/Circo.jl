@@ -45,6 +45,8 @@ const actor_activity_sparse16 = CircoCore.actor_activity_sparse16
 const actor_activity_sparse256 = CircoCore.actor_activity_sparse256
 const letin_remote = CircoCore.letin_remote
 const actor_spawning = CircoCore.actor_spawning
+const actor_dying = CircoCore.actor_dying
+const actor_state_write = CircoCore.actor_state_write
 const localdelivery = CircoCore.localdelivery
 const localroutes = CircoCore.localroutes
 const prepare = CircoCore.prepare
@@ -67,14 +69,16 @@ include("cluster/cluster.jl")
 include("migration.jl")
 include("block.jl")
 include("infotonopt.jl")
+include("outer/marshal.jl")
 include("outer/http.jl")
 include("outer/websocket.jl")
 include("debug/debug.jl")
 include("identity/identity.jl")
-include("identity/transaction.jl")
+include("identity/transactions.jl")
 include("identity/single_phase_commit.jl")
 include("identity/idregistry.jl")
 include("identity/leadgroup.jl")
+include("persistence.jl")
 include("profiles.jl")
 include("cli/circonode.jl")
 
