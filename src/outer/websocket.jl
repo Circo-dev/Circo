@@ -5,12 +5,13 @@ export WebsocketService
 
 using ..Circo
 using Circo.InfotonOpt # TODO eliminate
-using Plugins
-using HTTP, Logging, MsgPack
+using Circo.Marshal
 using CircoCore.Registry
+using MsgPack
+using Plugins
+using HTTP, Logging
+using MsgPack
 import Sockets
-
-include("typeregistry.jl")
 
 const MASTERPOSTCODE = "Master"
 
@@ -21,12 +22,6 @@ struct Registered
     actoraddr::Addr
     accepted::Bool
 end
-
-MsgPack.msgpack_type(::DataType) = MsgPack.StructType() # TODO use StructTypes.jl or an abstract type
-
-MsgPack.msgpack_type(::Type{ActorId}) = MsgPack.StringType()
-MsgPack.to_msgpack(::MsgPack.StringType, id::ActorId) = string(id, base=16)
-MsgPack.from_msgpack(::Type{ActorId}, str::AbstractString) = parse(ActorId, str;base=16)
 
 abstract type WebsocketService <: Plugin end
 mutable struct WebsocketServiceImpl <: WebsocketService
@@ -76,11 +71,17 @@ end
 
 function _sendws(ws_plugin::WebsocketServiceImpl, msg::AbstractMsg, actorid::ActorId, ws)
     try
-        write(ws, marshal(msg))
+        buf = marshal(msg)
+        seek(buf, 0)
+        write(ws, buf)
     catch e
+<<<<<<< HEAD
         @debug "Unable to write to websocket, removing registration of actor $(actorid). Target: $(target(msg)) Message type: $(typeof(body(msg)))" exception=(e, catch_backtrace())
         delete!(ws_plugin.actor_connections, actorid)
         try close(ws) catch end
+=======
+        @warn "Unable to write to websocket. Target: $(target(msg)) Message type: $(typeof(body(msg)))" exception=(e, catch_backtrace())
+>>>>>>> 20d62cd... Factor out marshaling
     end
 end
 
@@ -146,7 +147,7 @@ function handle_connection(service::WebsocketServiceImpl, ws, scheduler)
                 @debug "Websocket closed: $e"
                 return
             end
-            msg = unmarshal(service, buf)
+            msg = unmarshal(buf, service.typeregistry, service.msg_type_name)
             handlemsg(service, msg, ws, scheduler)
         end
     catch e
@@ -166,32 +167,6 @@ function handle_connection(service::WebsocketServiceImpl, ws, scheduler)
         end
     end
     @debug "Websocket closed", ws
-end
-
-function marshal(data)
-    buf = IOBuffer()
-    println(buf, typeof(data))
-    write(buf, pack(data))
-    seek(buf, 0)
-    return buf
-end
-
-function unmarshal(service::WebsocketServiceImpl, buf)
-    length(buf) > 0 || return nothing
-    typename = ""
-    try
-        io = IOBuffer(buf)
-        typename = service.msg_type_name * readline(io)
-        type = gettype(service.typeregistry, typename)
-        return unpack(io, type)
-    catch e
-        if e isa UndefVarError
-             @warn "Type $typename is not known"
-        else
-            rethrow(e)
-        end
-    end
-    return nothing
 end
 
 Plugins.shutdown!(service::WebsocketServiceImpl, scheduler) = nothing
