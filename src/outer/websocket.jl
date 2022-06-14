@@ -75,13 +75,9 @@ function _sendws(ws_plugin::WebsocketServiceImpl, msg::AbstractMsg, actorid::Act
         seek(buf, 0)
         write(ws, buf)
     catch e
-<<<<<<< HEAD
         @debug "Unable to write to websocket, removing registration of actor $(actorid). Target: $(target(msg)) Message type: $(typeof(body(msg)))" exception=(e, catch_backtrace())
         delete!(ws_plugin.actor_connections, actorid)
         try close(ws) catch end
-=======
-        @warn "Unable to write to websocket. Target: $(target(msg)) Message type: $(typeof(body(msg)))" exception=(e, catch_backtrace())
->>>>>>> 20d62cd... Factor out marshaling
     end
 end
 
