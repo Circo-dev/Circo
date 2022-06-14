@@ -5,7 +5,7 @@ export Transaction, Write, PropertySelector, SubArraySelector, Inconsistency, co
 
 using Plugins
 using ..Circo
-using ..DistributedIdentities
+using ..DistributedIdentities # TODO just for Transaction which may be separated from Write
 
 const TransactionId = UInt64
 
@@ -63,6 +63,7 @@ function _set!(target, write::IdxWrite)
 end
 
 function apply!(target, write::Union{PropertyWrite, IdxWrite}, service)
+    service.scheduler.hooks.actor_state_write(service.scheduler, target, write)
     if write.value isa Write
         prop = select(target, write)
         apply!(prop, write.value, service)
@@ -72,6 +73,7 @@ function apply!(target, write::Union{PropertyWrite, IdxWrite}, service)
 end
 
 function apply!(target, write::SubArrayWrite, service)
+    service.scheduler.hooks.actor_state_write(service.scheduler, target, write)
     if length(target) < write.toidx
         resize!(target, write.toidx)
     end
@@ -80,7 +82,7 @@ end
 
 function apply!(target, writes::Vector, service)
     for write in writes
-        apply!(target, write, service) # TODO error handling
+        apply!(target, write, service) # TODO separate validation and handle errors
     end
 end
 
