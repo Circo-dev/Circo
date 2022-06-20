@@ -2,58 +2,138 @@ using Test
 using HTTP
 using HTTP.IOExtras, HTTP.Sockets, HTTP.WebSockets
 using Sockets
-using Circo.Marshal
+using Circo, Circo.Marshal
+using Logging
+
+import Circo:onmessage, onspawn
+
+struct WebsocketMessage 
+    data
+    # origin
+    # lastEventId 
+    source              #sender Actor Addr
+    ports               #websocket client actor addr
+end
+
+struct WebsocketClose
+end
+
+mutable struct WebsocketTestCaller <: Actor{Any}
+    core::Any
+    url
+    port
+    messageChannel::Channel{}
+
+    WebsocketTestCaller(core, url, port) = new(core, url, port, Channel{}(2))
+end
+
+# TODO We shouldn't open websocket connection at onspaw. We should intruduce "open" message
+function Circo.onspawn(me::WebsocketTestCaller, service)
+    @debug "Creating WebsocketTestCaller"
+    @async WebSockets.open("ws://$(me.url):$(me.port)"; verbose=true) do ws
+        while true
+            msg = take!(me.messageChannel)
+
+            # TODO use multi dispact and Base.isopen method
+            if msg isa WebsocketClose
+                break
+            elseif msg isa WebsocketMessage
+                #TODO marshalling
+                @debug "WebsocketTestCaller sending message $(msg.data)"
+                write(ws, msg.data)
+            end
+        end
+        # unnecessary
+        # close(ws)
+    end
+end 
+
+function Circo.onmessage(me::WebsocketTestCaller, msg::WebsocketMessage, service)
+    @debug "Message arrived $(typeof(msg))"
+    put!(me.messageChannel, msg)
+end
+
+function Circo.onmessage(me::WebsocketTestCaller, msg::WebsocketClose, service)
+    @debug "Message arrived $(typeof(msg))"
+    put!(me.messageChannel, msg)
+end
 
 
-# @testset "WebSockets" begin
-    # @testset "Testing sending message not from f(ws)" begin
+function createWebsocketServer(url, port, tcpserver, waitForServerCloseChannel)
+    @async WebSockets.listen(url, port; server=tcpserver, verbose=true) do ws
+        @test ws.request isa HTTP.Request
+        while !eof(ws)
+            data = readavailable(ws)
+            @debug "Server got this : $(String(data))"
+            write(ws, "Server got this : ", String(data))
+        end
+        @debug "Server start to close"
+        put!(waitForServerCloseChannel, true)
+    end
+end
+
+@testset "WebSockets" begin
+
+    @testset "Testing sending message not from f(ws)" begin
         port=UInt16(8086)
         tcpserver = listen(port)
+        url = "127.0.0.1"
 
         messageChannel = Channel{}(2)
-        websocketChannel = Channel{}(2)
         waitForServerClose = Channel{}(2)
 
-        servertask =  @async WebSockets.listen("127.0.0.1", port; server=tcpserver, verbose=true) do ws
-            @test ws.request isa HTTP.Request
-            while !eof(ws)
-                data = readavailable(ws)
-                println("Server hez ért : $(String(data))")
-                write(ws, "Server hez ért : ", String(data))
-            end
-            println("Servernek kiírt mindent szóval close")
-            put!(waitForServerClose, true)
-        end
+        servertask = createWebsocketServer(url, port, tcpserver, waitForServerClose)
 
-        @async WebSockets.open("ws://127.0.0.1:$(port)"; verbose=true) do ws
-            put!(websocketChannel, ws)
-            println("Client megjött, send message!")
-
-            write(ws, "Client megjött, send message!")
+        @async WebSockets.open("ws://$(url):$(port)"; verbose=true) do ws
+            write(ws, "Client send message!")
             msg = readavailable(ws)
-            println("Clients oldal" , String(msg))
+            @debug "Client side" , String(msg)
 
-            println("Clients2 Várunk még üzenetre")
+            @debug "Client wait for external message"
             msg = take!(messageChannel)
-            write(ws, "Clients2 $msg")
-            println("Clients2 Bevárt üzenet elküldve")
+            write(ws, "Client : $msg")
 
-            println("Most már elég, client oldal close-ol")
+            @debug "Client closing"
         end
 
-        readmsg = "Mit is küldjünk"
-        websocket = take!(websocketChannel)
-        println(typeof(websocket))
+        put!(messageChannel, "Client send something")
 
-        msg2 = "Client3 $readmsg"
-        println(msg2)
-        put!(messageChannel, msg2)
-
-        serverReachedClose = take!(waitForServerClose)
-        @test serverReachedClose
+        @test take!(waitForServerClose)
 
         close(tcpserver)
         @test timedwait(()->servertask.state === :failed, 5.0) === :ok
         @test_throws Exception wait(servertask)
-#     end
-# end
+    end
+
+    @testset "Testing with Circo actor" begin
+        port=UInt16(8086)
+        tcpserver = listen(port)
+        url = "127.0.0.1"
+
+        waitForServerClose = Channel{}(2)
+
+        servertask =  createWebsocketServer(url, port, tcpserver, waitForServerClose)
+
+        ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [])
+        testCaller = WebsocketTestCaller(emptycore(ctx), url, port)
+
+        scheduler = Scheduler(ctx, [testCaller])
+        scheduler(;remote=false, exit=true) # to spawn the zygote
+
+        message = WebsocketMessage("Random message", addr(testCaller), missing)
+        closeMsg = WebsocketClose()
+
+        Circo.send(scheduler.service, Addr(), testCaller, message)
+        Circo.send(scheduler.service, Addr(), testCaller, closeMsg)
+
+        scheduler(;remote=false, exit=true)
+
+        @test take!(waitForServerClose)
+
+        close(tcpserver)
+        @test timedwait(()->servertask.state === :failed, 5.0) === :ok
+        @test_throws Exception wait(servertask)
+
+        Circo.shutdown!(scheduler)
+    end
+end
