@@ -21,6 +21,14 @@ end
 struct WebsocketOpen
 end
 
+mutable struct VerificationData
+    messagereceived::Bool
+    websocketservercloses::Bool
+    receivedmessages
+
+    VerificationData() = new(false, false, [])
+end
+
 mutable struct WebsocketTestCaller <: Actor{Any}
     core::Any
     url
@@ -61,22 +69,39 @@ function Circo.onmessage(me::WebsocketTestCaller, msg::WebsocketClose, service)
 end
 
 
-function createWebsocketServer(url, port, tcpserver, waitForServerCloseChannel)
+function createWebsocketServer(verificationData, url, port, tcpserver, waitForServerCloseChannel)
     @async WebSockets.listen(url, port; server=tcpserver, verbose=true) do ws
         @test ws.request isa HTTP.Request
         while !eof(ws)
-            data = readavailable(ws)
-            @debug "Server got this : $(String(data))"
-            write(ws, "Server got this : ", String(data))
+            data = String(readavailable(ws))
+            @debug "Server got this : $data"
+            write(ws, "Server got this : $data")
+            
+            verificationData.messagereceived = true
+            push!(verificationData.receivedmessages, data)
         end
         @debug "Server start to close"
+        verificationData.websocketservercloses = true
         put!(waitForServerCloseChannel, true)
     end
+end
+
+function verification(actuall::VerificationData, expectedMessages)
+    @test actuall.websocketservercloses == true
+    @test actuall.messagereceived == true
+
+    for index in 1:size(actuall.messagereceived, 1) 
+        @test actuall.receivedmessages[index] == expectedMessages[index]
+    end
+    
+    @test size(actuall.receivedmessages) == size(expectedMessages)
 end
 
 @testset "WebSockets" begin
 
     @testset "Testing sending message not from f(ws)" begin
+        verificationData = VerificationData()
+
         port=UInt16(8086)
         tcpserver = listen(port)
         url = "127.0.0.1"
@@ -84,7 +109,7 @@ end
         messageChannel = Channel{}(2)
         waitForServerClose = Channel{}(2)
 
-        servertask = createWebsocketServer(url, port, tcpserver, waitForServerClose)
+        servertask = createWebsocketServer(verificationData, url, port, tcpserver, waitForServerClose)
 
         @async WebSockets.open("ws://$(url):$(port)"; verbose=true) do ws
             write(ws, "Client send message!")
@@ -98,9 +123,15 @@ end
             @debug "Client closing"
         end
 
+        msg = "Client send something"
         put!(messageChannel, "Client send something")
 
         @test take!(waitForServerClose)
+        verification(verificationData, [
+            "Client send message!"
+            , "Client : $(msg)"
+            , "" 
+        ])
 
         close(tcpserver)
         @test timedwait(()->servertask.state === :failed, 5.0) === :ok
@@ -108,13 +139,15 @@ end
     end
 
     @testset "Testing with Circo actor" begin
+        verificationData = VerificationData()
+
         port=UInt16(8086)
         tcpserver = listen(port)
         url = "127.0.0.1"
 
         waitForServerClose = Channel{}(2)
 
-        servertask =  createWebsocketServer(url, port, tcpserver, waitForServerClose)
+        servertask = createWebsocketServer(verificationData, url, port, tcpserver, waitForServerClose)
 
         ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [])
         testCaller = WebsocketTestCaller(emptycore(ctx), url, port)
@@ -124,16 +157,22 @@ end
 
 
         openmsg = WebsocketOpen()
-        message = WebsocketMessage("Random message", addr(testCaller), missing)
+        msgdata = "Random message"
+        sendmsg = WebsocketMessage(msgdata, addr(testCaller), missing)
         closeMsg = WebsocketClose()
 
         Circo.send(scheduler, testCaller, openmsg)
-        Circo.send(scheduler, testCaller, message)
+        Circo.send(scheduler, testCaller, sendmsg)
         Circo.send(scheduler, testCaller, closeMsg)
 
         scheduler(;remote=false, exit=true)
 
         @test take!(waitForServerClose)
+
+        verification(verificationData, [
+            msgdata
+            , "" 
+        ])
 
         close(tcpserver)
         @test timedwait(()->servertask.state === :failed, 5.0) === :ok
