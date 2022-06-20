@@ -18,6 +18,9 @@ end
 struct WebsocketClose
 end
 
+struct WebsocketOpen
+end
+
 mutable struct WebsocketTestCaller <: Actor{Any}
     core::Any
     url
@@ -27,8 +30,7 @@ mutable struct WebsocketTestCaller <: Actor{Any}
     WebsocketTestCaller(core, url, port) = new(core, url, port, Channel{}(2))
 end
 
-# TODO We shouldn't open websocket connection at onspaw. We should intruduce "open" message
-function Circo.onspawn(me::WebsocketTestCaller, service)
+function Circo.onmessage(me::WebsocketTestCaller, msg::WebsocketOpen, service)
     @debug "Creating WebsocketTestCaller"
     @async WebSockets.open("ws://$(me.url):$(me.port)"; verbose=true) do ws
         while true
@@ -120,11 +122,14 @@ end
         scheduler = Scheduler(ctx, [testCaller])
         scheduler(;remote=false, exit=true) # to spawn the zygote
 
+
+        openmsg = WebsocketOpen()
         message = WebsocketMessage("Random message", addr(testCaller), missing)
         closeMsg = WebsocketClose()
 
-        Circo.send(scheduler.service, Addr(), testCaller, message)
-        Circo.send(scheduler.service, Addr(), testCaller, closeMsg)
+        Circo.send(scheduler, testCaller, openmsg)
+        Circo.send(scheduler, testCaller, message)
+        Circo.send(scheduler, testCaller, closeMsg)
 
         scheduler(;remote=false, exit=true)
 
