@@ -7,7 +7,10 @@ using Logging
 
 import Circo:onmessage, onspawn
 
-struct WebsocketMessage 
+abstract type WebsocketMessage 
+end
+
+struct WebsocketSend <: WebsocketMessage
     data
     # origin
     # lastEventId 
@@ -15,10 +18,10 @@ struct WebsocketMessage
     ports               #websocket client actor addr
 end
 
-struct WebsocketClose
+struct WebsocketClose <: WebsocketMessage
 end
 
-struct WebsocketOpen
+struct WebsocketOpen <: WebsocketMessage
 end
 
 mutable struct VerificationData
@@ -38,36 +41,43 @@ mutable struct WebsocketTestCaller <: Actor{Any}
     WebsocketTestCaller(core, url, port) = new(core, url, port, Channel{}(2))
 end
 
-function Circo.onmessage(me::WebsocketTestCaller, msg::WebsocketOpen, service)
-    @debug "Creating WebsocketTestCaller"
+function Circo.onmessage(me::WebsocketTestCaller, openmsg::WebsocketOpen, service)
+    @debug "Message arrived $(typeof(openmsg))"
     @async WebSockets.open("ws://$(me.url):$(me.port)"; verbose=true) do ws
-        while true
+        iswebsocketclosed = false
+        while !iswebsocketclosed
             msg = take!(me.messageChannel)
 
-            # TODO use multi dispact and Base.isopen method
-            if msg isa WebsocketClose
-                break
-            elseif msg isa WebsocketMessage
-                #TODO marshalling
-                @debug "WebsocketTestCaller sending message $(msg.data)"
-                write(ws, msg.data)
-            end
+            @info "WebsocketTestCaller sending message $(msg))"
+            iswebsocketclosed = processMessage(ws, msg)
         end
         # unnecessary
         # close(ws)
     end
 end 
 
+function processMessage(ws, msg) 
+    if WebSocket.isopen(ws)
+        error("Unknown message type received! Got : $(typeof(msg))")
+    else
+        return true
+    end
+end
+processMessage(ws, ::WebsocketOpen) = error("Got WebsocketOpen message from an opened websocket!")
+processMessage(ws, ::WebsocketClose) = false
+
+function processMessage(ws, msg::WebsocketSend)
+    #TODO marshalling
+    @debug "WebsocketTestCaller sending message $(msg.data)"
+    write(ws, msg.data)
+    return true
+end
+
+
 function Circo.onmessage(me::WebsocketTestCaller, msg::WebsocketMessage, service)
     @debug "Message arrived $(typeof(msg))"
     put!(me.messageChannel, msg)
 end
-
-function Circo.onmessage(me::WebsocketTestCaller, msg::WebsocketClose, service)
-    @debug "Message arrived $(typeof(msg))"
-    put!(me.messageChannel, msg)
-end
-
 
 function createWebsocketServer(verificationData, url, port, tcpserver, waitForServerCloseChannel)
     @async WebSockets.listen(url, port; server=tcpserver, verbose=true) do ws
@@ -158,7 +168,7 @@ end
 
         openmsg = WebsocketOpen()
         msgdata = "Random message"
-        sendmsg = WebsocketMessage(msgdata, addr(testCaller), missing)
+        sendmsg = WebsocketSend(msgdata, addr(testCaller), missing)
         closeMsg = WebsocketClose()
 
         Circo.send(scheduler, testCaller, openmsg)
