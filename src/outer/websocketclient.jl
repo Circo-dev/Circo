@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MPL-2.0
 module WebsocketClient
 
-export WebSocketCallerActor, WebSocketMessage, WebSocketClose, WebSocketOpen, WebSocketSend
+export WebSocketCallerActor, WebSocketMessage, WebSocketClose, WebSocketOpen, WebSocketSend, WebSocketResponse
 
 using HTTP, HTTP.WebSockets
 using Sockets
@@ -20,9 +20,16 @@ struct WebSocketSend <: WebSocketMessage
 end
 
 struct WebSocketClose <: WebSocketMessage
+    source              #sender Actor Addr
 end
 
 struct WebSocketOpen <: WebSocketMessage
+    source              #sender Actor Addr
+end
+
+struct WebSocketResponse
+    request::WebSocketMessage
+    response
 end
 
 mutable struct WebSocketCallerActor <: Actor{Any}
@@ -35,35 +42,45 @@ mutable struct WebSocketCallerActor <: Actor{Any}
 end
 
 function Circo.onmessage(me::WebSocketCallerActor, openmsg::WebSocketOpen, service)
-    @debug "Message arrived $(typeof(openmsg))"
     @async WebSockets.open("ws://$(me.url):$(me.port)"; verbose=true) do ws
+
+        @debug "Client Websocket connection established!"
+        Circo.send(service, me, openmsg.source, WebSocketResponse(openmsg, "Websocket connection established!"))
+
         isWebSocketClosed = false
         while !isWebSocketClosed
             msg = take!(me.messageChannel)
 
-            @info "WebsocketTestCaller sending message $(msg))"
-            isWebSocketClosed = processMessage(ws, msg)
+            @debug "WebsocketTestCaller sending message $(msg))"
+            (isWebSocketClosed, response) = processMessage(me, ws, msg)
+            
+            # TODO marshalling?
+            response = String(response)
+            Circo.send(service, me, msg.source, WebSocketResponse(msg, response))
         end
         # unnecessary
         # close(ws)
     end
 end 
 
-function processMessage(ws, msg) 
+function processMessage(me, ws, msg) 
     if WebSocket.isopen(ws)
         error("Unknown message type received! Got : $(typeof(msg))")
     else
-        return true
+        return (true, missing)
     end
 end
-processMessage(ws, ::WebSocketOpen) = error("Got WebSocketOpen message from an opened websocket!")
-processMessage(ws, ::WebSocketClose) = false
+processMessage(me, ws, ::WebSocketOpen) = error("Got WebSocketOpen message from an opened websocket!")
+processMessage(me, ws, ::WebSocketClose) = (true, "Websocket connection closed")
 
-function processMessage(ws, msg::WebSocketSend)
+function processMessage(me, ws, msg::WebSocketSend)
     #TODO marshalling
     @debug "WebsocketTestCaller sending message $(msg.data)"
     write(ws, msg.data)
-    return true
+
+    # TODO add shouldwewait flag to WebSocketSend if true -> readavailable,  false -> skip
+    response = readavailable(ws)
+    return (false, response)
 end
 
 
