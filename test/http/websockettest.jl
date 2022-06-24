@@ -1,28 +1,8 @@
 using Test
-using HTTP
-using HTTP.IOExtras, HTTP.Sockets, HTTP.WebSockets
+using HTTP, HTTP.WebSockets
 using Sockets
-using Circo, Circo.Marshal
+using Circo, Circo.WebsocketClient
 using Logging
-
-import Circo:onmessage, onspawn
-
-abstract type WebsocketMessage 
-end
-
-struct WebsocketSend <: WebsocketMessage
-    data
-    # origin
-    # lastEventId 
-    source              #sender Actor Addr
-    ports               #websocket client actor addr
-end
-
-struct WebsocketClose <: WebsocketMessage
-end
-
-struct WebsocketOpen <: WebsocketMessage
-end
 
 mutable struct VerificationData
     messagereceived::Bool
@@ -30,53 +10,6 @@ mutable struct VerificationData
     receivedmessages
 
     VerificationData() = new(false, false, [])
-end
-
-mutable struct WebsocketTestCaller <: Actor{Any}
-    core::Any
-    url
-    port
-    messageChannel::Channel{}
-
-    WebsocketTestCaller(core, url, port) = new(core, url, port, Channel{}(2))
-end
-
-function Circo.onmessage(me::WebsocketTestCaller, openmsg::WebsocketOpen, service)
-    @debug "Message arrived $(typeof(openmsg))"
-    @async WebSockets.open("ws://$(me.url):$(me.port)"; verbose=true) do ws
-        iswebsocketclosed = false
-        while !iswebsocketclosed
-            msg = take!(me.messageChannel)
-
-            @info "WebsocketTestCaller sending message $(msg))"
-            iswebsocketclosed = processMessage(ws, msg)
-        end
-        # unnecessary
-        # close(ws)
-    end
-end 
-
-function processMessage(ws, msg) 
-    if WebSocket.isopen(ws)
-        error("Unknown message type received! Got : $(typeof(msg))")
-    else
-        return true
-    end
-end
-processMessage(ws, ::WebsocketOpen) = error("Got WebsocketOpen message from an opened websocket!")
-processMessage(ws, ::WebsocketClose) = false
-
-function processMessage(ws, msg::WebsocketSend)
-    #TODO marshalling
-    @debug "WebsocketTestCaller sending message $(msg.data)"
-    write(ws, msg.data)
-    return true
-end
-
-
-function Circo.onmessage(me::WebsocketTestCaller, msg::WebsocketMessage, service)
-    @debug "Message arrived $(typeof(msg))"
-    put!(me.messageChannel, msg)
 end
 
 function createWebsocketServer(verificationData, url, port, tcpserver, waitForServerCloseChannel)
@@ -160,16 +93,16 @@ end
         servertask = createWebsocketServer(verificationData, url, port, tcpserver, waitForServerClose)
 
         ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [])
-        testCaller = WebsocketTestCaller(emptycore(ctx), url, port)
+        testCaller = WebSocketCallerActor(emptycore(ctx), url, port)
 
         scheduler = Scheduler(ctx, [testCaller])
         scheduler(;remote=false, exit=true) # to spawn the zygote
 
 
-        openmsg = WebsocketOpen()
+        openmsg = WebSocketOpen()
         msgdata = "Random message"
-        sendmsg = WebsocketSend(msgdata, addr(testCaller), missing)
-        closeMsg = WebsocketClose()
+        sendmsg = WebSocketSend(msgdata, addr(testCaller), missing)
+        closeMsg = WebSocketClose()
 
         Circo.send(scheduler, testCaller, openmsg)
         Circo.send(scheduler, testCaller, sendmsg)
