@@ -14,6 +14,7 @@ mutable struct Root <: TestComponent
     core
     Root() = new()
 end
+define("test-root", Root)
 
 mutable struct Inner <: TestComponent
     attrs::Dict{String, String}
@@ -21,6 +22,7 @@ mutable struct Inner <: TestComponent
     core
     Inner() = new()
 end
+define("test-inner", Inner)
 
 mutable struct Leaf <: TestComponent
     attrs::Dict{String, String}
@@ -28,6 +30,7 @@ mutable struct Leaf <: TestComponent
     core
     Leaf() = new()
 end
+define("test-leaf", Leaf)
 
 const vitalized_components = []
 
@@ -39,9 +42,9 @@ end
     ctx = CircoContext(target_module=@__MODULE__)
     sdl = Scheduler(ctx)
 
-    root = Node("COMBasicTests.Root", Dict(["rootx" => "root42"]), [
-        Node("COMBasicTests.Inner", [
-            Node("COMBasicTests.Leaf")
+    root = Node("test-root", Dict(["rootx" => "root42"]), [
+        Node("test-inner", [
+            Node("test-leaf")
         ])
     ])
 
