@@ -60,7 +60,10 @@ define("inner-component", InnerComponent)
     instantiate(prog)
 
     sdl = Scheduler(CircoContext(target_module=@__MODULE__))
+    actorcount = sdl.actorcount
     vitalize(prog, sdl)
+    @test sdl.actorcount == actorcount + 5
+    sdl(;exit=true, remote=false)
 end
 
 end # module
