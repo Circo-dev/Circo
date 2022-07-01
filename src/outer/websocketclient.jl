@@ -76,10 +76,10 @@ processMessage(me, ws, ::WebSocketClose) = (true, "Websocket connection closed")
 function processMessage(me, ws, msg::WebSocketSend)
     #TODO marshalling
     @debug "WebsocketTestCaller sending message $(msg.data)"
-    write(ws, msg.data)
+    HTTP.send(ws, msg.data)
 
-    # TODO add shouldwewait flag to WebSocketSend if true -> readavailable,  false -> skip
-    response = readavailable(ws)
+    # TODO add shouldwewait flag to WebSocketSend if true -> receive,  false -> skip
+    response = HTTP.receive(ws)
     return (false, response)
 end
 

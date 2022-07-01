@@ -60,10 +60,10 @@ end
 function createWebsocketServer(verificationData, url, port, tcpserver, waitForServerCloseChannel)
     @async WebSockets.listen(url, port; server=tcpserver, verbose=true) do ws
         @test ws.request isa HTTP.Request
-        while !eof(ws)
-            data = String(readavailable(ws))
+        for msg in ws 
+            data = String(msg)
             @debug "Server got this : $data"
-            write(ws, "Server send this : $data")
+            HTTP.send(ws, "Server send this : $data")
             
             verificationData.messagereceived = true
             push!(verificationData.receivedmessages, data)
@@ -74,9 +74,12 @@ function createWebsocketServer(verificationData, url, port, tcpserver, waitForSe
     end
 end
 
-function verification(actuall::VerificationData, expectedMessages)
+function serverSideVerification(actuall::VerificationData, expectedMessages)
     @test actuall.websocketservercloses == true
     @test actuall.messagereceived == true
+
+    @info "actuall received msgs" actuall.receivedmessages
+    @info "expected received msgs" expectedMessages 
 
     for index in 1:size(actuall.messagereceived, 1) 
         @test actuall.receivedmessages[index] == expectedMessages[index]
@@ -86,7 +89,6 @@ function verification(actuall::VerificationData, expectedMessages)
 end
 
 @testset "WebSockets" begin
-
     @testset "Testing sending message not from f(ws)" begin
         verificationData = VerificationData()
 
@@ -100,13 +102,13 @@ end
         servertask = createWebsocketServer(verificationData, url, port, tcpserver, waitForServerClose)
 
         @async WebSockets.open("ws://$(url):$(port)"; verbose=true) do ws
-            write(ws, "Client send message!")
-            msg = readavailable(ws)
+            HTTP.send(ws, "Client send message!")
+            msg = HTTP.receive(ws)
             @debug "Client side" , String(msg)
 
             @debug "Client wait for external message"
             msg = take!(messageChannel)
-            write(ws, "Client : $msg")
+            HTTP.send(ws, "Client : $msg")
 
             @debug "Client closing"
         end
@@ -115,15 +117,13 @@ end
         put!(messageChannel, msg)
 
         @test take!(waitForServerClose)
-        verification(verificationData, [
+        serverSideVerification(verificationData, [
             "Client send message!"
             , "Client : $(msg)"
-            , "" 
         ])
 
         close(tcpserver)
-        @test timedwait(()->servertask.state === :failed, 5.0) === :ok
-        @test_throws Exception wait(servertask)
+        @test timedwait(()->servertask.state === :done, 5.0) === :ok
     end
 
     @testset "Testing with Circo actor" begin
@@ -157,18 +157,15 @@ end
 
         @test take!(waitForServerClose)
 
-        verification(serverVerificationData, [
+        serverSideVerification(serverVerificationData, [
             msgdata
-            , "" 
         ])
 
         send(scheduler, testActor, VerificationMsg())
         scheduler(;remote=false, exit=true)
 
         close(tcpserver)
-        @test timedwait(()->servertask.state === :failed, 5.0) === :ok
-        @test_throws Exception wait(servertask)
-
+        @test timedwait(()->servertask.state === :done, 5.0) === :ok
         Circo.shutdown!(scheduler)
     end
 end
