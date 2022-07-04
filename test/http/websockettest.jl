@@ -7,6 +7,7 @@ using Logging
 import Circo.send
 
 struct StartTestMsg
+    message
 end
 
 struct VerificationMsg
@@ -24,9 +25,9 @@ end
 msgdata = "Random message"
 
 
-function Circo.onmessage(me::WebSocketTestActor, ::StartTestMsg, service)
+function Circo.onmessage(me::WebSocketTestActor, msg::StartTestMsg, service)
     openmsg = WebSocketOpen(addr(me))
-    sendmsg = WebSocketSend(msgdata, addr(me), missing)
+    sendmsg = WebSocketSend(msg.message, addr(me), missing)
     closeMsg = WebSocketClose(addr(me))
 
     send(service, me, me.websocketcaller, openmsg)
@@ -39,9 +40,8 @@ function Circo.onmessage(me::WebSocketTestActor, msg::WebSocketResponse, service
     push!(me.receivedmessages, msg)
 end
 
-# receivedmessages need to be tested. We got the expected messages or just somthing stupid
-function Circo.onmessage(me::WebSocketTestActor, msg::VerificationMsg, service)
-    @test size(me.receivedmessages, 1) == 3
+function clientSideVerification(me::WebSocketTestActor, msg::VerificationMsg)
+    @test size(me.receivedmessages) == size(me.expectedmessages)
 
     for i in 1:size(me.receivedmessages, 1)
         @test me.receivedmessages[i].response == me.expectedmessages[i]
@@ -57,20 +57,37 @@ mutable struct VerificationData
     VerificationData() = new(false, false, [])
 end
 
-function createWebsocketServer(verificationData, url, port, tcpserver, waitForServerCloseChannel)
-    @async WebSockets.listen(url, port; server=tcpserver, verbose=true) do ws
+mutable struct TestServer
+    tcpserver
+    servertask
+    waitForServerClose
+    serverVerificationData
+end
+
+function createWebsocketServer(url, port)
+    tcpserver = listen(port)
+
+    waitForServerClose = false
+    
+    testServer = TestServer(tcpserver, missing, waitForServerClose, VerificationData())
+    testServer.servertask = createWebsocketServer(testServer, url, port)
+    return testServer
+end
+
+function createWebsocketServer(testserver::TestServer, url, port)
+    @async WebSockets.listen(url, port; server=testserver.tcpserver, verbose=true) do ws
         @test ws.request isa HTTP.Request
         for msg in ws 
             data = String(msg)
             @debug "Server got this : $data"
             HTTP.send(ws, "Server send this : $data")
             
-            verificationData.messagereceived = true
-            push!(verificationData.receivedmessages, data)
+            testserver.serverVerificationData.messagereceived = true
+            push!(testserver.serverVerificationData.receivedmessages, data)
         end
         @debug "Server start to close"
-        verificationData.websocketservercloses = true
-        put!(waitForServerCloseChannel, true)
+        testserver.serverVerificationData.websocketservercloses = true
+        testserver.waitForServerClose = true
     end
 end
 
@@ -88,19 +105,26 @@ function serverSideVerification(actuall::VerificationData, expectedMessages)
     @test size(actuall.receivedmessages) == size(expectedMessages)
 end
 
+function waitWithChannelTake(testserver::TestServer, timeout)
+    sleep(timeout)
+    return testserver.waitForServerClose
+end
+
+function closeWithTest(testServer::TestServer)
+    close(testServer.tcpserver)
+    @test timedwait(()-> testServer.servertask.state === :done, 5.0) === :ok
+end
+
+
 @testset "WebSockets" begin
     @testset "Testing sending message not from f(ws)" begin
-        verificationData = VerificationData()
-
-        port=UInt16(8086)
-        tcpserver = listen(port)
+        port = UInt16(8086)
         url = "127.0.0.1"
 
+        testServer = createWebsocketServer(url, port)
+        
         messageChannel = Channel{}(2)
-        waitForServerClose = Channel{}(2)
-
-        servertask = createWebsocketServer(verificationData, url, port, tcpserver, waitForServerClose)
-
+        
         @async WebSockets.open("ws://$(url):$(port)"; verbose=true) do ws
             HTTP.send(ws, "Client send message!")
             msg = HTTP.receive(ws)
@@ -116,27 +140,21 @@ end
         msg = "Client send something"
         put!(messageChannel, msg)
 
-        @test take!(waitForServerClose)
-        serverSideVerification(verificationData, [
+        @test waitWithChannelTake(testServer, 10.0)
+        serverSideVerification(testServer.serverVerificationData, [
             "Client send message!"
             , "Client : $(msg)"
         ])
 
-        close(tcpserver)
-        @test timedwait(()->servertask.state === :done, 5.0) === :ok
+        closeWithTest(testServer)
     end
 
     @testset "Testing with Circo actor" begin
-        serverVerificationData = VerificationData()
-
-        port=UInt16(8086)
-        tcpserver = listen(port)
+        port = UInt16(8086)
         url = "127.0.0.1"
 
-        waitForServerClose = Channel{}(2)
-
-        servertask = createWebsocketServer(serverVerificationData, url, port, tcpserver, waitForServerClose)
-
+        testServer = createWebsocketServer(url, port)
+        
         ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [])
         websocketCaller = WebSocketCallerActor(emptycore(ctx), url, port)
         testActor = WebSocketTestActor(emptycore(ctx)
@@ -151,21 +169,22 @@ end
         scheduler = Scheduler(ctx, [websocketCaller, testActor])
         scheduler(;remote=false, exit=true) # to spawn the zygote
 
-        send(scheduler, testActor, StartTestMsg())
+        send(scheduler, testActor, StartTestMsg(msgdata))
 
         scheduler(;remote=false, exit=true)
 
-        @test take!(waitForServerClose)
+        @test waitWithChannelTake(testServer, 10.0)
 
-        serverSideVerification(serverVerificationData, [
+        # TODO temporary because we need to process websocket reponse messages
+        scheduler(;remote=false, exit=true)
+
+        serverSideVerification(testServer.serverVerificationData, [
             msgdata
         ])
 
-        send(scheduler, testActor, VerificationMsg())
-        scheduler(;remote=false, exit=true)
+        clientSideVerification(testActor, VerificationMsg())
 
-        close(tcpserver)
-        @test timedwait(()->servertask.state === :done, 5.0) === :ok
+        closeWithTest(testServer)
         Circo.shutdown!(scheduler)
     end
 end
