@@ -11,7 +11,8 @@ using ..Circo
 export define,
     instantiate, vitalize,
     Child,
-    sub,
+    sub, findref,
+    RefFound, RefNotFound,
     fromasml, Node
 
 include("localcomponentregistry.jl")

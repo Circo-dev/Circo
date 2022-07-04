@@ -58,6 +58,7 @@ end
     @test root.instance.children[1].tagname == "test-inner"
     @test vitalized_components[2].children[1].addr == addr(vitalized_components[3])
     @test vitalized_components[2].children[1].tagname == "test-leaf"
+    shutdown!(sdl)
 end
 
 end # module

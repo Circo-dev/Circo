@@ -25,10 +25,10 @@ Circo.COM.onvitalize(me::SubTester, srv) = begin
     end
 end
 
-const eventlog = []
+const log = []
 
-Circo.onmessage(me::SubTester, msg::TestEvent, srv) = begin
-    push!(eventlog, (msg, me))
+Circo.onmessage(me::SubTester, msg::Union{TestEvent,RefFound,RefNotFound}, srv) = begin
+    push!(log, (msg, me))
 end
 
 struct Fire
@@ -59,17 +59,33 @@ end
     sdl(;exit=true, remote=false)
     send(sdl, root, Fire(TestEvent(1)))
     sdl(;exit=true, remote=false)
-    @test length(eventlog) == 4
-    @test eventlog[1] == (TestEvent(1), prog.childnodes[1].instance)
-    @test eventlog[2] == (TestEvent(1), prog.childnodes[3].instance)
-    @test eventlog[3] == (TestEvent(1), prog.childnodes[3].childnodes[1].instance)
-    @test eventlog[4] == (TestEvent(1), prog.childnodes[3].childnodes[4].instance)
+    @test length(log) == 4
+    @test log[1] == (TestEvent(1), prog.childnodes[1].instance)
+    @test log[2] == (TestEvent(1), prog.childnodes[3].instance)
+    @test log[3] == (TestEvent(1), prog.childnodes[3].childnodes[1].instance)
+    @test log[4] == (TestEvent(1), prog.childnodes[3].childnodes[4].instance)
 
     send(sdl, prog.childnodes[3].instance, Fire(TestEvent(2)))
     sdl(;exit=true, remote=false)
-    @test length(eventlog) == 6
-    @test eventlog[5] == (TestEvent(2), prog.childnodes[3].childnodes[3].instance)
-    @test eventlog[6] == (TestEvent(2), prog.childnodes[2].instance)
+    @test length(log) == 6
+    @test log[5] == (TestEvent(2), prog.childnodes[3].childnodes[3].instance)
+    @test log[6] == (TestEvent(2), prog.childnodes[2].instance)
+
+
+    # findref basics
+    empty!(log)
+    token1 = findref(sdl.service, root, "t1")
+    sdl(;exit=true, remote=false)
+    @test log[1][1] == RefFound(token1, addr(prog.childnodes[1].instance))
+    token2 = findref(sdl.service, root, "t31")
+    sdl(;exit=true, remote=false)
+    @test typeof(log[2][1]) == RefNotFound
+    @test log[2][1].token == token2
+    token3 = findref(sdl.service, root, "t3/t31")
+    sdl(;exit=true, remote=false)
+    @test log[3][1] == RefFound(token3, addr(prog.childnodes[3].childnodes[1].instance))
+
+    shutdown!(sdl)
 end
 
 end # module
