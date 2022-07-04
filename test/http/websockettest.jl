@@ -8,6 +8,7 @@ import Circo.send
 
 struct StartTestMsg
     message
+    url
 end
 
 struct VerificationMsg
@@ -18,6 +19,8 @@ mutable struct WebSocketTestActor <: Actor{Any}
     websocketcaller::WebSocketCallerActor
     receivedmessages::AbstractArray
     expectedmessages::AbstractArray
+    websocketid::UInt32
+    message
 
     WebSocketTestActor(core, wscaller, expectedmessages) = new(core, wscaller, [], expectedmessages)
 end
@@ -26,18 +29,33 @@ msgdata = "Random message"
 
 
 function Circo.onmessage(me::WebSocketTestActor, msg::StartTestMsg, service)
-    openmsg = WebSocketOpen(addr(me))
-    sendmsg = WebSocketSend(msg.message, addr(me), missing)
-    closeMsg = WebSocketClose(addr(me))
+    me.message = msg.message
+    openmsg = WebSocketOpen(addr(me), msg.url)
 
     send(service, me, me.websocketcaller, openmsg)
-    send(service, me, me.websocketcaller, sendmsg)
-    send(service, me, me.websocketcaller, closeMsg)
 end
 
 function Circo.onmessage(me::WebSocketTestActor, msg::WebSocketResponse, service)
     @debug "Circo.onmessage(me::WebSocketTestActor, msg::WebSocketResponse, service)" msg.response
     push!(me.receivedmessages, msg)
+    processmessage(me, msg, msg.request, service)
+end
+
+function processmessage(me::WebSocketTestActor, response::WebSocketResponse, ::WebSocketOpen, service)
+    me.websocketid = UInt64(response.websocketid)
+    
+    sendmsg = WebSocketSend(me.message, addr(me), missing, me.websocketid)
+    closeMsg = WebSocketClose(addr(me), me.websocketid)
+
+    send(service, me, me.websocketcaller, sendmsg)
+    send(service, me, me.websocketcaller, closeMsg)
+end
+
+function processmessage(me::WebSocketTestActor, response::WebSocketResponse, ::WebSocketSend, service)
+end
+
+function processmessage(me::WebSocketTestActor, response::WebSocketResponse, ::WebSocketClose, service)
+    #TODO die
 end
 
 function clientSideVerification(me::WebSocketTestActor, msg::VerificationMsg)
@@ -156,7 +174,7 @@ end
         testServer = createWebsocketServer(url, port)
         
         ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [])
-        websocketCaller = WebSocketCallerActor(emptycore(ctx), url, port)
+        websocketCaller = WebSocketCallerActor(emptycore(ctx))
         testActor = WebSocketTestActor(emptycore(ctx)
             , websocketCaller
             , [
@@ -169,7 +187,7 @@ end
         scheduler = Scheduler(ctx, [websocketCaller, testActor])
         scheduler(;remote=false, exit=true) # to spawn the zygote
 
-        send(scheduler, testActor, StartTestMsg(msgdata))
+        send(scheduler, testActor, StartTestMsg(msgdata, "$(url):$(port)"))
 
         scheduler(;remote=false, exit=true)
 
