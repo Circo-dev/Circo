@@ -43,10 +43,12 @@ end
     prog = fromasml("""
         <sub-tester name="root">
             <sub-tester name="t1" subto="../"></sub-tester>
-            <sub-tester name="t2" subto="../t1/"></sub-tester>
+            <sub-tester name="t2" subto="../t3/"></sub-tester>
             <sub-tester name="t3" subto="..">
                 <sub-tester name="t31" subto="../.."></sub-tester>
                 <sub-tester name="t32" subto="../t31"></sub-tester>
+                <sub-tester name="t33" subto="[parent]"></sub-tester>
+                <sub-tester name="t34" subto="[parent]/[parent]"></sub-tester>
             </sub-tester>
         </sub-tester>
     """)
@@ -57,10 +59,17 @@ end
     sdl(;exit=true, remote=false)
     send(sdl, root, Fire(TestEvent(1)))
     sdl(;exit=true, remote=false)
-    @test length(eventlog) == 3
+    @test length(eventlog) == 4
     @test eventlog[1] == (TestEvent(1), prog.childnodes[1].instance)
     @test eventlog[2] == (TestEvent(1), prog.childnodes[3].instance)
     @test eventlog[3] == (TestEvent(1), prog.childnodes[3].childnodes[1].instance)
+    @test eventlog[4] == (TestEvent(1), prog.childnodes[3].childnodes[4].instance)
+
+    send(sdl, prog.childnodes[3].instance, Fire(TestEvent(2)))
+    sdl(;exit=true, remote=false)
+    @test length(eventlog) == 6
+    @test eventlog[5] == (TestEvent(2), prog.childnodes[3].childnodes[3].instance)
+    @test eventlog[6] == (TestEvent(2), prog.childnodes[2].instance)
 end
 
 end # module

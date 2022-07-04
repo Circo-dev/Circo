@@ -27,7 +27,7 @@ Circo.onmessage(me::Actor, msg::Sub, srv) = begin
     currentpart = first(msg.ref, slash.start - 1)
     evaled = evalrefpart(me, currentpart)
     if isnothing(evaled)
-        @warn "Could not eval '$(currentpart)' in $(msg.ref)@$(msg.eventtype)"
+        @warn "Could not eval '$(currentpart)' in $(msg.eventtype)@$(msg.ref)"
         return
     end
     nextref = msg.ref[slash.stop+1:end]
@@ -37,8 +37,8 @@ end
 function evalrefpart(me, refpart::String)
     if refpart == ".."
         return Addr(me.attrs["parent"])
-    elseif startswith("[", refpart)
-        return Addr(me.attrs[refpart[2:end-1]])
+    elseif startswith(refpart, "[")
+        return @show Addr(me.attrs[refpart[2:end-1]])
     else
         idx = findfirst(child -> get(child.attrs, "name", nothing) == refpart, me.children)
         return isnothing(idx) ? nothing : me.children[idx].addr
