@@ -1,7 +1,12 @@
 using Gumbo
 
-function fromhtml(htmlstring)
-    parsed = parsehtml(htmlstring)
+"""
+    fromasml(asmlstring)
+
+    Parse ASML assembly description from a string to a Node tree
+"""
+function fromasml(asmlstring)
+    parsed = parsehtml(asmlstring)
     body = parsed.root[2]
     @assert tag(body) == :body
     @assert length(body.children) == 1

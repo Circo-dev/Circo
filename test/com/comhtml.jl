@@ -35,7 +35,7 @@ end
 define("inner-component", InnerComponent)
 
 @testset "comhtml" begin
-    prog = fromhtml("""
+    prog = fromasml("""
         <sample-backend target="mycluster">
             <first-service></first-service>
             <second-service>
@@ -48,14 +48,14 @@ define("inner-component", InnerComponent)
     @test typeof(prog) == Node
     @test prog.tagname == "sample-backend"
     @test prog.attrs["target"] == "mycluster"
-    @test length(prog.children) == 2
-    @test prog.children[1].tagname == "first-service"
-    @test prog.children[2].tagname == "second-service"
-    @test length(prog.children[2].children) == 2
-    @test prog.children[2].children[1].tagname == "inner-component"
-    @test prog.children[2].children[1].attrs["id"] == "1"
-    @test prog.children[2].children[2].tagname == "inner-component"
-    @test prog.children[2].children[2].attrs["id"] == "2"
+    @test length(prog.childnodes) == 2
+    @test prog.childnodes[1].tagname == "first-service"
+    @test prog.childnodes[2].tagname == "second-service"
+    @test length(prog.childnodes[2].childnodes) == 2
+    @test prog.childnodes[2].childnodes[1].tagname == "inner-component"
+    @test prog.childnodes[2].childnodes[1].attrs["id"] == "1"
+    @test prog.childnodes[2].childnodes[2].tagname == "inner-component"
+    @test prog.childnodes[2].childnodes[2].attrs["id"] == "2"
 
     instantiate(prog)
 

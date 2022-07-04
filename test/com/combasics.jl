@@ -3,14 +3,12 @@ module COMBasicTests
 using Test
 
 using Circo, Circo.COM
-import Circo.COM.oninstantiate
-import Circo.COM.onvitalize
 
 abstract type TestComponent <: Actor{Any} end
 
 mutable struct Root <: TestComponent
     attrs::Dict{String, String}
-    children::Vector{Addr}
+    children::Vector{Child}
     core
     Root() = new()
 end
@@ -18,7 +16,7 @@ define("test-root", Root)
 
 mutable struct Inner <: TestComponent
     attrs::Dict{String, String}
-    children::Vector{Addr}
+    children::Vector{Child}
     core
     Inner() = new()
 end
@@ -26,7 +24,7 @@ define("test-inner", Inner)
 
 mutable struct Leaf <: TestComponent
     attrs::Dict{String, String}
-    children::Vector{Addr}
+    children::Vector{Child}
     core
     Leaf() = new()
 end
@@ -34,7 +32,7 @@ define("test-leaf", Leaf)
 
 const vitalized_components = []
 
-function onvitalize(component::TestComponent, service)
+Circo.COM.onvitalize(component::TestComponent, service) = begin
     push!(vitalized_components, component)
 end
 
@@ -56,8 +54,10 @@ end
     @test typeof(vitalized_components[2]) == Inner
     @test typeof(vitalized_components[3]) == Leaf
 
-    @test root.instance.children[1] == addr(vitalized_components[2])
-    @test vitalized_components[2].children[1] == addr(vitalized_components[3])
+    @test root.instance.children[1].addr == addr(vitalized_components[2])
+    @test root.instance.children[1].tagname == "test-inner"
+    @test vitalized_components[2].children[1].addr == addr(vitalized_components[3])
+    @test vitalized_components[2].children[1].tagname == "test-leaf"
 end
 
 end # module

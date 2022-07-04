@@ -10,6 +10,11 @@ end
 
 const localcomponentregistry = LocalComponentRegistry()
 
+"""
+    define(tagname, type)
+
+    Register a component type to an asml tagname.
+"""
 function define(tagname, type)
     localcomponentregistry.cache[tagname] = ComponentRegistryEntry(tagname, type)
 end
