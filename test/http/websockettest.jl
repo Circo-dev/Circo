@@ -134,6 +134,11 @@ function closeWithTest(testServer::TestServer)
     @test timedwait(()-> testServer.servertask.state === :done, 5.0) === :ok
 end
 
+function verifyWebSocketClientActor(scheduler)
+    websocketcalleraddr = getname(scheduler.service, "websocketclient")
+    websocketcaller = getactorbyid(scheduler, websocketcalleraddr.box)
+    @test isempty(websocketcaller.messageChannels)
+end
 
 @testset "WebSockets" begin
     @testset "Testing sending message not from f(ws)" begin
@@ -198,7 +203,63 @@ end
 
         clientSideVerification(testActor, VerificationMsg())
 
+        verifyWebSocketClientActor(scheduler)
+
         closeWithTest(testServer)
+        Circo.shutdown!(scheduler)
+    end
+    
+    @testset "Testing with multiple connection" begin
+        portOne = UInt16(8086)
+        portTwo = UInt16(8087)
+        url = "127.0.0.1"
+
+        testServerOne = createWebsocketServer(url, portOne)
+        testServerTwo = createWebsocketServer(url, portTwo)
+
+        msgdataTwo = "Different message" 
+
+        ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [WebSocketClient])
+        testActorOne = WebSocketTestActor(emptycore(ctx)
+            , [
+                "Websocket connection established!"
+                , "Server send this : $(msgdata)"
+                , "Websocket connection closed"
+            ]
+        )
+        testActorTwo = WebSocketTestActor(emptycore(ctx)
+            , [
+                "Websocket connection established!"
+                , "Server send this : $(msgdataTwo)"
+                , "Websocket connection closed"
+            ]
+        )
+
+        scheduler = Scheduler(ctx, [testActorOne, testActorTwo])
+        scheduler(;remote=false, exit=true) # to spawn the zygote
+
+        send(scheduler, testActorOne, StartTestMsg(msgdata, "$(url):$(portOne)"))
+        send(scheduler, testActorTwo, StartTestMsg(msgdataTwo, "$(url):$(portTwo)"))
+
+        scheduler(;remote=true, exit=true)
+
+        @test waitWithChannelTake(testServerOne, 10.0)
+        @test waitWithChannelTake(testServerTwo, 10.0)
+
+        serverSideVerification(testServerOne.serverVerificationData, [
+            msgdata
+        ])
+        serverSideVerification(testServerTwo.serverVerificationData, [
+            msgdataTwo
+        ])
+
+        clientSideVerification(testActorOne, VerificationMsg())
+        clientSideVerification(testActorTwo, VerificationMsg())
+
+        verifyWebSocketClientActor(scheduler)
+
+        closeWithTest(testServerOne)
+        closeWithTest(testServerTwo)
         Circo.shutdown!(scheduler)
     end
 end
