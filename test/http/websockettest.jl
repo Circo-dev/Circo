@@ -11,9 +11,6 @@ struct StartTestMsg
     url
 end
 
-struct VerificationMsg
-end
-
 mutable struct WebSocketTestActor <: Actor{Any}
     core
     receivedmessages::AbstractArray
@@ -24,9 +21,6 @@ mutable struct WebSocketTestActor <: Actor{Any}
 
     WebSocketTestActor(core, expectedmessages) = new(core, [], expectedmessages)
 end
-
-msgdata = "Random message"
-
 
 function Circo.onmessage(me::WebSocketTestActor, msg::StartTestMsg, service)
     me.websocketcaller = getname(service, "websocketclient")
@@ -52,21 +46,17 @@ function processmessage(me::WebSocketTestActor, response::WebSocketResponse, ::W
     send(service, me, me.websocketcaller, closeMsg)
 end
 
-function processmessage(me::WebSocketTestActor, response::WebSocketResponse, ::WebSocketSend, service)
-end
+processmessage(::WebSocketTestActor, ::WebSocketResponse, ::WebSocketSend, service) = nothing
 
 function processmessage(me::WebSocketTestActor, ::WebSocketResponse, ::WebSocketClose, service)
-    die(service, me)
-end
-
-function clientSideVerification(me::WebSocketTestActor, msg::VerificationMsg)
     @test size(me.receivedmessages) == size(me.expectedmessages)
 
     for i in 1:size(me.receivedmessages, 1)
         @test me.receivedmessages[i].response == me.expectedmessages[i]
     end
-end
 
+    die(service, me)
+end
 
 mutable struct VerificationData
     messagereceived::Bool
@@ -110,23 +100,21 @@ function createWebsocketServer(testserver::TestServer, url, port)
     end
 end
 
-function serverSideVerification(actuall::VerificationData, expectedMessages)
-    @test actuall.websocketservercloses == true
-    @test actuall.messagereceived == true
+function serverSideVerification(testServer::TestServer, expectedMessages)
+    actual = testServer.serverVerificationData
+    @test timedwait(()-> testServer.waitForServerClose == true, 10.0) === :ok
 
-    @info "actuall received msgs" actuall.receivedmessages
+    @test actual.websocketservercloses == true
+    @test actual.messagereceived == true
+
+    @info "actuall received msgs" actual.receivedmessages
     @info "expected received msgs" expectedMessages 
 
-    for index in 1:size(actuall.messagereceived, 1) 
-        @test actuall.receivedmessages[index] == expectedMessages[index]
+    for index in 1:size(actual.messagereceived, 1) 
+        @test actual.receivedmessages[index] == expectedMessages[index]
     end
     
-    @test size(actuall.receivedmessages) == size(expectedMessages)
-end
-
-function waitWithChannelTake(testserver::TestServer, timeout)
-    sleep(timeout)
-    return testserver.waitForServerClose
+    @test size(actual.receivedmessages) == size(expectedMessages)
 end
 
 function closeWithTest(testServer::TestServer)
@@ -141,9 +129,11 @@ function verifyWebSocketClientActor(scheduler)
 end
 
 @testset "WebSockets" begin
+    msgdata = "Random message"
+    url = "127.0.0.1"
+
     @testset "Testing sending message not from f(ws)" begin
         port = UInt16(8086)
-        url = "127.0.0.1"
 
         testServer = createWebsocketServer(url, port)
         
@@ -161,13 +151,11 @@ end
             @debug "Client closing"
         end
 
-        msg = "Client send something"
-        put!(messageChannel, msg)
+        put!(messageChannel, msgdata)
 
-        @test waitWithChannelTake(testServer, 10.0)
-        serverSideVerification(testServer.serverVerificationData, [
+        serverSideVerification(testServer, [
             "Client send message!"
-            , "Client : $(msg)"
+            , "Client : $(msgdata)"
         ])
 
         closeWithTest(testServer)
@@ -175,7 +163,6 @@ end
 
     @testset "Testing with Circo actor" begin
         port = UInt16(8086)
-        url = "127.0.0.1"
 
         testServer = createWebsocketServer(url, port)
         
@@ -195,13 +182,9 @@ end
 
         scheduler(;remote=true, exit=true)
 
-        @test waitWithChannelTake(testServer, 10.0)
-
-        serverSideVerification(testServer.serverVerificationData, [
+        serverSideVerification(testServer, [
             msgdata
         ])
-
-        clientSideVerification(testActor, VerificationMsg())
 
         verifyWebSocketClientActor(scheduler)
 
@@ -212,7 +195,6 @@ end
     @testset "Testing with multiple connection" begin
         portOne = UInt16(8086)
         portTwo = UInt16(8087)
-        url = "127.0.0.1"
 
         testServerOne = createWebsocketServer(url, portOne)
         testServerTwo = createWebsocketServer(url, portTwo)
@@ -243,18 +225,12 @@ end
 
         scheduler(;remote=true, exit=true)
 
-        @test waitWithChannelTake(testServerOne, 10.0)
-        @test waitWithChannelTake(testServerTwo, 10.0)
-
-        serverSideVerification(testServerOne.serverVerificationData, [
+        serverSideVerification(testServerOne, [
             msgdata
         ])
-        serverSideVerification(testServerTwo.serverVerificationData, [
+        serverSideVerification(testServerTwo, [
             msgdataTwo
         ])
-
-        clientSideVerification(testActorOne, VerificationMsg())
-        clientSideVerification(testActorTwo, VerificationMsg())
 
         verifyWebSocketClientActor(scheduler)
 
