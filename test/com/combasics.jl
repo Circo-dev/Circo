@@ -42,6 +42,7 @@ end
 
     root = Node("test-root", Dict(["rootx" => "root42"]), [
         Node("test-inner", [
+            Node("test-leaf"),
             Node("test-leaf")
         ])
     ])
@@ -53,11 +54,14 @@ end
     @test typeof(vitalized_components[1]) == Root
     @test typeof(vitalized_components[2]) == Inner
     @test typeof(vitalized_components[3]) == Leaf
+    @test typeof(vitalized_components[4]) == Leaf
 
     @test root.instance.children[1].addr == addr(vitalized_components[2])
     @test root.instance.children[1].tagname == "test-inner"
     @test vitalized_components[2].children[1].addr == addr(vitalized_components[3])
     @test vitalized_components[2].children[1].tagname == "test-leaf"
+    @test vitalized_components[4].attrs["parent"] == string(addr(vitalized_components[2]))
+    @test vitalized_components[4].attrs["prev"] == string(addr(vitalized_components[3]))
     shutdown!(sdl)
 end
 

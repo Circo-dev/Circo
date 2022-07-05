@@ -106,6 +106,8 @@ end
 function evalrefpart(me, refpart::String)
     if refpart == ".."
         return Addr(me.attrs["parent"])
+    elseif refpart == "|"
+        return Addr(me.attrs["prev"])
     elseif startswith(refpart, "[")
         return Addr(me.attrs[refpart[2:end-1]])
     else

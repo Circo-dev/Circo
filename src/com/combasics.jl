@@ -54,12 +54,15 @@ function onchildbirth(component, child, service) end
 
 function vitalize(node::Node, sdl)
     component = node.instance
-    addr = spawn(sdl, component)
+    compaddr = spawn(sdl, component)
     onvitalize(component, sdl.service)
+    prev = ""
     for childnode in node.childnodes
-        childnode.attrs["parent"] = string(addr)
+        childnode.attrs["parent"] = string(compaddr)
+        childnode.attrs["prev"] = prev
         push!(component.children, Child(childnode.tagname, childnode.attrs, vitalize(childnode, sdl)))
         onchildbirth(component, childnode, sdl.service)
+        prev = string(addr(childnode.instance))
     end
-    return addr
+    return compaddr
 end
