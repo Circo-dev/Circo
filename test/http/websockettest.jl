@@ -16,19 +16,20 @@ end
 
 mutable struct WebSocketTestActor <: Actor{Any}
     core
-    websocketcaller::WebSocketCallerActor
     receivedmessages::AbstractArray
     expectedmessages::AbstractArray
+    websocketcaller
     websocketid::UInt32
     message
 
-    WebSocketTestActor(core, wscaller, expectedmessages) = new(core, wscaller, [], expectedmessages)
+    WebSocketTestActor(core, expectedmessages) = new(core, [], expectedmessages)
 end
 
 msgdata = "Random message"
 
 
 function Circo.onmessage(me::WebSocketTestActor, msg::StartTestMsg, service)
+    me.websocketcaller = getname(service, "websocketclient")
     me.message = msg.message
     openmsg = WebSocketOpen(addr(me), msg.url)
 
@@ -54,8 +55,8 @@ end
 function processmessage(me::WebSocketTestActor, response::WebSocketResponse, ::WebSocketSend, service)
 end
 
-function processmessage(me::WebSocketTestActor, response::WebSocketResponse, ::WebSocketClose, service)
-    #TODO die
+function processmessage(me::WebSocketTestActor, ::WebSocketResponse, ::WebSocketClose, service)
+    die(service, me)
 end
 
 function clientSideVerification(me::WebSocketTestActor, msg::VerificationMsg)
@@ -173,10 +174,8 @@ end
 
         testServer = createWebsocketServer(url, port)
         
-        ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [])
-        websocketCaller = WebSocketCallerActor(emptycore(ctx))
+        ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [WebSocketClient])
         testActor = WebSocketTestActor(emptycore(ctx)
-            , websocketCaller
             , [
                 "Websocket connection established!"
                 , "Server send this : $(msgdata)"
@@ -184,17 +183,14 @@ end
             ]
         )
 
-        scheduler = Scheduler(ctx, [websocketCaller, testActor])
+        scheduler = Scheduler(ctx, [testActor])
         scheduler(;remote=false, exit=true) # to spawn the zygote
 
         send(scheduler, testActor, StartTestMsg(msgdata, "$(url):$(port)"))
 
-        scheduler(;remote=false, exit=true)
+        scheduler(;remote=true, exit=true)
 
         @test waitWithChannelTake(testServer, 10.0)
-
-        # TODO temporary because we need to process websocket reponse messages
-        scheduler(;remote=false, exit=true)
 
         serverSideVerification(testServer.serverVerificationData, [
             msgdata

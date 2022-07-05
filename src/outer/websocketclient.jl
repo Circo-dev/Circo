@@ -1,11 +1,13 @@
 # SPDX-License-Identifier: MPL-2.0
 module WebsocketClient
 
+export WebSocketClient
 export WebSocketCallerActor, WebSocketMessage, WebSocketClose, WebSocketOpen, WebSocketSend, WebSocketResponse
 
 using HTTP, HTTP.WebSockets
 using Sockets
 using ..Circo, ..Circo.Marshal
+using Plugins
 using Logging
 using Random
 
@@ -45,10 +47,32 @@ websocketId(msg::WebSocketClose) = UInt64(msg.websocketid)
 
 
 mutable struct WebSocketCallerActor <: Actor{Any}
-    core::Any
     messageChannels::Dict{UInt64, Channel}
+    core::Any
 
-    WebSocketCallerActor(core) = new(core, Dict{UInt32, Channel}())
+    WebSocketCallerActor() = new(Dict{UInt32, Channel}())
+end
+
+abstract type WebSocketClient <: Plugin end
+Plugins.symbol(plugin::WebSocketClient) = :websocketclient
+
+mutable struct WebSocketClientImpl <: WebSocketClient
+    helper::WebSocketCallerActor
+    WebSocketClientImpl(;options...) = new()
+end
+
+__init__() = begin 
+    Plugins.register(WebSocketClientImpl)
+end
+
+
+function Circo.schedule_start(websocket::WebSocketClientImpl, scheduler)
+    websocket.helper = WebSocketCallerActor()
+    spawn(scheduler.service, websocket.helper)
+    registername(scheduler.service, "websocketclient", websocket.helper)
+
+    address = addr(websocket.helper)
+    @debug "WebSocketCallerActor.addr : $address"
 end
 
 function Circo.onmessage(me::WebSocketCallerActor, openmsg::WebSocketOpen, service)
