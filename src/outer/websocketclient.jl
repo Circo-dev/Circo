@@ -83,8 +83,8 @@ function Circo.onmessage(me::WebSocketCallerActor, openmsg::WebSocketOpen, servi
 
     @async WebSockets.open("ws://$(openmsg.url)"; verbose=true) do ws
 
-        # @debug "Client Websocket connection established!"
-        # Circo.send(service, me, openmsg.source, WebSocketResponse(openmsg, websocketId, "Websocket connection established!"))
+        @debug "Client Websocket connection established!"
+        Circo.send(service, me, openmsg.source, WebSocketResponse(openmsg, websocketId, "Websocket connection established!"))
 
         isWebSocketClosed = false
         while !isWebSocketClosed
@@ -101,10 +101,6 @@ function Circo.onmessage(me::WebSocketCallerActor, openmsg::WebSocketOpen, servi
         # unnecessary
         # close(ws)
     end
-
-    # TODO after pluginasation this must go, because this way we lie about connection.
-    @debug "Client WebSocket connecting!"
-    Circo.send(service, me, openmsg.source, WebSocketResponse(openmsg, websocketId, "Websocket connection established!"))
 end 
 
 function processMessage(me, ws, msg) 
