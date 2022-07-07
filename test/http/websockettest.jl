@@ -30,13 +30,13 @@ function Circo.onmessage(me::WebSocketTestActor, msg::StartTestMsg, service)
     send(service, me, me.websocketcaller, openmsg)
 end
 
-function Circo.onmessage(me::WebSocketTestActor, msg::WebSocketResponse, service)
-    @debug "Circo.onmessage(me::WebSocketTestActor, msg::WebSocketResponse, service)" msg.response
+function Circo.onmessage(me::WebSocketTestActor, msg::WebSocketReceive, service)
+    @debug "Circo.onmessage(me::WebSocketTestActor, msg::WebSocketReceive, service)" msg.response
     push!(me.receivedmessages, msg)
-    processmessage(me, msg, msg.request, service)
+    processmessage(me, msg, msg.type, service)
 end
 
-function processmessage(me::WebSocketTestActor, response::WebSocketResponse, ::WebSocketOpen, service)
+function processmessage(me::WebSocketTestActor, response::WebSocketReceive, ::OpenEvent, service)
     me.websocketid = UInt64(response.websocketid)
     
     sendmsg = WebSocketSend(me.message, addr(me), missing, me.websocketid)
@@ -46,10 +46,13 @@ function processmessage(me::WebSocketTestActor, response::WebSocketResponse, ::W
     send(service, me, me.websocketcaller, closeMsg)
 end
 
-processmessage(::WebSocketTestActor, ::WebSocketResponse, ::WebSocketSend, service) = nothing
+processmessage(::WebSocketTestActor, ::WebSocketReceive, ::MessageEvent, service) = nothing
 
-function processmessage(me::WebSocketTestActor, ::WebSocketResponse, ::WebSocketClose, service)
+function processmessage(me::WebSocketTestActor, ::WebSocketReceive, ::CloseEvent, service)
     @test size(me.receivedmessages) == size(me.expectedmessages)
+
+    @debug "Client received messages" me.receivedmessages
+    @debug "Client expected messages" me.expectedmessages
 
     for i in 1:size(me.receivedmessages, 1)
         @test me.receivedmessages[i].response == me.expectedmessages[i]
