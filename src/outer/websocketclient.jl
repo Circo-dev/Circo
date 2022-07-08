@@ -16,7 +16,7 @@ abstract type WebSocketMessage
 end
 
 struct WebSocketSend <: WebSocketMessage
-    data::AbstractVector{UInt8}
+    data::Vector{UInt8}
     # origin
     # lastEventId 
     source              #sender Actor Addr
@@ -100,7 +100,7 @@ function Circo.onmessage(me::WebSocketCallerActor, openmsg::WebSocketOpen, servi
 
         try 
             for rawMessage in ws
-                @info "Client got from server rawMessage" rawMessage
+                @debug "Client got from server rawMessage" String(rawMessage)
                 Circo.send(service, me, openmsg.source, WebSocketReceive(MessageEvent(), websocketId, rawMessage))
             end
         catch e
@@ -118,17 +118,13 @@ end
 
 sendingWebSocketMessage(ws, msg) = WebSocket.isopen(ws) && error("Unknown message type received! Got : $(typeof(msg))")
 sendingWebSocketMessage(ws, ::WebSocketOpen) = error("Got WebSocketOpen message from an opened websocket!")
-sendingWebSocketMessage( ws, ::WebSocketClose) = HTTP.close(ws)
+sendingWebSocketMessage(ws, ::WebSocketClose) = HTTP.close(ws)
+sendingWebSocketMessage(ws, wsmessage::WebSocketSend) = HTTP.send(ws, wsmessage.data)
 
-function sendingWebSocketMessage(ws, msg::WebSocketSend)
-    @debug "WebsocketTestCaller sending message $(msg.data)"
-    HTTP.send(ws, msg.data)
-end
-
-function Circo.onmessage(me::WebSocketCallerActor, msg::WebSocketMessage, service)
-    ws = get(me.messageChannels, websocketId(msg), missing)
+function Circo.onmessage(me::WebSocketCallerActor, wsmessage::WebSocketMessage, service)
+    ws = get(me.messageChannels, websocketId(wsmessage), missing)
     # TODO handle missing
-    sendingWebSocketMessage(ws, msg)
+    sendingWebSocketMessage(ws, wsmessage)
 end
 
 

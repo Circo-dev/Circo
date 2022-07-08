@@ -7,7 +7,7 @@ using Logging
 import Circo.send
 
 struct StartTestMsg
-    message
+    message::String
     url
 end
 
@@ -38,20 +38,22 @@ end
 
 function processmessage(me::WebSocketTestActor, response::WebSocketReceive, ::OpenEvent, service)
     me.websocketid = UInt64(response.websocketid)
-    
-    sendmsg = WebSocketSend(me.message, addr(me), missing, me.websocketid)
-    closeMsg = WebSocketClose(addr(me), me.websocketid)
 
+    sendmsg = WebSocketSend(me.message, addr(me), missing, me.websocketid)
     send(service, me, me.websocketcaller, sendmsg)
-    send(service, me, me.websocketcaller, closeMsg)
 end
 
-processmessage(::WebSocketTestActor, ::WebSocketReceive, ::MessageEvent, service) = nothing
+function processmessage(me::WebSocketTestActor, ::WebSocketReceive, ::MessageEvent, service)
+    @debug "Cliens sending close"
+    closeMsg = WebSocketClose(addr(me), me.websocketid)
+    send(service, me, me.websocketcaller, closeMsg)
+end
 
 function processmessage(me::WebSocketTestActor, ::WebSocketReceive, ::CloseEvent, service)
     @test size(me.receivedmessages) == size(me.expectedmessages)
 
     @debug "Client received messages" me.receivedmessages
+    @debug "Client received messages" map(x -> String(x.response), me.receivedmessages)
     @debug "Client expected messages" me.expectedmessages
 
     for i in 1:size(me.receivedmessages, 1)
@@ -91,8 +93,9 @@ function createWebsocketServer(testserver::TestServer, url, port)
         @test ws.request isa HTTP.Request
         for msg in ws 
             data = String(msg)
-            @debug "Server got this : $data"
-            HTTP.send(ws, "Server send this : $data")
+            responsemessage = "Server send this : $data"
+            @debug responsemessage
+            HTTP.send(ws, responsemessage)
             
             testserver.serverVerificationData.messagereceived = true
             push!(testserver.serverVerificationData.receivedmessages, data)
@@ -110,8 +113,8 @@ function serverSideVerification(testServer::TestServer, expectedMessages)
     @test actual.websocketservercloses == true
     @test actual.messagereceived == true
 
-    @info "actuall received msgs" actual.receivedmessages
-    @info "expected received msgs" expectedMessages 
+    @debug "Server actuall received msgs" actual.receivedmessages
+    @debug "Server expected received msgs" expectedMessages 
 
     for index in 1:size(actual.messagereceived, 1) 
         @test actual.receivedmessages[index] == expectedMessages[index]
@@ -151,13 +154,18 @@ end
             msg = take!(messageChannel)
             HTTP.send(ws, "Client : $msg")
 
+            msg = take!(messageChannel)
+            HTTP.send(ws, "Client : $msg")
+
             @debug "Client closing"
         end
 
         put!(messageChannel, msgdata)
+        put!(messageChannel, Vector{UInt8}(msgdata))
 
         serverSideVerification(testServer, [
             "Client send message!"
+            , "Client : $(msgdata)"
             , "Client : $(msgdata)"
         ])
 
