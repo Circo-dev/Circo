@@ -16,13 +16,17 @@ abstract type WebSocketMessage
 end
 
 struct WebSocketSend <: WebSocketMessage
-    data
+    data::AbstractVector{UInt8}
     # origin
     # lastEventId 
     source              #sender Actor Addr
     ports               #websocket client actor addr
 
     websocketid::UInt32
+
+    WebSocketSend(data, source, ports, websocketId) = new(data, source, ports, websocketId)
+    WebSocketSend(data::String, source, ports, websocketId) = new(Vector{UInt8}(data), source, ports, websocketId)
+
 end
 
 struct WebSocketClose <: WebSocketMessage
@@ -45,7 +49,10 @@ struct OpenEvent <: WebSocketEvent end
 struct WebSocketReceive
     type::WebSocketEvent
     websocketid::UInt32
-    response
+    response::AbstractVector{UInt8}
+
+    WebSocketReceive(type, websocketId, response) = new(type, websocketId, response)
+    WebSocketReceive(type, websocketId, response::String) = new(type, websocketId, Vector{UInt8}(response))
 end
 
 websocketId(msg::WebSocketOpen) = missing
@@ -94,9 +101,7 @@ function Circo.onmessage(me::WebSocketCallerActor, openmsg::WebSocketOpen, servi
         try 
             for rawMessage in ws
                 @info "Client got from server rawMessage" rawMessage
-                #TODO marshalling?
-                receivedMessage = String(rawMessage)
-                Circo.send(service, me, openmsg.source, WebSocketReceive(MessageEvent(), websocketId, receivedMessage))
+                Circo.send(service, me, openmsg.source, WebSocketReceive(MessageEvent(), websocketId, rawMessage))
             end
         catch e
             if !(e isa EOFError)
@@ -121,11 +126,8 @@ function sendingWebSocketMessage(ws, msg::WebSocketSend)
 end
 
 function Circo.onmessage(me::WebSocketCallerActor, msg::WebSocketMessage, service)
-    # TODO currently without this logging line, the code won't work. Must reitarete on this problema after changeing msg.data type. 
-    @info "Message arrived $(typeof(msg))" msg.data    
     ws = get(me.messageChannels, websocketId(msg), missing)
     # TODO handle missing
-
     sendingWebSocketMessage(ws, msg)
 end
 

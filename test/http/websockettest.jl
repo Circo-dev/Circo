@@ -55,7 +55,7 @@ function processmessage(me::WebSocketTestActor, ::WebSocketReceive, ::CloseEvent
     @debug "Client expected messages" me.expectedmessages
 
     for i in 1:size(me.receivedmessages, 1)
-        @test me.receivedmessages[i].response == me.expectedmessages[i]
+        @test String(me.receivedmessages[i].response) == me.expectedmessages[i]
     end
 
     die(service, me)
