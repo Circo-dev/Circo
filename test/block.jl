@@ -1,3 +1,5 @@
+module BlockTest
+
 using Test
 using Circo, Circo.Blocking
 import Circo:onmessage, onspawn
@@ -73,10 +75,20 @@ function Circo.onmessage(me::Blocker, msg::Write_, service)
     me.val = msg.val
 end
 
+
 function Circo.onmessage(me::Blocker, msg::WriteAndBlock, service)
     @test isnothing(me.val)
     me.val = msg.val
-    block(service, me, UnBlockAndWrite; process_readonly = Read) do wakemsg # TODO also test without callback
+    waketestcalled = false
+    block(service, me, UnBlockAndWrite;
+            waketest = msg -> begin
+                waketestcalled = true
+                @test msg.body isa UnBlockAndWrite
+                @test msg.body.val == :unblock
+                return true
+            end,
+            process_readonly = Read) do wakemsg # TODO also test without callback
+        @test waketestcalled
         @test msg.val != wakemsg.val
         send(service, me, me.tester, CbNotification())
     end
@@ -119,3 +131,5 @@ end
     Circo.shutdown!(scheduler)
     @test tester.cbcalled == true
 end
+
+end # module

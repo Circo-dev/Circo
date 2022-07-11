@@ -8,10 +8,11 @@ export block, wake, BlockService
 struct BlockedActor
     actor::Actor
     wakeon::Type
+    waketest::Function
     wakecb::Function
     process_readonly::Type
     messages::Deque{AbstractMsg}
-    BlockedActor(actor::Actor, wakeon::Type, wakecb::Function, process_readonly::Type) = new(actor, wakeon, wakecb, process_readonly, Deque{AbstractMsg}())
+    BlockedActor(actor::Actor, wakeon::Type, waketest::Function, wakecb::Function, process_readonly::Type) = new(actor, wakeon, waketest, wakecb, process_readonly, Deque{AbstractMsg}())
 end
 
 """
@@ -20,7 +21,8 @@ end
 The Block Service allows actors to stop processing messages and wait for a specific signal message.
 
 Messages arriving while the actor is blocked will be queued and delivered later.
-The wakeup signal is defined by a type: if an incoming message is an instance of it,
+The wakeup signal is defined by a type and optionally a `msg -> Bool` predicate function:
+if an incoming message is an instance of the given type and the predicate function returns true,
 the actor will wake up. It is also possible to specify another message type that
 will still be delivered without waking up the actor (called `process_readonly`).
 
@@ -37,7 +39,7 @@ __init__() = Plugins.register(BlockService)
 Circo.localroutes(bs::BlockService, sdl, msg::AbstractMsg)::Bool = begin
     blockedactor = get(bs.blockedactors, box(target(msg)), nothing)
     isnothing(blockedactor) && return false
-    if body(msg) isa blockedactor.wakeon
+    if body(msg) isa blockedactor.wakeon && blockedactor.waketest(msg)
         wakeresult = wake(bs, sdl, blockedactor.actor, body(msg))
         return wakeresult == true ||
             sdl.hooks.localdelivery(sdl, msg, blockedactor.actor)
@@ -49,22 +51,30 @@ Circo.localroutes(bs::BlockService, sdl, msg::AbstractMsg)::Bool = begin
     return true
 end
 
-function block(wakecb::Function, service, me::Actor, wakeon::Type; process_readonly = Nothing)
-    block(service, me, wakeon; process_readonly = process_readonly, wakecb = wakecb)
+function block(wakecb::Function, service, me::Actor, wakeon::Type;
+                    waketest = msg -> true,
+                    process_readonly = Nothing)
+    block(service, me, wakeon; waketest = waketest, process_readonly = process_readonly, wakecb = wakecb)
 end
 
-function block(service, me::Actor, wakeon::Type; process_readonly = Nothing, wakecb = nocb)
+function block(service, me::Actor, wakeon::Type;
+                    waketest = msg -> true,
+                    process_readonly = Nothing,
+                    wakecb = nocb)
     bs = plugin(service, :block)
     isnothing(bs) && error("Block plugin not loaded!")
     bs::BlockService
     sdl = service.scheduler
-    block(bs, sdl, me, wakeon; process_readonly = process_readonly, wakecb = wakecb)
+    block(bs, sdl, me, wakeon; waketest = waketest, process_readonly = process_readonly, wakecb = wakecb)
 end
 
 nocb(_...) = false
 
-function block(bs::BlockService, sdl, actor::Actor, wakeon::Type; process_readonly = Nothing, wakecb = nocb)
-    bs.blockedactors[box(actor)] = BlockedActor(actor, wakeon, wakecb, process_readonly)
+function block(bs::BlockService, sdl, actor::Actor, wakeon::Type;
+                    waketest = msg -> true,
+                    process_readonly = Nothing,
+                    wakecb = nocb)
+    bs.blockedactors[box(actor)] = BlockedActor(actor, wakeon, waketest, wakecb, process_readonly)
     unschedule!(sdl, actor)
 end
 
