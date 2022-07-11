@@ -1,7 +1,7 @@
 module BlockTest
 
 using Test
-using Circo, Circo.Blocking
+using Circo, Circo.Block
 import Circo:onmessage, onspawn
 
 mutable struct Blocker <: Actor{Any}
@@ -123,7 +123,7 @@ function Circo.onmessage(me::BlockTester, msg::CbNotification, service)
     me.cbcalled = true
 end
 
-@testset "Blocking" begin
+@testset "Block" begin
     tester = BlockTester()
     ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [BlockService])
     scheduler = Scheduler(ctx, [tester])
