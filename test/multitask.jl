@@ -3,11 +3,11 @@ module MultiTaskTest
 using Test
 using Circo, Circo.MultiTask
 
-const TASK_COUNT = 5
+const TASK_COUNT = 100
 
 struct Req <: Request
   data
-  respondto
+  respondto::Addr
   token::Token
   Req(data, respondto) = new(data, respondto, Token())
 end
@@ -21,7 +21,7 @@ Circo.MultiTask.responsetype(::Type{Req}) = Resp
 
 struct ClientReq
   data
-  respondto
+  respondto::Addr
 end
 
 struct ClientResp
@@ -55,7 +55,7 @@ Circo.onspawn(me::MultiTaskTester, srv) = begin
 end
 
 Circo.onmessage(me::SerializedServer, msg::ClientReq, srv) = begin
-  @show srv.scheduler.msgqueue
+  srv.scheduler.msgqueue
   response = request(srv, me, me.bgservice, Req(msg.data, me))
   @test response.data == msg.data
 end

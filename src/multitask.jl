@@ -17,7 +17,7 @@ gettask(tp::TaskPool) = begin
     if isempty(tp.tasks)
         return tp.taskcreator()
     end
-    return shift!(tp.tasks)
+    return pop!(tp.tasks)
 end
 
 releasetask(tp::TaskPool, task::Task) = begin
@@ -27,8 +27,12 @@ releasetask(tp::TaskPool, task::Task) = begin
 end
 
 schedulertask_creator(sdl) = () -> Task(() -> begin
-    @info "Starting loop on $(current_task())"
-    CircoCore.eventloop(sdl; remote=false)
+    @debug "Starting event loop on new $(current_task())"
+    try
+        CircoCore.eventloop(sdl; remote=false)
+    catch e
+        @error "Error in scheduler task: $e" exception = (e, catch_backtrace())
+    end
 end)
 
 mutable struct MultiTaskService <: Plugin
@@ -48,7 +52,6 @@ end
 responsetype(::Type{<:Request}) = Response
 
 function request(srv, me::Actor, to::Addr, msg::Request)
-    @info "request on $(current_task())"
     mts = plugin(srv, :multitask)
     isnothing(mts) && error("MultiTask plugin not loaded!")
     mts::MultiTaskService # TODO this breaks extensibility, check if performance gain is worth it (same as in Block)
@@ -57,13 +60,11 @@ function request(srv, me::Actor, to::Addr, msg::Request)
 
     send(srv, me, to, msg)
     block(srv, me, responsetype(typeof(msg)); waketest = resp -> resp.body.token == msg.token) do response
-        @info "Wake on $(current_task())"
+        @debug "Wake $(addr(me)) on $(current_task()) with $(msg)"
         releasetask(mts.pool, nexttask)
-        x = yieldto(thistask, response)
-        @show x
+        yieldto(thistask, response)
     end
-    retval = yieldto(nexttask)
-    return @show retval
+    return yieldto(nexttask)
 end
 
 end # module

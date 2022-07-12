@@ -40,7 +40,7 @@ Circo.localroutes(bs::BlockService, sdl, msg::AbstractMsg)::Bool = begin
     blockedactor = get(bs.blockedactors, box(target(msg)), nothing)
     isnothing(blockedactor) && return false
     if body(msg) isa blockedactor.wakeon && blockedactor.waketest(msg)
-        wakeresult = wake(bs, sdl, blockedactor.actor, body(msg))
+        @show wakeresult = wake(bs, sdl, blockedactor.actor, body(msg))
         return wakeresult == true ||
             sdl.hooks.localdelivery(sdl, msg, blockedactor.actor)
     end
@@ -86,11 +86,11 @@ function wake(bs::BlockService, sdl, actor::Actor, msg...)
         return false
     end
     schedule!(sdl, actor)
-    wakeresult = blockedactor.wakecb(msg...)
+    @debug "Delivering $(length(blockedactor.messages)) delayed messages to $(addr(actor))"
     for delayed_msg in blockedactor.messages
         CircoCore.deliver!(sdl, delayed_msg)
     end
-    return wakeresult
+    return blockedactor.wakecb(msg...)
 end
 
 function wake(service, me::Actor)
