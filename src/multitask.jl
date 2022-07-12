@@ -2,20 +2,20 @@ module MultiTask
 
 using Plugins
 using ..Circo
-using Circo.Blocking
+using Circo.Block
 
-export request
+export request, MultiTaskService
 
 struct TaskPool
     tasks::Vector{Task}
     maxsize::Int
-    creator
-    TaskPool(creator; maxsize=1000, options...) = new(Vector{Task}(), maxsize, creator)
+    taskcreator
+    TaskPool(taskcreator; maxsize=1000, options...) = new(Vector{Task}(), maxsize, taskcreator)
 end
 
 gettask(tp::TaskPool) = begin
     if isempty(tp.tasks)
-        return tp.creator()
+        return tp.taskcreator()
     end
     return shift!(tp.tasks)
 end
@@ -26,34 +26,44 @@ releasetask(tp::TaskPool, task::Task) = begin
     end
 end
 
+schedulertask_creator(sdl) = () -> Task(() -> begin
+    @info "Starting loop on $(current_task())"
+    CircoCore.eventloop(sdl; remote=false)
+end)
+
 mutable struct MultiTaskService <: Plugin
     blockservice
     pool::TaskPool
-    MultiTaskService(blockservice;options...) = new(blockservice, TaskPool())
+    MultiTaskService(blockservice;options...) = new(blockservice)
 end
 Plugins.symbol(::MultiTaskService) = :multitask
-Plugins.deps(::MultiTaskService) = [Circo.Block.BlockService]
+Plugins.deps(::Type{MultiTaskService}) = [Circo.Block.BlockService]
 
 __init__() = Plugins.register(MultiTaskService)
 
-nexttask(mts::MultiTaskService) = nexttask(mts.pool)
+Plugins.setup!(mts::MultiTaskService, sdl) = begin
+    mts.pool = TaskPool(schedulertask_creator(sdl))
+end
 
-responsetype(Type{<:Request}) = Response
+responsetype(::Type{<:Request}) = Response
 
-function request(wakecb, srv, me::Actor, to::Addr, msg::Request)
-    mts = plugin(service, :multitask)
+function request(srv, me::Actor, to::Addr, msg::Request)
+    @info "request on $(current_task())"
+    mts = plugin(srv, :multitask)
     isnothing(mts) && error("MultiTask plugin not loaded!")
-    mts::MultiTaskService # TODO this breaks extensibility, check if performance gain is worth it (same as in Blocking)
+    mts::MultiTaskService # TODO this breaks extensibility, check if performance gain is worth it (same as in Block)
     thistask = current_task()
-    nexttask = gettask(mts)
+    nexttask = gettask(mts.pool)
 
     send(srv, me, to, msg)
-    block(srv, me, responsetype(typeof(msg)); waketest = resp -> resp.token == msg.token) do msg
-        retval = wakecb(msg)
-        releasetask(mts, nexttask)
-        yieldto(thistask, retval)
+    block(srv, me, responsetype(typeof(msg)); waketest = resp -> resp.body.token == msg.token) do response
+        @info "Wake on $(current_task())"
+        releasetask(mts.pool, nexttask)
+        x = yieldto(thistask, response)
+        @show x
     end
-    yieldto(nexttask)
+    retval = yieldto(nexttask)
+    return @show retval
 end
 
 end # module
