@@ -41,6 +41,7 @@ function processmessage(me::WebSocketTestActor, response::WebSocketReceive, ::Op
 
     sendmsg = WebSocketSend(me.message, addr(me), missing, me.websocketid)
     send(service, me, me.websocketcaller, sendmsg)
+    # NOTE Sending close messsage right after sending WebSocketSend may cause scheduling problem. It caused the WebSocketCallerActor read messages full of "/0" 
 end
 
 function processmessage(me::WebSocketTestActor, ::WebSocketReceive, ::MessageEvent, service)
