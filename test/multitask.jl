@@ -18,6 +18,7 @@ struct Resp <: Response
 end
 
 Circo.MultiTask.responsetype(::Type{Req}) = Resp
+# @resp Req => Resp
 
 struct ClientReq
   data
@@ -61,11 +62,10 @@ Circo.onmessage(me::SerializedServer, msg::ClientReq, srv) = begin
 end
 
 Circo.onmessage(me::BgService, req::Req, srv) = begin
-  #if rand() < 0.99
-  #  send(srv, me, me, req)
-  #else
+  @async begin
+    sleep(rand() / 100)
     send(srv, me, req.respondto, Resp(req.data, req.token))
-  #end
+  end
 end
 
 @testset "Multitask" begin

@@ -40,7 +40,7 @@ Circo.localroutes(bs::BlockService, sdl, msg::AbstractMsg)::Bool = begin
     blockedactor = get(bs.blockedactors, box(target(msg)), nothing)
     isnothing(blockedactor) && return false
     if body(msg) isa blockedactor.wakeon && blockedactor.waketest(msg)
-        @show wakeresult = wake(bs, sdl, blockedactor.actor, body(msg))
+        wakeresult = wake(bs, sdl, blockedactor.actor, body(msg))
         return wakeresult == true ||
             sdl.hooks.localdelivery(sdl, msg, blockedactor.actor)
     end
@@ -70,10 +70,13 @@ end
 
 nocb(_...) = false
 
+defaultwaketest(msg) = true
+
 function block(bs::BlockService, sdl, actor::Actor, wakeon::Type;
-                    waketest = msg -> true,
+                    waketest = defaultwaketest,
                     process_readonly = Nothing,
                     wakecb = nocb)
+    @debug "Blocking actor $(addr(actor)) on $(wakeon) $(waketest == defaultwaketest ? "" : "with waketest $(waketest)")"
     bs.blockedactors[box(actor)] = BlockedActor(actor, wakeon, waketest, wakecb, process_readonly)
     unschedule!(sdl, actor)
 end

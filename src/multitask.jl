@@ -29,7 +29,7 @@ end
 schedulertask_creator(sdl) = () -> Task(() -> begin
     @debug "Starting event loop on new $(current_task())"
     try
-        CircoCore.eventloop(sdl; remote=false)
+        CircoCore.eventloop(sdl; remote=true, exit=true)
     catch e
         @error "Error in scheduler task: $e" exception = (e, catch_backtrace())
     end
