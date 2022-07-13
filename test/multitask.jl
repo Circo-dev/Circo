@@ -32,6 +32,7 @@ end
 mutable struct MultiTaskTester <: Actor{Any}
   server::Addr
   bgservice::Addr
+  receivedResponses::Vector{ClientResp}
   core
   MultiTaskTester() = new()
 end
@@ -50,15 +51,32 @@ end
 Circo.onspawn(me::MultiTaskTester, srv) = begin
   me.bgservice = spawn(srv, BgService())
   me.server = spawn(srv, SerializedServer(me.bgservice))
+  me.receivedResponses = Vector{ClientResp}()
+
   for i=1:TASK_COUNT
     send(srv, me, me.server, ClientReq(i, me))
   end
 end
 
+Circo.onmessage(me::MultiTaskTester, msg::ClientResp, srv) = begin
+  push!(me.receivedResponses, msg)
+
+  if length(me.receivedResponses) == TASK_COUNT
+    ingoodorder = true
+    for i = 2:TASK_COUNT
+      ingoodorder &= me.receivedResponses[i-1].data < me.receivedResponses[i].data
+    end
+    @test ingoodorder == true
+  end
+end
+
 Circo.onmessage(me::SerializedServer, msg::ClientReq, srv) = begin
   srv.scheduler.msgqueue
+  # NOTE Resp type
   response = request(srv, me, me.bgservice, Req(msg.data, me))
   @test response.data == msg.data
+
+  send(srv, me, msg.respondto, ClientResp(response.data))
 end
 
 Circo.onmessage(me::BgService, req::Req, srv) = begin
