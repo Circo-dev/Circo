@@ -79,7 +79,7 @@ ctx = CircoContext(; target_module=@__MODULE__, profile=Circo.Profiles.ClusterPr
 @testset "Host" begin
      @testset "Empty host creation and run" begin
          host = Host(ctx, 3)
-         host(;remote=false, exit=true)
+         host(;remote=false)
          @test length(host.schedulers) == 3
          for i in 1:3
              @test length(host.schedulers[i].plugins[:host].peercache) == 2
@@ -90,7 +90,7 @@ ctx = CircoContext(; target_module=@__MODULE__, profile=Circo.Profiles.ClusterPr
     @testset "Inter-thread Ping-Pong inside Host" begin
         pingers = [PingPonger(nothing, emptycore(ctx)) for i=1:50]
         host = Host(ctx, 2; zygote=pingers)
-        host(;remote=false, exit=true)
+        host(;remote=false)
         for pinger in pingers
             send(host, addr(pinger), CreatePeer(postcode(host.schedulers[end])))
         end
@@ -122,11 +122,11 @@ ctx = CircoContext(; target_module=@__MODULE__, profile=Circo.Profiles.ClusterPr
     @testset "In-thread Ping-Pong inside Host" begin
         pingers = [PingPonger(nothing, emptycore(ctx)) for i=1:1]
         host = Host(ctx, 1; zygote=pingers)
-        host(;remote=false, exit=true)
+        host(;remote=false)
         for pinger in pingers
             send(host, addr(pinger), CreatePeer(nothing))
         end
-        hosttask = @async host(; remote = false, exit = true)
+        hosttask = @async host(; remote = false)
 
         @info "Sleeping to allow ping-pong to start."
         sleep(15.0)

@@ -154,10 +154,10 @@ end
 Plugins.symbol(::MonitorService) = :monitor
 __init__() = Plugins.register(MonitorServiceImpl)
 
-function Plugins.setup!(monitor::MonitorServiceImpl, scheduler)
+function Circo.schedule_start(monitor::MonitorServiceImpl, scheduler)
     monitor.actor = MonitorActor(monitor, emptycore(scheduler.service))
     monitor.scheduler = scheduler
-    schedule!(scheduler, monitor.actor)
+    spawn(scheduler, monitor.actor)
     registername(scheduler.service, "monitor", monitor.actor)
 end
 

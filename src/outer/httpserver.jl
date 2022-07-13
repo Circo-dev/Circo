@@ -59,17 +59,16 @@ mutable struct HttpServerImpl <: HttpServer
     HttpServerImpl(;http_max_request_size = 1024*1024, options...) = new(http_max_request_size)
 end
 
-
 function Circo.setup!(http::HttpServerImpl, scheduler)
-    http.dispatcher = _HttpDispatcher(emptycore(scheduler.service))
     http.maxrequestsizeinbyte = parse(Int, get(ENV, "HTTP_MAX_REQUEST_SIZE", string(http.maxrequestsizeinbyte)))
     @info "Allowed maximum size of a request payload : $(http.maxrequestsizeinbyte / 1024) KB"
-
-    schedule!(scheduler, http.dispatcher)
-    registername(scheduler.service, "httpserver", http.dispatcher)
 end
 
 function Circo.schedule_start(http::HttpServerImpl, scheduler)
+    http.dispatcher = _HttpDispatcher(emptycore(scheduler.service))
+    spawn(scheduler, http.dispatcher)
+    registername(scheduler.service, "httpserver", http.dispatcher)
+
     @debug "HttpService's dispatcher address" addr(http.dispatcher)
 
     listenport = 8080 + port(postcode(scheduler)) - CircoCore.PORT_RANGE[1]

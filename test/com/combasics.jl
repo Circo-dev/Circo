@@ -50,7 +50,7 @@ end
     empty!(vitalized_components)
     instantiate(root)
     rootaddr = vitalize(root, sdl)
-    sdl(;exit=true, remote=false)
+    sdl(;remote=false)
     @test typeof(vitalized_components[1]) == Root
     @test typeof(vitalized_components[2]) == Inner
     @test typeof(vitalized_components[3]) == Leaf

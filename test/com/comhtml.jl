@@ -63,7 +63,7 @@ define("inner-component", InnerComponent)
     actorcount = sdl.actorcount
     vitalize(prog, sdl)
     @test sdl.actorcount == actorcount + 5
-    sdl(;exit=true, remote=false)
+    sdl(;remote=false)
     shutdown!(sdl)
 end
 

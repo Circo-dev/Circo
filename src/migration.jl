@@ -157,7 +157,7 @@ Circo.specialmsg(migration::MigrationServiceImpl, scheduler, message::AbstractMs
         @info "Thread $(Threads.threadid()): $actorbox fast back-and forth moving: got MigrationRequest while waiting for a response. Accept."
     end
     delete!(migration.movedactors, actorbox)
-    schedule!(scheduler, actor)
+    spawn(scheduler, actor)
     Circo.onmigrate(actor, scheduler.service)
     send(scheduler.service, actor, Addr(postcode(fromaddress), 0), MigrationResponse(fromaddress, addr(actor), true))
     return true

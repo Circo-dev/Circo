@@ -29,7 +29,7 @@ end
 schedulertask_creator(sdl) = () -> Task(() -> begin
     @debug "Starting event loop on new $(current_task())"
     try
-        CircoCore.eventloop(sdl; remote=true, exit=true)
+        CircoCore.eventloop(sdl; remote=true)
     catch e
         @error "Error in scheduler task: $e" exception = (e, catch_backtrace())
     end
@@ -51,16 +51,21 @@ end
 
 responsetype(::Type{<:Request}) = Response
 
-function request(srv, me::Actor, to::Addr, msg::Request)
+# TODO The name of this function may be more specific. requestInNewTask? requestinBlockingTask ? sendBlockerMessage?
+# TODO missing docs 
+function request(srv, serializer::Actor, blocker::Addr, msg::Request)
     mts = plugin(srv, :multitask)
     isnothing(mts) && error("MultiTask plugin not loaded!")
     mts::MultiTaskService # TODO this breaks extensibility, check if performance gain is worth it (same as in Block)
     thistask = current_task()
     nexttask = gettask(mts.pool)
 
-    send(srv, me, to, msg)
-    block(srv, me, responsetype(typeof(msg)); waketest = resp -> resp.body.token == msg.token) do response
-        @debug "Wake $(addr(me)) on $(current_task()) with $(msg)"
+    send(srv, serializer, blocker, msg)
+    
+    block(srv, serializer, responsetype(typeof(msg)); 
+        waketest = resp -> resp.body.token == msg.token
+        ) do response
+        @debug "Wake $(addr(serializer)) on $(current_task()) with $(msg)"
         releasetask(mts.pool, nexttask)
         yieldto(thistask, response)
     end

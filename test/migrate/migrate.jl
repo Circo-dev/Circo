@@ -32,9 +32,9 @@ end
     resultsholder = Main.ResultsHolder()
     ctx = CircoContext(userpluginsfn = () -> [MigrationService, ClusterService])
     scheduler = Scheduler(ctx, [resultsholder])
-    scheduler(;remote = false, exit = true) # to spawn the zygote
+    scheduler(;remote=false) # to spawn the zygote
     startsource(postcode(scheduler),addr(resultsholder))
-    scheduler(;exit=true)
+    scheduler(;remote=false)
     println("Resultsholder Exited")
     Circo.shutdown!(scheduler)
     stayer = resultsholder.results.stayer

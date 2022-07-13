@@ -44,18 +44,22 @@ struct Die end
 function Circo.onmessage(me::BlockTester, msg::ValResponse, service)
     me.valresp_count += 1
     @test me.state in (start, blocked, unblocked)
+
+    expectedvalue = 42
     if me.state == start
         @test isnothing(msg.val)
-        send(service, me, me.blocker, WriteAndBlock(42))
+        send(service, me, me.blocker, WriteAndBlock(expectedvalue))
         me.state = block_sent
+
     elseif me.state == blocked
-        @test msg.val == 42
+        @test msg.val == expectedvalue
         send(service, me, me.blocker, Write_(:delayed))
         if me.valresp_count < 100
             send(service, me, me.blocker, ReadVal())
         else
             send(service, me, me.blocker, UnBlockAndWrite(:unblock))
         end
+
     elseif me.state == unblocked
         @test msg.val == :delayed || msg.val == :unblock
         if msg.val == :delayed
@@ -80,6 +84,8 @@ function Circo.onmessage(me::Blocker, msg::WriteAndBlock, service)
     @test isnothing(me.val)
     me.val = msg.val
     waketestcalled = false
+
+    # Blocker will block until got UnBlockAndWrite message with val == :unblock  
     block(service, me, UnBlockAndWrite;
             waketest = msg -> begin
                 waketestcalled = true
@@ -127,7 +133,7 @@ end
     tester = BlockTester()
     ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [BlockService])
     scheduler = Scheduler(ctx, [tester])
-    scheduler(;exit=true)
+    scheduler(;remote = false)
     Circo.shutdown!(scheduler)
     @test tester.cbcalled == true
 end

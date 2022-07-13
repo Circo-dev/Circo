@@ -35,9 +35,9 @@ ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [Debug.MsgStat
     tester = StatsTester()
     scheduler = Scheduler(ctx, [tester])
     stats = scheduler.plugins[:msgstats]
-    scheduler(;remote = false, exit = true) # to spawn the zygote
+    scheduler(;remote = false) # to spawn the zygote
     send(scheduler, addr(tester), Start())
-    scheduler(;remote = false, exit = true)
+    scheduler(;remote = false)
     @show stats
     @test stats.typefrequencies[Ack] == SAMPLE_COUNT
 end
