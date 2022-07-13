@@ -72,7 +72,8 @@ end
   tester = MultiTaskTester()
   ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [MultiTaskService])
   scheduler = Scheduler(ctx, [tester])
-  scheduler(;exit=true)
+  # NOTE we need "remote = false" because remote's deafult value is true in this case 
+  scheduler(; remote = false, exit=true)
   @info scheduler.msgqueue
   Circo.shutdown!(scheduler)
 end
