@@ -9,7 +9,8 @@ import Base: show
 export CircoCore
 
 export Debug, Host, JS, registermsg,
-    Joined, PeerListUpdated
+    Joined, PeerListUpdated,
+    @actor, @onspawn, @onmessage, @send, @spawn, @become, @die
 
 const call_lifecycle_hook = CircoCore.call_lifecycle_hook
 
@@ -63,6 +64,7 @@ function monitorextra end
 const NameQuery = CircoCore.Registry.NameQuery
 const NameResponse = CircoCore.Registry.NameResponse
 
+include("lang/lang.jl")
 include("host.jl")
 include("monitor.jl")
 include("cluster/cluster.jl")
