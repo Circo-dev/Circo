@@ -1,5 +1,5 @@
 
-macro actor(declaration)
+function actorize(declaration)
     @assert declaration.head == :struct
 
     declaration.args[1] = true # make it mutable
@@ -10,6 +10,10 @@ macro actor(declaration)
     end
 
     return declaration
+end
+
+macro actor(declaration)
+    return actorize(declaration)
 end
 
 macro onspawn(metype, body)
@@ -57,4 +61,10 @@ macro die()
     return quote
         die(service, me)
     end |> esc
+end
+
+macro identity(declaration)
+    actorized = actorize(declaration)
+    push!(declaration.args[3].args, Circo.DistributedIdentities.distid_field())
+    return declaration
 end

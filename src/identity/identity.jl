@@ -136,10 +136,12 @@ mutable struct DistributedIdentity
     DistributedIdentity(id = rand(DistIdId), peers=[]; redundancy=3) = new(id, Dict(map(p_addr -> p_addr => Peer(p_addr), peers)), redundancy)
 end
 
+distid_field() = quote
+    distid::Circo.DistributedIdentities.DistributedIdentity
+end |> esc
+
 macro distid_field()
-    return quote
-        distid::Circo.DistributedIdentities.DistributedIdentity
-    end |> esc
+    return distid_field() 
 end
 
 function check_distid(me)

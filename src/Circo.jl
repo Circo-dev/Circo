@@ -10,7 +10,9 @@ export CircoCore
 
 export Debug, Host, JS, registermsg,
     Joined, PeerListUpdated,
-    @actor, @onspawn, @onmessage, @send, @spawn, @become, @die
+    @actor, @onspawn, @onmessage, @send, @spawn, @become, @die,
+    @identity
+
 
 const call_lifecycle_hook = CircoCore.call_lifecycle_hook
 
