@@ -55,9 +55,9 @@ struct WebSocketReceive
     WebSocketReceive(type, websocketId, response::String) = new(type, websocketId, Vector{UInt8}(response))
 end
 
-websocketId(msg::WebSocketOpen) = missing
-websocketId(msg::WebSocketSend) = UInt64(msg.websocketid)
-websocketId(msg::WebSocketClose) = UInt64(msg.websocketid)
+websocket_id(msg::WebSocketOpen) = missing
+websocket_id(msg::WebSocketSend) = UInt64(msg.websocketid)
+websocket_id(msg::WebSocketClose) = UInt64(msg.websocketid)
 
 
 mutable struct WebSocketCallerActor <: Actor{Any}
@@ -92,39 +92,39 @@ end
 function Circo.onmessage(me::WebSocketCallerActor, openmsg::WebSocketOpen, service)    
 
     @async WebSockets.open("ws://$(openmsg.url)"; verbose=false) do ws
-        websocketId = rand(UInt32)
-        get!(me.messageChannels, websocketId, ws)
+        websocket_id = rand(UInt32)
+        get!(me.messageChannels, websocket_id, ws)
         
         @debug "Client Websocket connection established!"
-        Circo.send(service, me, openmsg.source, WebSocketReceive(OpenEvent(), websocketId, "Websocket connection established!"))
+        Circo.send(service, me, openmsg.source, WebSocketReceive(OpenEvent(), websocket_id, "Websocket connection established!"))
 
         try 
-            for rawMessage in ws
-                @debug "Client got from server rawMessage" String(rawMessage)
-                Circo.send(service, me, openmsg.source, WebSocketReceive(MessageEvent(), websocketId, rawMessage))
+            for raw_message in ws
+                @debug "Client got from server rawMessage" String(raw_message)
+                Circo.send(service, me, openmsg.source, WebSocketReceive(MessageEvent(), websocket_id, raw_message))
             end
         catch e
             if !(e isa EOFError)
                 @info "Exception in arrivals", e
             end
         finally
-            Circo.send(service, me, openmsg.source, WebSocketReceive(CloseEvent(), websocketId, "Websocket connection closed"))
-            delete!(me.messageChannels, websocketId)
+            Circo.send(service, me, openmsg.source, WebSocketReceive(CloseEvent(), websocket_id, "Websocket connection closed"))
+            delete!(me.messageChannels, websocket_id)
         end
         # unnecessary
         # close(ws)
     end
 end 
 
-sendingWebSocketMessage(ws, msg) = WebSocket.isopen(ws) && error("Unknown message type received! Got : $(typeof(msg))")
-sendingWebSocketMessage(ws, ::WebSocketOpen) = error("Got WebSocketOpen message from an opened websocket!")
-sendingWebSocketMessage(ws, ::WebSocketClose) = HTTP.close(ws)
-sendingWebSocketMessage(ws, wsmessage::WebSocketSend) = HTTP.send(ws, wsmessage.data)
+sending_websocket_message(ws, msg) = WebSocket.isopen(ws) && error("Unknown message type received! Got : $(typeof(msg))")
+sending_websocket_message(ws, ::WebSocketOpen) = error("Got WebSocketOpen message from an opened websocket!")
+sending_websocket_message(ws, ::WebSocketClose) = HTTP.close(ws)
+sending_websocket_message(ws, wsmessage::WebSocketSend) = HTTP.send(ws, wsmessage.data)
 
 function Circo.onmessage(me::WebSocketCallerActor, wsmessage::WebSocketMessage, service)
-    ws = get(me.messageChannels, websocketId(wsmessage), missing)
+    ws = get(me.messageChannels, websocket_id(wsmessage), missing)
     # TODO handle missing
-    sendingWebSocketMessage(ws, wsmessage)
+    sending_websocket_message(ws, wsmessage)
 end
 
 

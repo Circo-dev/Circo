@@ -75,61 +75,61 @@ end
 mutable struct TestServer
     tcpserver
     servertask
-    waitForServerClose
-    serverVerificationData
+    wait_for_server_close
+    server_verification_data
 end
 
-function createWebsocketServer(url, port)
+function create_websocket_server(url, port)
     tcpserver = listen(port)
 
     waitForServerClose = false
-    
+
     testServer = TestServer(tcpserver, missing, waitForServerClose, VerificationData())
-    testServer.servertask = createWebsocketServer(testServer, url, port)
+    testServer.servertask = create_websocket_server(testServer, url, port)
     return testServer
 end
 
-function createWebsocketServer(testserver::TestServer, url, port)
+function create_websocket_server(testserver::TestServer, url, port)
     @async WebSockets.listen(url, port; server=testserver.tcpserver, verbose=true) do ws
         @test ws.request isa HTTP.Request
-        for msg in ws 
+        for msg in ws
             data = String(msg)
             responsemessage = "Server send this : $data"
             @debug responsemessage
             HTTP.send(ws, responsemessage)
-            
-            testserver.serverVerificationData.messagereceived = true
-            push!(testserver.serverVerificationData.receivedmessages, data)
+
+            testserver.server_verification_data.messagereceived = true
+            push!(testserver.server_verification_data.receivedmessages, data)
         end
         @debug "Server start to close"
-        testserver.serverVerificationData.websocketservercloses = true
-        testserver.waitForServerClose = true
+        testserver.server_verification_data.websocketservercloses = true
+        testserver.wait_for_server_close = true
     end
 end
 
-function serverSideVerification(testServer::TestServer, expectedMessages)
-    actual = testServer.serverVerificationData
-    @test timedwait(()-> testServer.waitForServerClose == true, 10.0) === :ok
+function serverside_verification(testServer::TestServer, expectedMessages)
+    actual = testServer.server_verification_data
+    @test timedwait(() -> testServer.wait_for_server_close == true, 10.0) === :ok
 
     @test actual.websocketservercloses == true
     @test actual.messagereceived == true
 
     @debug "Server actuall received msgs" actual.receivedmessages
-    @debug "Server expected received msgs" expectedMessages 
+    @debug "Server expected received msgs" expectedMessages
 
-    for index in 1:size(actual.messagereceived, 1) 
+    for index in 1:size(actual.messagereceived, 1)
         @test actual.receivedmessages[index] == expectedMessages[index]
     end
-    
+
     @test size(actual.receivedmessages) == size(expectedMessages)
 end
 
-function closeWithTest(testServer::TestServer)
-    close(testServer.tcpserver)
-    @test timedwait(()-> testServer.servertask.state === :done, 5.0) === :ok
+function close_with_test(testserver::TestServer)
+    close(testserver.tcpserver)
+    @test timedwait(() -> testserver.servertask.state === :done, 5.0) === :ok
 end
 
-function verifyWebSocketClientActor(scheduler)
+function verify_websocket_clientactor(scheduler)
     websocketcalleraddr = getname(scheduler.service, "websocketclient")
     websocketcaller = getactorbyid(scheduler, websocketcalleraddr.box)
     @test isempty(websocketcaller.messageChannels)
@@ -142,112 +142,101 @@ end
     @testset "Testing sending message not from f(ws)" begin
         port = UInt16(8086)
 
-        testServer = createWebsocketServer(url, port)
-        
-        messageChannel = Channel{}(2)
-        
+        testserver = create_websocket_server(url, port)
+
+        messagechannel = Channel{}(2)
+
         @async WebSockets.open("ws://$(url):$(port)"; verbose=true) do ws
             HTTP.send(ws, "Client send message!")
             msg = HTTP.receive(ws)
-            @debug "Client side" , String(msg)
+            @debug "Client side", String(msg)
 
             @debug "Client wait for external message"
-            msg = take!(messageChannel)
+            msg = take!(messagechannel)
             HTTP.send(ws, "Client : $msg")
 
-            msg = take!(messageChannel)
+            msg = take!(messagechannel)
             HTTP.send(ws, "Client : $msg")
 
             @debug "Client closing"
         end
 
-        put!(messageChannel, msgdata)
-        put!(messageChannel, Vector{UInt8}(msgdata))
+        put!(messagechannel, msgdata)
+        put!(messagechannel, Vector{UInt8}(msgdata))
 
-        serverSideVerification(testServer, [
-            "Client send message!"
-            , "Client : $(msgdata)"
-            , "Client : $(msgdata)"
+        serverside_verification(testserver, [
+            "Client send message!", "Client : $(msgdata)", "Client : $(msgdata)"
         ])
 
-        closeWithTest(testServer)
+        close_with_test(testserver)
     end
 
     @testset "Testing with Circo actor" begin
         port = UInt16(8086)
 
-        testServer = createWebsocketServer(url, port)
-        
+        testserver = create_websocket_server(url, port)
+
         ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [WebSocketClient])
-        testActor = WebSocketTestActor(emptycore(ctx)
-            , [
-                "Websocket connection established!"
-                , "Server send this : $(msgdata)"
-                , "Websocket connection closed"
+        testactor = WebSocketTestActor(emptycore(ctx), [
+                "Websocket connection established!", "Server send this : $(msgdata)", "Websocket connection closed"
             ]
         )
 
-        scheduler = Scheduler(ctx, [testActor])
-        scheduler(;remote=false, exit=true) # to spawn the zygote
+        scheduler = Scheduler(ctx, [testactor])
+        scheduler(; remote=false, exit=true) # to spawn the zygote
 
-        send(scheduler, testActor, StartTestMsg(msgdata, "$(url):$(port)"))
+        send(scheduler, testactor, StartTestMsg(msgdata, "$(url):$(port)"))
 
-        scheduler(;remote=true, exit=true)
+        scheduler(; remote=true, exit=true)
 
-        serverSideVerification(testServer, [
+        serverside_verification(testserver, [
             msgdata
         ])
 
-        verifyWebSocketClientActor(scheduler)
+        verify_websocket_clientactor(scheduler)
 
-        closeWithTest(testServer)
+        close_with_test(testserver)
         Circo.shutdown!(scheduler)
     end
-    
+
     @testset "Testing with multiple connection" begin
         portOne = UInt16(8086)
         portTwo = UInt16(8087)
 
-        testServerOne = createWebsocketServer(url, portOne)
-        testServerTwo = createWebsocketServer(url, portTwo)
+        testServerOne = create_websocket_server(url, portOne)
+        testServerTwo = create_websocket_server(url, portTwo)
 
-        msgdataTwo = "Different message" 
+        msgdataTwo = "Different message"
 
         ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [WebSocketClient])
-        testActorOne = WebSocketTestActor(emptycore(ctx)
-            , [
-                "Websocket connection established!"
-                , "Server send this : $(msgdata)"
-                , "Websocket connection closed"
+        testActorOne = WebSocketTestActor(emptycore(ctx), [
+                "Websocket connection established!", "Server send this : $(msgdata)", "Websocket connection closed"
             ]
         )
-        testActorTwo = WebSocketTestActor(emptycore(ctx)
-            , [
-                "Websocket connection established!"
-                , "Server send this : $(msgdataTwo)"
-                , "Websocket connection closed"
+        testActorTwo = WebSocketTestActor(emptycore(ctx), [
+                "Websocket connection established!", "Server send this : $(msgdataTwo)", "Websocket connection closed"
             ]
         )
 
         scheduler = Scheduler(ctx, [testActorOne, testActorTwo])
-        scheduler(;remote=false, exit=true) # to spawn the zygote
+        scheduler(; remote=false, exit=true) # to spawn the zygote
 
         send(scheduler, testActorOne, StartTestMsg(msgdata, "$(url):$(portOne)"))
         send(scheduler, testActorTwo, StartTestMsg(msgdataTwo, "$(url):$(portTwo)"))
 
-        scheduler(;remote=true, exit=true)
+        scheduler(; remote=true, exit=true)
 
-        serverSideVerification(testServerOne, [
+        serverside_verification(testServerOne, [
             msgdata
         ])
-        serverSideVerification(testServerTwo, [
+        serverside_verification(testServerTwo, [
             msgdataTwo
         ])
 
-        verifyWebSocketClientActor(scheduler)
+        verify_websocket_clientactor(scheduler)
 
-        closeWithTest(testServerOne)
-        closeWithTest(testServerTwo)
+        close_with_test(testServerOne)
+        close_with_test(testServerTwo)
         Circo.shutdown!(scheduler)
     end
 end
