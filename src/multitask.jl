@@ -4,7 +4,7 @@ using Plugins
 using ..Circo
 using Circo.Block
 
-export request, MultiTaskService
+export awaitresponse, MultiTaskService
 
 struct TaskPool
     tasks::Vector{Task}
@@ -28,6 +28,9 @@ releasetask(tp::TaskPool, task::Task) = begin
     end
 end
 
+Base.empty!(tp::TaskPool) = empty!(tp.tasks)
+
+
 schedulertask_creator(sdl) = () -> Task(() -> begin
     @debug "Starting event loop on new $(current_task())"
     try
@@ -35,6 +38,7 @@ schedulertask_creator(sdl) = () -> Task(() -> begin
     catch e
         @error "Error in scheduler task: $e" exception = (e, catch_backtrace())
     end
+    @debug "Event loop exited on $(current_task())"
 end)
 
 mutable struct MultiTaskService <: Plugin
@@ -51,27 +55,33 @@ Plugins.setup!(mts::MultiTaskService, sdl) = begin
     mts.pool = TaskPool(schedulertask_creator(sdl))
 end
 
+Circo.schedule_stop(mts::MultiTaskService, sdl) = begin
+    empty!(mts.pool)
+end
+
 responsetype(::Type{<:Request}) = Response
 
 # TODO The name of this function may be more specific. requestInNewTask? requestinBlockingTask ? sendBlockerMessage?
 # TODO missing docs 
-function request(srv, serializer::Actor, blocker::Addr, msg::Request)
+function awaitresponse(srv, me::Actor, to::Addr, msg::Request)
     mts = plugin(srv, :multitask)
-    isnothing(mts) && error("MultiTask plugin not loaded!")
+    if isnothing(mts)
+         error("MultiTask plugin not loaded!") # TODO allow it for debugging (with blocking the only scheduler task)
+    end 
     mts::MultiTaskService # TODO this breaks extensibility, check if performance gain is worth it (same as in Block)
-    thistask = current_task()
-    nexttask = gettask(mts.pool)
 
-    send(srv, serializer, blocker, msg)
+    send(srv, me, to, msg)
     
-    block(srv, serializer, responsetype(typeof(msg)); 
-        waketest = resp -> resp.body.token == msg.token
-        ) do response
-        @debug "Wake $(addr(serializer)) on $(current_task()) with $(response)"
+    thistask = current_task()
+    waketoken = msg.token
+    block(srv, me, responsetype(typeof(msg)); 
+        waketest = resp -> resp.body.token == waketoken
+    ) do response
+        @debug "Wake $(addr(me)) on $(current_task()) with $(response)"
         releasetask(mts.pool, current_task())
         yieldto(thistask, response)
     end
-    return yieldto(nexttask)
+    return yieldto(gettask(mts.pool))
 end
 
 end # module
