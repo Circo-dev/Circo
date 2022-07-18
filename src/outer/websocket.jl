@@ -73,7 +73,7 @@ function _sendws(ws_plugin::WebsocketServiceImpl, msg::AbstractMsg, actorid::Act
     try
         buf = marshal(msg)
         seek(buf, 0)
-        write(ws, buf)
+        HTTP.send(ws, buf)
     catch e
         @debug "Unable to write to websocket, removing registration of actor $(actorid). Target: $(target(msg)) Message type: $(typeof(body(msg)))" exception=(e, catch_backtrace())
         delete!(ws_plugin.actor_connections, actorid)
@@ -138,7 +138,7 @@ function handle_connection(service::WebsocketServiceImpl, ws, scheduler)
     try
         while !eof(ws)
             try
-                buf = readavailable(ws)
+                buf = HTTP.receive(ws)
             catch e
                 @debug "Websocket closed: $e"
                 return

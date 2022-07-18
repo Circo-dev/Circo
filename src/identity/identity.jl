@@ -136,10 +136,12 @@ mutable struct DistributedIdentity
     DistributedIdentity(id = rand(DistIdId), peers=[]; redundancy=3) = new(id, Dict(map(p_addr -> p_addr => Peer(p_addr), peers)), redundancy)
 end
 
+distid_field() = quote
+    distid::Circo.DistributedIdentities.DistributedIdentity
+end |> esc
+
 macro distid_field()
-    return quote
-        distid::Circo.DistributedIdentities.DistributedIdentity
-    end |> esc
+    return distid_field() 
 end
 
 function check_distid(me)
@@ -360,9 +362,9 @@ struct Die end
 function kill_and_spawn_other(me, target, service)
     send(service, me, target, Die())
     delete!(me.distid.peers, addr(target))
-    sendtopeers(service, me, Killed(target))
+    sendtopeers(service, me, Killed(addr(target)))
     peer_leaved(me, target, service)
-    fire(service, me, PeerLeaved(me.distid.id, target))
+    fire(service, me, PeerLeaved(me.distid.id, addr(target)))
     spawnpeer_ifneeded(me, service)
 end
 
