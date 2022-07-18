@@ -18,7 +18,6 @@ Base.@kwdef struct HttpRequest
     headers::Vector{Pair{String,String}} = []
     body
     keywordargs::NamedTuple = NamedTuple()   # used by HTTP.request() function. This isn't used server side. 
-
 end
 
 struct HttpResponse

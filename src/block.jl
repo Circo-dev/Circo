@@ -1,4 +1,4 @@
-module Blocking
+module Block
 
 using Plugins, DataStructures
 using ..Circo
@@ -21,12 +21,12 @@ end
 The Block Service allows actors to stop processing messages and wait for a specific signal message.
 
 Messages arriving while the actor is blocked will be queued and delivered later.
-The wakeup signal is defined by a type and optionally a `msg -> Bool` predicate function:
+The wakeup signal is defined by a type and optionally an `msg -> Bool` predicate function:
 if an incoming message is an instance of the given type and the predicate function returns true,
 the actor will wake up. It is also possible to specify another message type that
 will still be delivered without waking up the actor (called `process_readonly`).
 
-In this implementation the actor is considered as _NOT_ scheduled while blocked.
+For avoiding performance hit on non-blocked actors, blocked ones are considered as _NOT_ scheduled.
 """
 mutable struct BlockService <: Plugin
     blockedactors::CircoCore.ActorStore{BlockedActor}
@@ -63,24 +63,25 @@ function block(service, me::Actor, wakeon::Type;
                     wakecb = nocb)
     bs = plugin(service, :block)
     isnothing(bs) && error("Block plugin not loaded!")
-    bs::BlockService
+    bs::BlockService # TODO this breaks extensibility, check if performance gain is worth it (same as in MultiTask)
     sdl = service.scheduler
     block(bs, sdl, me, wakeon; waketest = waketest, process_readonly = process_readonly, wakecb = wakecb)
 end
 
 nocb(_...) = false
 
+defaultwaketest(msg) = true
+
 function block(bs::BlockService, sdl, actor::Actor, wakeon::Type;
-                    waketest = msg -> true,
+                    waketest = defaultwaketest,
                     process_readonly = Nothing,
                     wakecb = nocb)
+    @debug "Blocking actor $(addr(actor)) on $(wakeon) $(waketest == defaultwaketest ? "" : "with waketest $(waketest)")"
     bs.blockedactors[box(actor)] = BlockedActor(actor, wakeon, waketest, wakecb, process_readonly)
     unschedule!(sdl, actor)
 end
 
-"""
-Returns the result of wakecb(msg...), or false if the actor is not blocked
-"""
+# Return the result of wakecb(msg...), or false if the actor is not blocked
 function wake(bs::BlockService, sdl, actor::Actor, msg...)
     blockedactor = pop!(bs.blockedactors, box(actor), nothing)
     if isnothing(blockedactor)
@@ -88,11 +89,11 @@ function wake(bs::BlockService, sdl, actor::Actor, msg...)
         return false
     end
     schedule!(sdl, actor)
-    wakeresult = blockedactor.wakecb(msg...)
+    @debug "Delivering $(length(blockedactor.messages)) delayed messages to $(addr(actor))"
     for delayed_msg in blockedactor.messages
         CircoCore.deliver!(sdl, delayed_msg)
     end
-    return wakeresult
+    return blockedactor.wakecb(msg...)
 end
 
 function wake(service, me::Actor)
