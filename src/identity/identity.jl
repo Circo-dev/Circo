@@ -360,9 +360,9 @@ struct Die end
 function kill_and_spawn_other(me, target, service)
     send(service, me, target, Die())
     delete!(me.distid.peers, addr(target))
-    sendtopeers(service, me, Killed(target))
+    sendtopeers(service, me, Killed(addr(target)))
     peer_leaved(me, target, service)
-    fire(service, me, PeerLeaved(me.distid.id, target))
+    fire(service, me, PeerLeaved(me.distid.id, addr(target)))
     spawnpeer_ifneeded(me, service)
 end
 
