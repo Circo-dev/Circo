@@ -15,7 +15,9 @@ end
 
 gettask(tp::TaskPool) = begin
     if isempty(tp.tasks)
-        return tp.taskcreator()
+        retval = tp.taskcreator()
+        errormonitor(retval)
+        return retval
     end
     return pop!(tp.tasks)
 end
@@ -65,8 +67,8 @@ function request(srv, serializer::Actor, blocker::Addr, msg::Request)
     block(srv, serializer, responsetype(typeof(msg)); 
         waketest = resp -> resp.body.token == msg.token
         ) do response
-        @debug "Wake $(addr(serializer)) on $(current_task()) with $(msg)"
-        releasetask(mts.pool, nexttask)
+        @debug "Wake $(addr(serializer)) on $(current_task()) with $(response)"
+        releasetask(mts.pool, current_task())
         yieldto(thistask, response)
     end
     return yieldto(nexttask)

@@ -83,14 +83,14 @@ Circo.onspawn(me::MultiTaskClient, srv) = begin
 end
 
 Circo.onmessage(me::MultiTaskClient, msg::StartMsg, srv) = begin
-  @info "MultiTaskClient start"
+  @debug "MultiTaskClient start"
   for i=1:TASK_COUNT
     send(srv, me, me.server, ClientReq(i, me))
   end
 end
 
 Circo.onmessage(me::MultiTaskClient, msg::ClientResp, srv) = begin
-  @info "ClientResp arrived to MultiTaskClientnek" addr(me) msg
+  @debug "ClientResp arrived to MultiTaskClientnek" addr(me) msg
   push!(me.receivedResponses, msg)
 
   if length(me.receivedResponses) == TASK_COUNT
@@ -107,21 +107,21 @@ end
 Circo.onmessage(me::SerializedServer, msg::ClientReq, srv) = begin
   srv.scheduler.msgqueue
   requestObject = Req(msg.data, me)
-  @info "SerializedServer $(addr(me)) sending request" requestObject me.bgservice
+  @debug "SerializedServer $(addr(me)) sending request" requestObject me.bgservice
   response = request(srv, me, me.bgservice, requestObject)
-  @info "SerializedServer $(addr(me)) got response" requestObject me.bgservice response
+  @debug "SerializedServer $(addr(me)) got response" requestObject me.bgservice response
   @test response.data == msg.data
 
   send(srv, me, msg.respondto, ClientResp(response.data))
 end
 
 Circo.onmessage(me::BgService, req::Req, srv) = begin
-  @info "sleep + send BgService $(addr(me))"
+  @debug "sleep + send BgService $(addr(me))"
 
   @async begin
     sleep(rand() / 100)
     send(srv, me, req.respondto, Resp(req.data, req.token))
-    @info "BgService send $(addr(me))" req
+    @debug "BgService send $(addr(me))" req
   end
 end
 
@@ -132,21 +132,20 @@ end
     scheduler = Scheduler(ctx, [orchestrator])
     # NOTE we need "remote = false" because remote's deafult value is true in this case 
     scheduler(; remote = false, exit=true)
-    @info scheduler.msgqueue
+    @debug scheduler.msgqueue
 
     @test length(orchestrator.multitaskclients) == orchestrator.numberofsuccesfulvalidation
     Circo.shutdown!(scheduler)
   end
 
-  @testset "One MultiTastClient and SerializedServer" begin
-    orchestrator = TestOrchestrator(2)
+  @testset "Two MultiTastClients and SerializedServers" begin
+    orchestrator = TestOrchestrator(22)
     ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [MultiTaskService])
     scheduler = Scheduler(ctx, [orchestrator])
-    # NOTE we need "remote = false" because remote's deafult value is true in this case 
     scheduler(; remote = false, exit=true)
-    @info "size of queueu : $(length(scheduler.msgqueue))"
+    @debug "size of queue :" scheduler.msgqueue
 
-    @info scheduler.msgqueue
+    @debug scheduler.msgqueue
 
     @test length(orchestrator.multitaskclients) == orchestrator.numberofsuccesfulvalidation
     Circo.shutdown!(scheduler)
