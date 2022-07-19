@@ -61,7 +61,7 @@ function processmessage(me::WebSocketTestActor, ::WebSocketReceive, ::CloseEvent
         @test String(me.receivedmessages[i].response) == me.expectedmessages[i]
     end
 
-    die(service, me)
+    die(service, me; exit = true)
 end
 
 mutable struct VerificationData
@@ -183,11 +183,11 @@ end
         )
 
         scheduler = Scheduler(ctx, [testactor])
-        scheduler(; remote=false, exit=true) # to spawn the zygote
+        scheduler(;remote=false) # to spawn the zygote
 
         send(scheduler, testactor, StartTestMsg(msgdata, "$(url):$(port)"))
 
-        scheduler(; remote=true, exit=true)
+        scheduler(;remote=true)
 
         serverside_verification(testserver, [
             msgdata
@@ -219,12 +219,12 @@ end
         )
 
         scheduler = Scheduler(ctx, [testActorOne, testActorTwo])
-        scheduler(; remote=false, exit=true) # to spawn the zygote
+        scheduler(;remote=false) # to spawn the zygote
 
         send(scheduler, testActorOne, StartTestMsg(msgdata, "$(url):$(portOne)"))
         send(scheduler, testActorTwo, StartTestMsg(msgdataTwo, "$(url):$(portTwo)"))
 
-        scheduler(; remote=true, exit=true)
+        scheduler(;remote=true)
 
         serverside_verification(testServerOne, [
             msgdata

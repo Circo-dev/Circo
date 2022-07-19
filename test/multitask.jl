@@ -77,7 +77,7 @@ Circo.onmessage(me::TestOrchestrator, msg::ValidationOK, srv) = begin
     me.numberofsuccesfulvalidation += 1
     if me.numberofsuccesfulvalidation == me.numberofclient
         @info "All clients validated"
-        die(srv, me)
+        die(srv, me; exit = true)
     end
 end
 
@@ -107,7 +107,7 @@ Circo.onmessage(me::MultiTaskClient, msg::ClientResp, srv) = begin
 
         send(srv, me, me.orchestrator, ValidationOK())
         send(srv, me, me.server, Die())
-        die(srv, me)
+        die(srv, me; exit = true)
     end
 end
 
@@ -134,11 +134,11 @@ end
 
 Circo.onmessage(me::SerializedServer, msg::Die, srv) = begin
     send(srv, me, me.bgservice, Die())
-    die(srv, me)
+    die(srv, me; exit = true)
 end
 
 Circo.onmessage(me::BgService, msg::Die, srv) = begin
-    die(srv, me)
+    die(srv, me; exit = true)
 end
 
 @testset "MultiTask" begin
@@ -146,7 +146,7 @@ end
         orchestrator = TestOrchestrator(1)
         ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [MultiTaskService])
         scheduler = Scheduler(ctx, [orchestrator])
-        scheduler(; exit=true)
+        scheduler(;)
         Circo.shutdown!(scheduler)
     end
 
@@ -154,7 +154,7 @@ end
         orchestrator = TestOrchestrator(51)
         ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [MultiTaskService])
         scheduler = Scheduler(ctx, [orchestrator])
-        scheduler(; exit=true)
+        scheduler(;)
         Circo.shutdown!(scheduler)
     end
 end
