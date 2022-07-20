@@ -69,7 +69,7 @@ macro identity(declaration)
     return declaration
 end
 
-macro @response(requesttype, responsetype)
+macro response(requesttype, responsetype)
     return quote
         Circo.MultiTask.responsetype(::Type{$(requesttype)}) = $(responsetype)
     end |> esc

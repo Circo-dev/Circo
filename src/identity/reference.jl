@@ -3,9 +3,9 @@ module Reference
 
 using ....Circo
 using Circo.Migration
-import ..DistributedIdentities: DistIdId, Peer, PeerJoined, PeerLeaved, addrs, distid, DistributedIdentity
+import ..DistributedIdentities: DistIdId, Peer, PeerJoined, PeerLeaved, addrs, peers, distid, DistributedIdentity
 
-export IdRef
+export IdRef, ref
 
 mutable struct IdRef{TCore} <: Actor{TCore}
     id::DistIdId
@@ -54,6 +54,10 @@ end
 Circo.onmessage(me::IdRef, msg::RecipientMoved, service) = begin
     replace!(me.peer_addrs, msg.oldaddress => msg.newaddress)
     send(service, me, message.newaddress, message.originalmessage)
+end
+
+function ref(service, me)
+    return IdRef(distid(me), deepcopy(peers(me)), emptycore(service))
 end
 
 end # module

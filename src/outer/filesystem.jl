@@ -1,33 +1,35 @@
 module fs
 
-export NativeFS, FileSystem, FileDescriptor, open, read
+export NativeFS, FileSystem, FileDescriptor, Open, Read, open, read
 
-using Circo
+using ..Circo
 using Circo.MultiTask
-using Circo.DistributedIdentities, Circo.DistributedIdentities.Reference
+using Circo.DistributedIdentities, Circo.DistributedIdentities.Reference, Circo.IdRegistry
 using Plugins
+
+const FS_REGISTRY_PREFIX = "_fs."
 
 abstract type FileSystem <: Plugin end
 
 mutable struct NativeFS <: FileSystem
+    basedir::String
     endpoint::Addr
     helper
-    NativeFS(;options...) = new()
+    NativeFS(idservice; fs_basedir = ".", options...) = new(fs_basedir)
 end
-
-__init__() = Plugins.register(NativeFS)
 Plugins.symbol(::FileSystem) = :fs
+Plugins.deps(::Type{NativeFS}) = [DistIdService]
+__init__() = Plugins.register(NativeFS)
 
-# TODO @typedactor NativeFSActor
-mutable struct NativeFSActor{TCore} <: Actor{TCore}
-    core::TCore
-    NativeFSActor(core) = new(Dict(), core)
+@actor struct NativeFSActor
+    registry::Addr
+    NativeFSActor() = new()
 end
 
 Circo.schedule_start(fs::FileSystem, scheduler) = begin
-    fs.helper = NativeFSActor(emptycore(scheduler.service))
-    fs.endpoint = @spawn fs.helper
-    registername("fs", fs.endpoint)
+    fs.helper = NativeFSActor()
+    fs.endpoint = spawn(scheduler, fs.helper)
+    registername(scheduler.service, "fs", fs.endpoint)
 end
 
 struct FileDescriptor
@@ -44,50 +46,54 @@ end
 struct Opened <: Response
     token::Token
     descriptor::FileDescriptor
-    reference::IdRef
-    Opened(token, descriptor) = new(token, descriptor)
+    ref::IdRef
 end
 @response Open Opened
-
-@actor struct File
-    @distid_field
-    path::String
-    descriptors::Dict{FileDescriptor, _FileDescriptor}
-    core::TCore
-    File() = new()
-    File(id) = new(id)
-end
-DistributedIdentities.identity_style(::Type{File}) = DenseDistributedIdentity()
 
 struct _FileDescriptor
     id::UInt64
     opener::Addr
+    path::String
     mode::String
     io::IOStream
-    _FileDescriptor(id, opener, path, mode, io) = new(id, opener, path, mode, io)
+    #_FileDescriptor(id, opener, path, mode, io) = new(id, opener, path, mode, io)
 end
 
+mutable struct File <: Actor{Any}
+    path::String
+    descriptors::Dict{FileDescriptor, _FileDescriptor}
+    @distid_field
+    eventdispatcher
+    core
+    File(path) = new(path, Dict())
+end
+DistributedIdentities.identity_style(::Type{File}) = DenseDistributedIdentity()
+
 @onspawn NativeFSActor begin
-    me.registry = getname(sdl.service, IdRegistry.REGISTRY_NAME)
-    @assert !isnothing(registery)
+    me.registry = getname(service, IdRegistry.REGISTRY_NAME)
+    @assert !isnothing(me.registry)
 end
 
 @onmessage Open => NativeFSActor begin
-    @send RegistryQuery(addr(tester), IDREG_TEST_KEY) => me.registry
+    if contains(msg.mode, "w") # create
+        file = File(msg.path)
+        @spawn file
+        @send RegisterIdentity(me, FS_REGISTRY_PREFIX * msg.path, IdRef(file, emptycore(service))) => me.registry
+        @send msg => file
+    else
+        registryresponse = awaitresponse(service, me, me.registry, # TODO error handling
+            RegistryQuery(me, FS_REGISTRY_PREFIX * msg.path)
+        )
+        @send msg => @spawn registryresponse.ref
+    end
 end
 
 @onmessage Open => File begin
     open(msg.path, msg.mode) do io
-        filedescriptor = FileDescriptor(msg.opener)
-        me.descriptors[filedescriptor] = _FileDescriptor(rand(UInt64), msg.opener, msg.path, msg.mode, io)
-        @send filedescriptor => msg.respondto
+        filedescriptor = FileDescriptor(rand(UInt64))
+        me.descriptors[filedescriptor] = _FileDescriptor(filedescriptor.id, msg.opener, msg.path, msg.mode, io)
+        @send Opened(msg.token, filedescriptor, ref(service, me)) => msg.opener
     end
-end
-
-struct Create <: Request
-    opener::Addr
-    path::String
-    Create(opener, path) = new(opener, path)
 end
 
 struct Read <: Request
@@ -97,8 +103,9 @@ struct Read <: Request
     Read(descriptor::FileDescriptor; nb=typemax(Int)) = new(Token(), descriptor, nb)
 end
 struct Data <: Response
+    token::Token
     data::Vector{UInt8}
-    Data(data) = new(data)
+    Data(token, data) = new(token, data)
 end
 @response Read Data
 
