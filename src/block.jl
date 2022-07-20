@@ -51,6 +51,26 @@ Circo.localroutes(bs::BlockService, sdl, msg::AbstractMsg)::Bool = begin
     return true
 end
 
+"""
+    block(service, me, wakeon::Type; waketest = msg -> true, process_readonly = Nothing)
+    block(wakecb::Function, me, ...)
+
+Block the actor `me` until a message of type `wakeon` is received.
+
+When wakecb is provided, it will be called with the message.
+If wakecb does not return true,
+then the message will also be delivered normally.
+
+The blocked actor will not receive messages while blocked,
+except if they are from the optional `process_readonly` type.
+
+The `waketest` predicate function is called with the message of type `wapeon`
+to determine if the actor should really wake up.
+
+Note: You probably want to use the higher level functions from `Circo.MultiTask`.
+"""
+function block end
+
 function block(wakecb::Function, service, me::Actor, wakeon::Type;
                     waketest = msg -> true,
                     process_readonly = Nothing)
@@ -65,14 +85,14 @@ function block(service, me::Actor, wakeon::Type;
     isnothing(bs) && error("Block plugin not loaded!")
     bs::BlockService # TODO this breaks extensibility, check if performance gain is worth it (same as in MultiTask)
     sdl = service.scheduler
-    block(bs, sdl, me, wakeon; waketest = waketest, process_readonly = process_readonly, wakecb = wakecb)
+    _block(bs, sdl, me, wakeon; waketest = waketest, process_readonly = process_readonly, wakecb = wakecb)
 end
 
 nocb(_...) = false
 
 defaultwaketest(msg) = true
 
-function block(bs::BlockService, sdl, actor::Actor, wakeon::Type;
+function _block(bs::BlockService, sdl, actor::Actor, wakeon::Type;
                     waketest = defaultwaketest,
                     process_readonly = Nothing,
                     wakecb = nocb)
