@@ -68,3 +68,9 @@ macro identity(declaration)
     push!(declaration.args[3].args, Circo.DistributedIdentities.distid_field())
     return declaration
 end
+
+macro @response(requesttype, responsetype)
+    return quote
+        Circo.MultiTask.responsetype(::Type{$(requesttype)}) = $(responsetype)
+    end |> esc
+end

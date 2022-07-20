@@ -114,6 +114,8 @@ struct RegistryResponse <: Response
     ref::IdRef
     token::Token
 end
+@response RegistryQuery RegistryResponse
+
 struct NotFound
     key::String
 end
