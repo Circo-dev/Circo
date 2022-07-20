@@ -24,25 +24,25 @@ const IDREG_TEST_KEY = "key.sub"
     distid_root = DistIdForRegistryTest()
     tester = Puppet()
     sdl = Scheduler(ctx, [distid_root, tester])
-    sdl(;exit=true, remote=false)
+    sdl(;remote=false)
 
     # Register
     registry = getname(sdl.service, IdRegistry.REGISTRY_NAME)
     @test !isnothing(registry)
     send(tester, registry, RegisterIdentity(addr(tester), IDREG_TEST_KEY, IdRef(distid_root, emptycore(sdl))))
-    sdl(;exit=true, remote=false)
+    sdl(;remote=false)
     @test msgcount(tester, IdentityRegistered) == 1
     @test msgcount(tester, AlreadyRegistered) == 0
 
     # AlreadyRegistered when registering the same key again
     send(tester, registry, RegisterIdentity(addr(tester), IDREG_TEST_KEY, IdRef(distid_root, emptycore(sdl))))
-    sdl(;exit=true, remote=false)
+    sdl(;remote=false)
     @test msgcount(tester, IdentityRegistered) == 1
     @test msgcount(tester, AlreadyRegistered) == 1
 
     # Registry request
     send(tester, registry, RegistryQuery(addr(tester), IDREG_TEST_KEY))
-    sdl(;exit=true, remote=false)
+    sdl(;remote=false)
     @test msgcount(tester, RegistryResponse) == 1
     @show msgs(tester, RegistryResponse)
     ref = msgs(tester, RegistryResponse)[1].ref

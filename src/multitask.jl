@@ -4,6 +4,7 @@ using Plugins
 using ..Circo
 using Circo.Block
 
+
 export awaitresponse, MultiTaskService
 
 struct TaskPool
@@ -34,7 +35,7 @@ Base.empty!(tp::TaskPool) = empty!(tp.tasks)
 schedulertask_creator(sdl) = () -> Task(() -> begin
     @debug "Starting event loop on new $(current_task())"
     try
-        CircoCore.eventloop(sdl; remote=true, exit=true)
+        CircoCore.eventloop(sdl; remote=true)
     catch e
         @error "Error in scheduler task: $e" exception = (e, catch_backtrace())
     end

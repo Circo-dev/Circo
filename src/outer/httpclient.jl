@@ -15,7 +15,7 @@ end
 
 function Circo.schedule_start(http::HttpClientImpl, scheduler)
     http.helper = HttpClientActor()
-    spawn(scheduler.service, http.helper)
+    spawn(scheduler, http.helper)
     registername(scheduler.service, "httpclient", http.helper)
 
     address = addr(http.helper)

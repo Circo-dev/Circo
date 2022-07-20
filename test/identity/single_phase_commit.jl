@@ -16,9 +16,9 @@ Transactions.consistency_style(::Type{SPCTester}) = Inconsistency()
     ctx = CircoContext(target_module=@__MODULE__, profile=Circo.Profiles.ClusterProfile(),userpluginsfn=(;_...)->[DistIdService])
     tester = SPCTester()
     sdl = Scheduler(ctx, [tester])
-    sdl(;exit=true, remote=false)
+    sdl(;remote=false)
     commit!(tester, Write(:arr, 1, 42), sdl.service)
-    sdl(;exit=true, remote=false)
+    sdl(;remote=false)
     @test tester.arr[1] == 42
     testers = filter(a -> a isa SPCTester, collect(values(sdl.actorcache)))
     @test length(testers) > 2

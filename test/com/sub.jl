@@ -56,9 +56,9 @@ end
 
     sdl = Scheduler(CircoContext(target_module=@__MODULE__))
     vitalize(prog, sdl)
-    sdl(;exit=true, remote=false)
+    sdl(;remote=false)
     send(sdl, root, Fire(TestEvent(1)))
-    sdl(;exit=true, remote=false)
+    sdl(;remote=false)
     @test length(log) == 4
     @test log[1] == (TestEvent(1), prog.childnodes[1].instance)
     @test log[2] == (TestEvent(1), prog.childnodes[3].instance)
@@ -66,7 +66,7 @@ end
     @test log[4] == (TestEvent(1), prog.childnodes[3].childnodes[4].instance)
 
     send(sdl, prog.childnodes[3].instance, Fire(TestEvent(2)))
-    sdl(;exit=true, remote=false)
+    sdl(;remote=false)
     @test length(log) == 6
     @test log[5] == (TestEvent(2), prog.childnodes[3].childnodes[3].instance)
     @test log[6] == (TestEvent(2), prog.childnodes[2].instance)
@@ -75,14 +75,14 @@ end
     # findref basics
     empty!(log)
     token1 = findref(sdl.service, root, "t1")
-    sdl(;exit=true, remote=false)
+    sdl(;remote=false)
     @test log[1][1] == RefFound(token1, addr(prog.childnodes[1].instance))
     token2 = findref(sdl.service, root, "t31")
-    sdl(;exit=true, remote=false)
+    sdl(;remote=false)
     @test typeof(log[2][1]) == RefNotFound
     @test log[2][1].token == token2
     token3 = findref(sdl.service, root, "t3/t31")
-    sdl(;exit=true, remote=false)
+    sdl(;remote=false)
     @test log[3][1] == RefFound(token3, addr(prog.childnodes[3].childnodes[1].instance))
 
     shutdown!(sdl)

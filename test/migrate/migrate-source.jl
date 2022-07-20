@@ -24,7 +24,7 @@ function Circo.onmessage(me::Stayer, message::SimpleResponse, service)
     me.responsereceived += 1
     send(service, me, me.resultsholder_address, Results(me))
     send(service, me, me.newaddress_recepientmoved, Results(me))
-    die(service, me)
+    die(service, me; exit=true)
 end
 
 ctx = CircoContext(userpluginsfn = () -> [MigrationService, ClusterService])
@@ -32,9 +32,9 @@ ctx = CircoContext(userpluginsfn = () -> [MigrationService, ClusterService])
 function migratetoremote(targetpostcode, resultsholder_address)
     migrant = Migrant()
     scheduler = Scheduler(ctx, [migrant])
-    scheduler(;remote = false, exit = true) # to spawn the zygote
+    scheduler(;remote=false) # to spawn the zygote
     stayer = Stayer(addr(migrant), Addr(resultsholder_address))
-    schedule!(scheduler, stayer)
+    spawn(scheduler, stayer)
     cmd = MigrateCommand(targetpostcode, addr(stayer))
     send(scheduler, addr(migrant), cmd)
     scheduler(; remote=true)

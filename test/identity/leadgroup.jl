@@ -27,7 +27,7 @@ end
                          userpluginsfn=(;_...)->[DistIdService])
     tester = LeadGroupTestPeer()
     sdl = Scheduler(ctx, [tester])
-    sdl(;exit=true, remote=false)
+    sdl(;remote=false)
     @test length(electedpeers) > 0
 end
 
