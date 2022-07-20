@@ -60,7 +60,7 @@ end
     sdl(;remote=false)
     @test count(a -> a isa Addr, tester.responses_from) == REQ_COUNT
 
-    @async sdl(;remote=false)
+    @async sdl(;remote=true)
     sleep(20)
 
     for i = 1:10

@@ -24,7 +24,7 @@ function Circo.onmessage(me::Stayer, message::SimpleResponse, service)
     me.responsereceived += 1
     send(service, me, me.resultsholder_address, Results(me))
     send(service, me, me.newaddress_recepientmoved, Results(me))
-    die(service, me)
+    die(service, me; exit=true)
 end
 
 ctx = CircoContext(userpluginsfn = () -> [MigrationService, ClusterService])

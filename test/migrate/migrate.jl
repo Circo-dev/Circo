@@ -13,13 +13,13 @@ function onmessage(me::Main.Migrant, message::Main.SimpleRequest, service)
 end
 
 function onmessage(me::Main.Migrant, message::Main.Results, service)
-    die(service, me)
+    die(service, me; exit=true)
 end
 
 function onmessage(me::Main.ResultsHolder, message::Main.Results, service)
     println("Got results $message")
     me.results = message
-    die(service, me)
+    die(service, me; exit=true)
 end
 
 function startsource(targetpostcode, resultsholder_address)
@@ -34,7 +34,7 @@ end
     scheduler = Scheduler(ctx, [resultsholder])
     scheduler(;remote=false) # to spawn the zygote
     startsource(postcode(scheduler),addr(resultsholder))
-    scheduler(;remote=false)
+    scheduler(;remote=true)
     println("Resultsholder Exited")
     Circo.shutdown!(scheduler)
     stayer = resultsholder.results.stayer

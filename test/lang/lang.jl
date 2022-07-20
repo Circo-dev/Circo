@@ -51,7 +51,7 @@ end
     orchestrator = Orchestrator()
     ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [])
     scheduler = Scheduler(ctx, [orchestrator])
-    scheduler(;exit=true)
+    scheduler(;remote=false)
     Circo.shutdown!(scheduler)
 end
 
