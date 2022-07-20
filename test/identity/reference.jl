@@ -49,18 +49,18 @@ end
     ctx = CircoContext(target_module=@__MODULE__, profile=Circo.Profiles.ClusterProfile())
     testid_root = DistIdForRefTest(DistributedIdentity(42; redundancy = 3))
     sdl = Scheduler(ctx, [testid_root])
-    sdl(;exit=true, remote=false)
+    sdl(;remote=false)
     
     testref = IdRef(testid_root, emptycore(ctx))
     spawn(sdl, testref)
-    sdl(;exit=true, remote=false)
+    sdl(;remote=false)
 
     tester = ReferenceTester(addr(testref))
     spawn(sdl, tester)
-    sdl(;exit=true, remote=false)
+    sdl(;remote=false)
     @test count(a -> a isa Addr, tester.responses_from) == REQ_COUNT
 
-    @async sdl(;exit=true)
+    @async sdl(;remote=true)
     sleep(20)
 
     for i = 1:10

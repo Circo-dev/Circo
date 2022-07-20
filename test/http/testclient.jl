@@ -87,7 +87,7 @@ function Circo.onmessage(me::HttpTestCaller, msg::HttpResponse, service)
     me.reqidarrived = msg.reqid
 
     send(service, me, me.orchestrator, VerificationMsg(responsebody))
-    die(service, me)
+    die(service, me; exit=true)
 end
 
 
@@ -117,7 +117,7 @@ function Circo.onmessage(me::HttpRequestProcessor, msg::HttpRequest, service)
     println("Sending http response to $(msg.respondto) with reqid : $(msg.id) ")
     send(service, me, msg.respondto, response)
 
-    die(service, me)
+    die(service, me; exit=true)
 end
 
 mutable struct TestOrchestrator <: Actor{Any}
@@ -151,7 +151,7 @@ function Circo.onmessage(me::TestOrchestrator, msg::VerificationMsg, service)
     @test me.processoractor.requestProcessed == me.requestprocessedbyactor
     @test startswith(msg.responsebody, me.expectedresponsebody)  
 
-    die(service, me)
+    die(service, me; exit=true)
 
     Circo.shutdown!(service.scheduler)
 end
@@ -165,7 +165,8 @@ end
         orchestrator = TestOrchestrator(emptycore(ctx), "\"$REQUEST_BODY_MSG\" $RESPONSE_BODY_MSG")
 
         scheduler = Scheduler(ctx, [orchestrator, processor,caller])
-        scheduler(;remote=false, exit=true) # to spawn the zygote
+        scheduler(;remote=false) # to spawn the zygote
+
         orchestrator.processoractor = processor
         orchestrator.httpcalleractor = caller
         caller.orchestrator = orchestrator
@@ -174,7 +175,7 @@ end
 
         scheduler([
             StartHttpTest(orchestrator, orchestrator, msg)
-            ] ;remote = true, exit=true)  # with remote,exit flags the scheduler won't stop.   
+            ] ;remote = true)  # with remote,exit flags the scheduler won't stop.
     end
 
     @testset "request_bigger_than_allowed" begin
@@ -188,7 +189,7 @@ end
             orchestrator = TestOrchestrator(emptycore(ctx), "Payload size is too big! Accepted maximum", false)
 
             scheduler = Scheduler(ctx, [orchestrator, processor,caller])
-            scheduler(;remote=false, exit=true) # to spawn the zygote
+            scheduler(;remote=false) # to spawn the zygote
             orchestrator.processoractor = processor
             orchestrator.httpcalleractor = caller
             caller.orchestrator = orchestrator
@@ -197,7 +198,7 @@ end
             
             scheduler([
                 StartHttpTest(orchestrator, orchestrator, msg)
-                ] ;remote = true, exit=true)  # with remote,exit flags the scheduler won't stop.   
+                ] ;remote = true)  # with remote,exit flags the scheduler won't stop. 
         finally
             if maxsizeofrequest === nothing
                 delete!(ENV, "HTTP_MAX_REQUEST_SIZE")
@@ -215,7 +216,7 @@ end
         orchestrator = TestOrchestrator(emptycore(ctx), "\"$REQUEST_BODY_MSG\" $RESPONSE_BODY_MSG")
 
         scheduler = Scheduler(ctx, [orchestrator, processor,caller])
-        scheduler(;remote=false, exit=true) # to spawn the zygote
+        scheduler(;remote=false) # to spawn the zygote
         orchestrator.processoractor = processor
         orchestrator.httpcalleractor = caller
         caller.orchestrator = orchestrator
@@ -224,6 +225,6 @@ end
 
         scheduler([
             StartHttpTest(orchestrator, orchestrator, msg)
-            ] ;remote = true, exit=true)  # with remote,exit flags the scheduler won't stop.   
+            ] ;remote = true)  # with remote,exit flags the scheduler won't stop.   
     end
 end

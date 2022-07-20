@@ -16,7 +16,7 @@ DistributedIdentities.identity_style(::Type{DistIdTester}) = DenseDistributedIde
 #     root = DistributedIdentity(42; target_size = 5)
 #     ctx = CircoContext(target_module=@__MODULE__)
 #     scheduler = Scheduler(ctx, [root])
-#     scheduler(;exit=true)
+#     scheduler(;)
 #     #Circo.shutdown!(scheduler)
 #     @test length(root.peers) == 5
 # end
@@ -26,7 +26,7 @@ macro t()
         global root = DistIdTester() # DistributedIdentity.DistributedIdentity(42; redundancy = 15)
         global ctx = CircoContext(target_module=@__MODULE__, profile=Circo.Profiles.ClusterProfile(),userpluginsfn=(;_...)->[Debug.MsgStats, DistIdService])
         global sdl = Scheduler(ctx, [root])
-        global sdltask = @async sdl(;exit=true)
+        global sdltask = @async sdl(;)
         @async begin
             try
                 error_reported = false

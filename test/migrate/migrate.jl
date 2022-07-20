@@ -13,13 +13,13 @@ function onmessage(me::Main.Migrant, message::Main.SimpleRequest, service)
 end
 
 function onmessage(me::Main.Migrant, message::Main.Results, service)
-    die(service, me)
+    die(service, me; exit=true)
 end
 
 function onmessage(me::Main.ResultsHolder, message::Main.Results, service)
     println("Got results $message")
     me.results = message
-    die(service, me)
+    die(service, me; exit=true)
 end
 
 function startsource(targetpostcode, resultsholder_address)
@@ -32,9 +32,9 @@ end
     resultsholder = Main.ResultsHolder()
     ctx = CircoContext(userpluginsfn = () -> [MigrationService, ClusterService])
     scheduler = Scheduler(ctx, [resultsholder])
-    scheduler(;remote = false, exit = true) # to spawn the zygote
+    scheduler(;remote=false) # to spawn the zygote
     startsource(postcode(scheduler),addr(resultsholder))
-    scheduler(;exit=true)
+    scheduler(;remote=true)
     println("Resultsholder Exited")
     Circo.shutdown!(scheduler)
     stayer = resultsholder.results.stayer

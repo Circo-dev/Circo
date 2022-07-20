@@ -180,14 +180,14 @@ function onthread(f, id::Int)
     return t
 end
 
-function (ts::Host)(;remote=true, exit=false, first_threadidx=2)
+function (ts::Host)(;remote=true, first_threadidx=2)
     crossadd_peers(ts.schedulers) # TODO only once
     tasks = []
     next_threadid = min(Threads.nthreads(), first_threadidx)
     for scheduler in ts.schedulers
         t = onthread(next_threadid) do
             try
-                scheduler(;remote=remote, exit=exit)
+                scheduler(;remote=remote)
             catch e
                 @show e
             end
