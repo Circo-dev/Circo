@@ -16,7 +16,9 @@ end
 gettask(tp::TaskPool) = begin
     if isempty(tp.tasks)
         retval = tp.taskcreator()
-        errormonitor(retval)
+        if isdefined(Base, :errormonitor) # Not in 1.6
+            errormonitor(retval)
+        end
         return retval
     end
     return pop!(tp.tasks)
