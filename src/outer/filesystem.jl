@@ -1,6 +1,6 @@
 module fs
 
-export NativeFS, FileSystem, FileDescriptor, Open, Read, open, read
+export NativeFS, FileSystem, FileDescriptor, @open, @read, @write, @seek
 
 using ..Circo
 using Circo.MultiTask
@@ -12,13 +12,13 @@ const FS_REGISTRY_PREFIX = "_fs."
 abstract type FileSystem <: Plugin end
 
 mutable struct NativeFS <: FileSystem
-    basedir::String
+    fs_basedir::String # Local fs
     endpoint::Addr
     helper
-    NativeFS(idservice; fs_basedir = ".", options...) = new(fs_basedir)
+    NativeFS(deps...; fs_basedir = ".", options...) = new(fs_basedir)
 end
 Plugins.symbol(::FileSystem) = :fs
-Plugins.deps(::Type{NativeFS}) = [DistIdService]
+Plugins.deps(::Type{NativeFS}) = [DistIdService, MultiTaskService]
 __init__() = Plugins.register(NativeFS)
 
 @actor struct NativeFSActor
@@ -32,8 +32,16 @@ Circo.schedule_start(fs::FileSystem, scheduler) = begin
     registername(scheduler.service, "fs", fs.endpoint)
 end
 
-struct FileDescriptor
+# sent over the wire
+struct FileHandle
     id::UInt64
+end
+
+# Represents an opened file on the client side
+mutable struct FileDescriptor
+    handle::FileHandle
+    ref::Addr
+    position::UInt64
 end
 
 struct Open <: Request
@@ -45,27 +53,20 @@ struct Open <: Request
 end
 struct Opened <: Response
     token::Token
-    descriptor::FileDescriptor
+    handle::FileHandle
     ref::IdRef
+    position::UInt64
 end
 @response Open Opened
 
-struct _FileDescriptor
-    id::UInt64
-    opener::Addr
-    path::String
-    mode::String
-    io::IOStream
-    #_FileDescriptor(id, opener, path, mode, io) = new(id, opener, path, mode, io)
-end
 
 mutable struct File <: Actor{Any}
     path::String
-    descriptors::Dict{FileDescriptor, _FileDescriptor}
+    io::Union{IOStream, Nothing}
     @distid_field
     eventdispatcher
     core
-    File(path) = new(path, Dict())
+    File(path) = new(path, nothing)
 end
 DistributedIdentities.identity_style(::Type{File}) = DenseDistributedIdentity()
 
@@ -89,30 +90,133 @@ end
 end
 
 @onmessage Open => File begin
-    open(msg.path, msg.mode) do io
-        filedescriptor = FileDescriptor(rand(UInt64))
-        me.descriptors[filedescriptor] = _FileDescriptor(filedescriptor.id, msg.opener, msg.path, msg.mode, io)
-        @send Opened(msg.token, filedescriptor, ref(service, me)) => msg.opener
+    if !isnothing(me.io)
+        close(me.io)
     end
+    Base.open(msg.path, msg.mode) do io
+        me.io = io
+        handle = FileHandle(rand(UInt64))
+        @send Opened(msg.token, handle, ref(service, me), position(io)) => msg.opener
+    end
+end
+
+
+function open(service, me, path, mode)
+    opened = awaitresponse(service, me,
+        getname(service, "fs"),
+        Open(me, path, mode),
+    )
+    return FileDescriptor(opened.handle, (@spawn opened.ref), opened.position)
 end
 
 struct Read <: Request
     token::Token
-    descriptor::FileDescriptor
+    handle::FileHandle
+    position::UInt64
     nb::Integer
-    Read(descriptor::FileDescriptor; nb=typemax(Int)) = new(Token(), descriptor, nb)
+    respondto::Addr
+    Read(descriptor::FileDescriptor, respondto; nb=typemax(Int)) = new(Token(), descriptor.handle, descriptor.position, nb, respondto)
 end
 struct Data <: Response
     token::Token
     data::Vector{UInt8}
-    Data(token, data) = new(token, data)
+    nextpos::UInt64
+    Data(token, data, nextpos) = new(token, data, nextpos)
 end
 @response Read Data
 
 @onmessage Read => File begin
-    read(me.descriptors[msg.descriptor].io; nb=msg.nb) do data
-        @send Data(data) => msg.descriptor.opener
+    if !isnothing(me.io)
+        close(me.io)
     end
+    Base.open(me.path, "r") do io
+        me.io = io
+        execute_read(service, me, msg)
+    end
+end
+
+function execute_read(service, me, msg)
+    seek(me.io, msg.position)
+    data = Base.read(me.io, msg.nb)
+    @send Data(msg.token, data, position(me.io)) => msg.respondto
+end
+
+function read(service, me, descriptor::FileDescriptor; nb=typemax(Int))
+    data = awaitresponse(service, me,
+        descriptor.ref,
+        Read(descriptor, me; nb=nb)
+    )
+    descriptor.position = data.nextpos
+    return data.data
+end
+
+struct Write <: Request
+    token::Token
+    handle::FileHandle
+    position::UInt64
+    data::Vector{UInt8}
+    respondto::Addr
+    Write(descriptor::FileDescriptor, data::Vector{UInt8}, respondto) = new(Token(), descriptor.handle, descriptor.position, data, respondto)
+end
+struct Written <: Response
+    token::Token
+    nextpos::UInt64
+end
+@response Write Written
+
+@onmessage Write => File begin
+    if isnothing(me.io)
+        Base.open(me.path, "w") do io
+            me.io = io
+            execute_write(service, me, msg)
+        end
+    else
+        execute_write(service, me, msg)
+    end
+end
+
+function execute_write(service, me, msg)
+    seek(me.io, msg.position)
+    Base.write(me.io, msg.data)
+    @send Written(msg.token, position(me.io)) => msg.respondto
+end
+
+function write(service, me, descriptor::FileDescriptor, data::Vector{UInt8})
+    data = awaitresponse(service, me,
+        descriptor.ref,
+        Write(descriptor, data, me)
+    )
+    bytecount = data.nextpos - descriptor.position
+    descriptor.position = data.nextpos
+    return bytecount
+end
+
+write(service, me, descriptor::FileDescriptor, data::String) =
+    write(service, me, descriptor, Vector{UInt8}(data))
+
+
+macro seek(file, position)
+    return quote
+        $(file).position = $position
+    end |> esc
+end
+
+macro open(path, mode)
+    return quote
+        Circo.fs.open(service, me, $path, $mode)
+    end |> esc
+end
+
+macro read(descriptor)
+    return quote
+        Circo.fs.read(service, me, $descriptor)
+    end |> esc
+end
+
+macro write(descriptor, data)
+    return quote
+        Circo.fs.write(service, me, $descriptor, $data)
+    end |> esc
 end
 
 end #module
