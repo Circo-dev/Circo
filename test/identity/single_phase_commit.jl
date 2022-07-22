@@ -22,5 +22,18 @@ Transactions.consistency_style(::Type{SPCTester}) = Inconsistency()
     @test tester.arr[1] == 42
     testers = filter(a -> a isa SPCTester, collect(values(sdl.actorcache)))
     @test length(testers) > 2
+    foreach(testers) do a
+        @test a.arr[1] == 42
+    end
+
+    commit!(tester, Write(:arr, 1, 43), sdl.service)
+    sdl(;remote=false)
+    @test tester.arr[1] == 43
+    testers = filter(a -> a isa SPCTester, collect(values(sdl.actorcache)))
+    @test length(testers) > 2
+    foreach(testers) do a
+        @test a.arr[1] == 43
+    end
+
 end
 
