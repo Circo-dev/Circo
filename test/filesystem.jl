@@ -17,10 +17,15 @@ end
     
         @write(file, "Hello, world!")
     
-        @seek(file, 0)
+        @seek(file, 1)
         data = @read(file)
-        @test data == Vector{UInt8}("Hello, world!")    
+        @test data == Vector{UInt8}("ello, world!")
+
+        @seek(file, 0)
+        data = Circo.fs.read(service, me, file; nb = 5)
+        @test data == Vector{UInt8}("Hello")
     end
+    #@spawn FSTester()
     die(service, me; exit = true)
 end
 
