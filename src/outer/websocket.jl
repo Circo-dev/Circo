@@ -25,7 +25,7 @@ end
 
 abstract type WebsocketService <: Plugin end
 mutable struct WebsocketServiceImpl <: WebsocketService
-    actor_connections::Dict{ActorId, IO}
+    actor_connections::Dict{ActorId, HTTP.WebSockets.WebSocket}
     typeregistry::TypeRegistry
     msg_type_name::String
     socket
@@ -73,7 +73,7 @@ function _sendws(ws_plugin::WebsocketServiceImpl, msg::AbstractMsg, actorid::Act
     try
         buf = marshal(msg)
         seek(buf, 0)
-        HTTP.send(ws, buf)
+        HTTP.WebSockets.send(ws, buf.data)
     catch e
         @debug "Unable to write to websocket, removing registration of actor $(actorid). Target: $(target(msg)) Message type: $(typeof(body(msg)))" exception=(e, catch_backtrace())
         delete!(ws_plugin.actor_connections, actorid)
@@ -133,24 +133,18 @@ end
 
 function handle_connection(service::WebsocketServiceImpl, ws, scheduler)
     @debug "ws handle_connection on thread $(Threads.threadid())"
-    buf = nothing
-    msg = nothing
+    _buf = nothing
     try
-        while !eof(ws)
-            try
-                buf = HTTP.receive(ws)
-            catch e
-                @debug "Websocket closed: $e"
-                return
-            end
+        for buf in ws
+            _buf = buf
             msg = unmarshal(buf, service.typeregistry, service.msg_type_name)
             handlemsg(service, msg, ws, scheduler)
         end
     catch e
         if e isa MethodError && e.f == convert
-            @info "Field of type $(e.args[1]) was not found while unmarshaling type '$(readtypename_safely(buf))'"
-            @debug "Erroneous websocket frame: ", buf
-        elseif e isa IOError
+            @debug "Field of type $(e.args[1]) was not found while unmarshaling type '$(readtypename_safely(_buf))'"
+            @debug "Erroneous websocket frame: ", _buf
+        elseif e isa HTTP.WebSockets.WebSocketError
             @debug "Error reading websocket", ws
         else
             # TODO this causes segfault on 1.5.0 with multithreading
