@@ -2,7 +2,6 @@ using Test
 using HTTP, HTTP.WebSockets
 using Sockets
 using Circo, Circo.WebsocketClient
-using Logging
 
 import Circo.send
 
@@ -90,7 +89,7 @@ function create_websocket_server(url, port)
 end
 
 function create_websocket_server(testserver::TestServer, url, port)
-    @async WebSockets.listen(url, port; server=testserver.tcpserver, verbose=true) do ws
+    @async WebSockets.listen(url, port; server=testserver.tcpserver) do ws
         @test ws.request isa HTTP.Request
         for msg in ws
             data = String(msg)
@@ -147,7 +146,7 @@ end
         messagechannel = Channel{}(2)
         closingsignal = Channel{}(2)
 
-        @async WebSockets.open("ws://$(url):$(port)"; verbose=true) do ws
+        @async WebSockets.open("ws://$(url):$(port)") do ws
             HTTP.send(ws, "Client send message!")
             msg = HTTP.receive(ws)
             @debug "Client side", String(msg)
