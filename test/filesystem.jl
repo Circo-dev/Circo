@@ -7,11 +7,12 @@ using Circo.fs
 using Circo.Block
 
 @actor struct FSTester
-    FSTester() = new()
+    cycles::Int
+    FSTester(cycles=1) = new(cycles)
 end
 
-@onspawn FSTester begin    
-    @time for i=1:100
+@onspawn FSTester begin
+    @time for i=1:1
         file = @open("test$i.txt", "w")
         @test file isa FileDescriptor
     
@@ -24,19 +25,23 @@ end
         @seek(file, 0)
         data = Circo.fs.read(service, me, file; nb = 5)
         @test data == Vector{UInt8}("Hello")
+
+        @close(file)
     end
-    #@spawn FSTester()
+    if me.cycles > 1
+        @spawn FSTester(me.cycles - 1)
+    end
     die(service, me; exit = true)
 end
 
 ctx = CircoContext(target_module=@__MODULE__,
     profile = Circo.Profiles.ClusterProfile(),
     userpluginsfn = () -> [NativeFS, MultiTaskService])
-tester = FSTester()
+tester = FSTester(1)
 sdl = Scheduler(ctx, [])
 sdl(;remote=false)
 spawn(sdl, tester)
-sdl(;remote=false)
+sdl(;remote=true)
 Circo.shutdown!(sdl)
 
 end # module

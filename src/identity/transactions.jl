@@ -89,7 +89,7 @@ end
 abstract type ConsistencyStyle end
 struct Inconsistency <: ConsistencyStyle end
 
-consistency_style(::Type) = Inconsistency
+consistency_style(::Type) = Inconsistency()
 
 function commit!(me, writes, service)
     commit!(consistency_style(typeof(me)), me, writes, service)

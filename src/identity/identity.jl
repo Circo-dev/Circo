@@ -231,7 +231,7 @@ onidmessage(::DenseDistributedIdentity, me, msg::Ping, service) = begin
     peer = get(me.distid.peers, msg.respondto, nothing)
     isnothing(peer) && return
     peer.lastseen = time()
-    send(service, me, peer.addr, Pong(addr(me)))
+    send(service, me, peer.addr, Pong(addr(me)); energy=-1.0)
 end
 
 onidmessage(::DenseDistributedIdentity, me, msg::Pong, service) = begin
@@ -248,7 +248,7 @@ function check_peers(me, service)
         if peer.lastseen < nonresp_threshold && peer.lastpinged > peer.lastseen
             nonresponding_peer_found(me, peer, service)
         elseif peer.lastseen < ping_threshold
-            send(service, me, peer.addr, Ping(addr(me)))
+            send(service, me, peer.addr, Ping(addr(me)); energy=-1.0)
             peer.lastpinged = ts
         end 
     end

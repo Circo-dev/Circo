@@ -1,10 +1,11 @@
 module fs
 
-export NativeFS, FileSystem, FileDescriptor, @open, @read, @write, @seek
+export NativeFS, FileSystem, FileDescriptor, @open, @read, @write, @seek, @close
 
 using ..Circo
 using Circo.MultiTask
 using Circo.DistributedIdentities, Circo.DistributedIdentities.Reference, Circo.IdRegistry
+using Circo.Transactions
 using Plugins
 
 const FS_REGISTRY_PREFIX = "_fs."
@@ -12,7 +13,7 @@ const FS_REGISTRY_PREFIX = "_fs."
 abstract type FileSystem <: Plugin end
 
 mutable struct NativeFS <: FileSystem
-    fs_basedir::String # Local fs
+    fs_basedir::String # Local fs mount point to use as root
     endpoint::Addr
     helper
     NativeFS(deps...; fs_basedir = ".", options...) = new(fs_basedir)
@@ -90,16 +91,19 @@ end
 end
 
 @onmessage Open => File begin
-    if !isnothing(me.io)
-        close(me.io)
-    end
-    Base.open(msg.path, msg.mode) do io
-        me.io = io
-        handle = FileHandle(rand(UInt64))
-        @send Opened(msg.token, handle, ref(service, me), position(io)) => msg.opener
-    end
+    @assert me.path == msg.path
+    open_local_file(me)
+    handle = FileHandle(rand(UInt64))
+    @send Opened(msg.token, handle, ref(service, me), 0) => msg.opener
 end
 
+function open_local_file(me)
+    if !isnothing(me.io)
+        return me.io
+    end
+    me.io = Base.open("$(string(box(me), base=16))_" * me.path; read=true, write=true, create=true, truncate=false, append=false)
+    return me.io
+end
 
 function open(service, me, path, mode)
     opened = awaitresponse(service, me,
@@ -126,16 +130,7 @@ end
 @response Read Data
 
 @onmessage Read => File begin
-    if !isnothing(me.io)
-        close(me.io)
-    end
-    Base.open(me.path, "r") do io
-        me.io = io
-        execute_read(service, me, msg)
-    end
-end
-
-function execute_read(service, me, msg)
+    open_local_file(me)
     seek(me.io, msg.position)
     data = Base.read(me.io, msg.nb)
     @send Data(msg.token, data, position(me.io)) => msg.respondto
@@ -165,19 +160,7 @@ end
 @response Write Written
 
 @onmessage Write => File begin
-    if isnothing(me.io)
-        Base.open(me.path, "w") do io
-            me.io = io
-            execute_write(service, me, msg)
-        end
-    else
-        execute_write(service, me, msg)
-    end
-end
-
-function execute_write(service, me, msg)
-    seek(me.io, msg.position)
-    Base.write(me.io, msg.data)
+    commit!(me, Transactions.SubArrayWrite(msg.position, 0, msg.data), service)
     @send Written(msg.token, position(me.io)) => msg.respondto
 end
 
@@ -194,6 +177,42 @@ end
 write(service, me, descriptor::FileDescriptor, data::String) =
     write(service, me, descriptor, Vector{UInt8}(data))
 
+function Transactions.apply!(me::File, write::Transactions.SubArrayWrite, service)
+    open_local_file(me)
+    Base.seek(me.io, write.fromidx)
+    Base.write(me.io, write.value)
+end
+
+struct Close <: Request
+    token::Token
+    handle::FileHandle
+    respondto::Addr
+    Close(descriptor::FileDescriptor, respondto) = new(Token(), descriptor.handle, respondto)
+end
+struct Closed
+    token::Token
+end
+@response Close Closed
+
+struct CloseTr <: Transactions.Write
+    handle::FileHandle
+end
+
+@onmessage Close => File begin
+    commit!(me, CloseTr(msg.handle), service)
+    @send Closed(msg.token) => msg.respondto
+end
+
+function Transactions.apply!(me::File, write::CloseTr, service)
+    if !isnothing(me.io)
+        Base.close(me.io)
+        me.io = nothing
+    end
+end
+
+function close(service, me, descriptor)
+    return awaitresponse(service, me, descriptor.ref, Close(descriptor, me))
+end
 
 macro seek(file, position)
     return quote
@@ -218,5 +237,25 @@ macro write(descriptor, data)
         Circo.fs.write(service, me, $descriptor, $data)
     end |> esc
 end
+
+macro close(descriptor)
+    return quote
+        Circo.fs.close(service, me, $descriptor)
+    end |> esc
+end
+
+using Circo.Monitor
+peerbox(peer) = !isnothing(peer.addr) ? (Symbol("peer$(Int(peer.addr.box % 1000))"), peer.addr.box) : (:p, nothing)
+Circo.monitorextra(me::File) = begin
+    peers = map(peerbox, values((me.distid.peers)))
+    return (
+        path = me.path,
+        peers...
+    )
+end
+Circo.monitorprojection(::Type{<:File}) = JS("{
+    geometry: new THREE.BoxBufferGeometry(25, 25, 25),
+    color: 0x00dddd,
+}")
 
 end #module
