@@ -105,9 +105,9 @@ function Circo.onspawn(me::MigrationHelper, service)
     cluster = getname(service, "cluster")
     isnothing(cluster) && error("Migration depends on cluster, but the name 'cluster' is not registered.")
     registername(service, "migration", me)
-    send(service, me, cluster, Subscribe{PeerAdded}(addr(me)))
-    send(service, me, cluster, Subscribe{PeerRemoved}(addr(me)))
-    send(service, me, cluster, PeersRequest(addr(me)))
+    send(service, me, cluster, Subscribe(PeerAdded, me))
+    send(service, me, cluster, Subscribe(PeerRemoved, me))
+    send(service, me, cluster, PeersRequest(me))
 end
 
 function Circo.onmessage(me::MigrationHelper, msg::PeersResponse, service)

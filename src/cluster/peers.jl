@@ -78,11 +78,11 @@ struct Joined <: CircoCore.Event
     peers::Array{NodeInfo}
 end
 
-function Circo.onmessage(me::ClusterActor, messsage::Subscribe{Joined}, service)
-    if me.joined # TODO The lately sent event may contain different data. Is that a problem?
-        send(service, me, messsage.subscriber, Joined(deepcopy(collect(values(me.peers))))) #TODO handle late subscription to one-off events automatically
+function Circo.onmessage(me::ClusterActor, msg::Subscribe, service)
+    if msg.eventtype == Joined && me.joined # TODO The lately sent event may contain different data. Is that a problem?
+        send(service, me, msg.subscriber, Joined(deepcopy(collect(values(me.peers))))) #TODO handle late subscription to one-off events automatically
     end
-    send(service, me, me.eventdispatcher, messsage)
+    send(service, me, me.eventdispatcher, msg)
 end
 
 function Circo.onmessage(me::ClusterActor, msg::CircoCore.Registry.NameResponse, service)

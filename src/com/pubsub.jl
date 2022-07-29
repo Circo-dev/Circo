@@ -74,7 +74,7 @@ Circo.onmessage(me::Actor, msg::Sub, srv) = begin
     foundaddr, remainingref = findref(me, msg.ref)
     if isnothing(foundaddr)
         if remainingref == ""
-            return send(srv, me, me, Subscribe{msg.eventtype}(msg.subscriber))
+            return send(srv, me, me, Subscribe(msg.eventtype, msg.subscriber))
         else
             return send(srv, me, me, RefNotFound(msg.token, msg.subscriber, addr(me)), remainingref)
         end 
