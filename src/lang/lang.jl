@@ -1,5 +1,5 @@
 
-function actorize(declaration)
+function actorize!(declaration)
     @assert declaration.head == :struct
 
     declaration.args[1] = true # make it mutable
@@ -13,7 +13,7 @@ function actorize(declaration)
 end
 
 macro actor(declaration)
-    return actorize(declaration)
+    return actorize!(declaration)
 end
 
 macro onspawn(metype, body)
@@ -64,7 +64,21 @@ macro die()
 end
 
 macro identity(declaration)
-    actorized = actorize(declaration)
+    actorize!(declaration)
     push!(declaration.args[3].args, Circo.DistributedIdentities.distid_field())
     return declaration
 end
+
+macro response(requesttype, responsetype)
+    return quote
+        Circo.MultiTask.responsetype(::Type{$(requesttype)}) = $(responsetype)
+    end |> esc
+end
+
+macro fire(event)
+    return quote
+        fire(service, me, $(event))
+    end |> esc
+end
+
+# TODO autogenerate macros

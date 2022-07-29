@@ -26,8 +26,8 @@ Circo.onspawn(me::IdRef, service) = begin
 end
 
 function connect_peer(me::IdRef, peer_addr, service)
-    send(service, me, peer_addr, Subscribe{PeerJoined}(me))
-    send(service, me, peer_addr, Subscribe{PeerLeaved}(me))
+    send(service, me, peer_addr, Subscribe(PeerJoined, me))
+    send(service, me, peer_addr, Subscribe(PeerLeaved, me))
 end
 
 Circo.onmessage(me::IdRef, msg::PeerJoined, service) = begin
