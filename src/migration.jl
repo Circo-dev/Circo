@@ -10,10 +10,33 @@ import Base.length
 
 const AUTOMIGRATE_TOLERANCE = 1e-2
 
-struct MigrationRequest
-    actor::Actor
+
+"""
+    onmigrate(me::Actor, service)
+
+Lifecycle callback that marks a successful migration.
+
+It is called on the target scheduler, before any messages will be delivered.
+
+Note: Do not forget to import it or use its qualified name to allow overloading!
+
+# Examples
+```julia
+function Circo.onmigrate(me::MyActor, service)
+    @info "Successfully migrated, registering a name on the new scheduler"
+    registername(service, "MyActor", me)
 end
-struct MigrationResponse
+```
+"""
+function onmigrate(me, service) end
+
+struct MigrationRequest <: Request
+    actor::Actor
+    token::Token
+    MigrationRequest(actor) = new(actor, Token())
+end
+struct MigrationResponse <: Response
+    token::Token
     from::Addr
     to::Addr
     success::Bool
@@ -140,26 +163,35 @@ function migrate!(scheduler, actor::Actor, topostcode::PostCode)
         @debug "Migration plugin not loaded, skipping migrate!"
         return false
     end
-    migration::MigrationServiceImpl
     unschedule!(scheduler, actor)
     migration.movingactors[box(actor)] = MovingActor(actor)
+    helper = emigration_helper(actor)
+    if !isnothing(helper)
+        spawn(scheduler.service, helper)
+    end
     send(scheduler.service, migration.helperactor, Addr(topostcode, 0), MigrationRequest(actor))
     return true
 end
 
 Circo.specialmsg(::MigrationServiceImpl, scheduler, message) = false
-Circo.specialmsg(migration::MigrationServiceImpl, scheduler, message::AbstractMsg{MigrationRequest}) = begin
-    @debug "Migration request: $(message)"
-    actor = body(message).actor
+Circo.specialmsg(migration::MigrationServiceImpl, scheduler, msg::AbstractMsg{MigrationRequest}) = begin
+    @debug "Migration request: $(msg)"
+    actor = body(msg).actor
     actorbox = box(actor)
     fromaddress = addr(actor)
     if haskey(migration.movingactors, actorbox)
         @info "Thread $(Threads.threadid()): $actorbox fast back-and forth moving: got MigrationRequest while waiting for a response. Accept."
     end
     delete!(migration.movedactors, actorbox)
-    spawn(scheduler, actor)
-    Circo.onmigrate(actor, scheduler.service)
-    send(scheduler.service, actor, Addr(postcode(fromaddress), 0), MigrationResponse(fromaddress, addr(actor), true))
+
+    helper = immigration_helper(actor, msg.token)
+    if isnothing(helper) # "Single-shot" migration
+        spawn(scheduler, actor)
+        onmigrate(actor, scheduler.service)
+        send(scheduler.service, actor, Addr(postcode(fromaddress), 0), MigrationResponse(msg.token, fromaddress, addr(actor), true))
+    else
+        spawn(scheduler.service, helper)
+    end
     return true
 end
 
@@ -237,12 +269,32 @@ end
 @inline @fastmath function migrate_to_nearest(me::Actor, alternatives::MigrationAlternatives, service, tolerance=AUTOMIGRATE_TOLERANCE)
     nearest = find_nearest(pos(me), alternatives)
     if isnothing(nearest) return nothing end
-    if box(nearest.addr) === box(addr(me)) return nothing end
+    if postcode(nearest.addr) == postcode(addr(me)) return nothing end
     if norm(pos(me) - pos(nearest)) < (1.0 - tolerance) * norm(pos(me) - pos(service))
         @debug "Migrating to $(postcode(nearest))"
         migrate(service, me, postcode(nearest))
     end
     return nothing
 end
+
+"""
+    emigration_helper(me::Actor) = Nothing
+    immigration_helper(me::Actor, migration_token::Token) = Nothing
+
+    
+Create helper actor types for actors that use non-serializable resources,
+thus cannot be fully auto-migrated.
+
+- source: The migrating actor is unscheduled
+- source: The emigration helper is created and spawned
+- source: The migrating actor is serialized and sent to the target scheduler
+- target: The immigration helper is created and spawned
+- source and target: The helpers communicate to move the needed resources between the schedulers
+- target: The immigration helper sends an `MigrationDone` with the migration token to the emigration helper
+- target: The immigration helper is unscheduled and the migrated actor is scheduled
+- source: The emigration helper receives the `MigrationDone` and will be unscheduled afterwards
+- source: Messages arrived during the migration are forwarded to the migrated actor
+"""
+migration_helpers(::Type{<:Actor}) = (Nothing, Nothing)
 
 end # module

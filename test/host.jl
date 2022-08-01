@@ -3,7 +3,7 @@ module HostTest
 
 using Test, Printf
 using Circo, Circo.Migration
-import Circo:onspawn, onmessage, onmigrate
+import Circo:onspawn, onmessage
 
 mutable struct PingPonger{TCore} <: Actor{TCore}
     peer::Union{Addr, Nothing}
@@ -30,10 +30,6 @@ function onspawn(me::PingPonger, service)
         @debug "Migrating to $(me.target_postcode)"
         migrate(service, me, me.target_postcode)
     end
-end
-
-function onmigrate(me::PingPonger, service)
-    @debug "Migrated!!!"
 end
 
 function sendping(service, me::PingPonger)

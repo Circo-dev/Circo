@@ -258,4 +258,11 @@ Circo.monitorprojection(::Type{<:File}) = JS("{
     color: 0x00dddd,
 }")
 
+
+#Circo.check_migration
+@actor struct FileMover
+    path::String
+    io::Union{IOStream, Nothing}
+end
+
 end #module

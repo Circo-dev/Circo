@@ -23,24 +23,6 @@ const onmessage = CircoCore.onmessage
 const onbecome = CircoCore.onbecome
 const ondeath = CircoCore.ondeath
 
-"""
-    onmigrate(me::Actor, service)
-
-Lifecycle callback that marks a successful migration.
-
-It is called on the target scheduler, before any messages will be delivered.
-
-Note: Do not forget to import it or use its qualified name to allow overloading!
-
-# Examples
-```julia
-function Circo.onmigrate(me::MyActor, service)
-    @info "Successfully migrated, registering a name on the new scheduler"
-    registername(service, "MyActor", me)
-end
-```
-"""
-function onmigrate(me::Actor, service) end
 
 # Plugin Hooks
 const actor_activity_sparse16 = CircoCore.actor_activity_sparse16

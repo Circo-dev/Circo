@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MPL-2.0
 using Test
 using Circo, Circo.Cluster
-import Circo:onmessage, onmigrate
+import Circo:onmessage
 
 const PEER_COUNT = 400
 const ROOT_COUNT = 3

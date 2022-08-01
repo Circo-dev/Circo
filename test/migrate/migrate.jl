@@ -3,7 +3,7 @@ using Test
 using Circo, Circo.Migration, Circo.Cluster
 import Circo:onmessage
 
-function Circo.onmigrate(me::Main.Migrant, service)
+function Circo.Migration.onmigrate(me::Main.Migrant, service)
     @debug "Successfully migrated to $me"
     send(service, me, me.stayeraddress, Main.MigrateDone(addr(me)))
 end
