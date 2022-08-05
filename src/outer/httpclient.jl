@@ -52,7 +52,7 @@ function Circo.onmessage(me::HttpClientActor, msg::HttpRequest, service)
         address = msg.respondto
         @debug "Sending HttpResponse message to $address"
         
-        ownresponse = HttpResponse(msg.id, response.status, response.headers, response.body)
+        ownresponse = HttpResponse(msg.token, response.status, response.headers, response.body)
         send(service, me, address , ownresponse)
     end
 end

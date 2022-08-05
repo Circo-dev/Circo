@@ -11,8 +11,8 @@ mutable struct HttpTestCaller <: Actor{Any}
     core::Any
     requestsent::Bool
     responsearrived::Bool
-    reqidsent::Integer
-    reqidarrived::Integer
+    reqtokensent::Token
+    reqtokenarrived::Token
     orchestrator::Addr
 
     HttpTestCaller(core) = new(core)
@@ -40,8 +40,8 @@ end
 function Circo.onspawn(me::HttpTestCaller, service)
     me.requestsent = false
     me.responsearrived = false
-    me.reqidsent = 12
-    me.reqidarrived = 0
+    me.reqtokensent = Token(UInt64(12))
+    me.reqtokenarrived = Token(UInt64(0))
 end
 
 function Circo.onmessage(me::HttpTestCaller, msg::StartMsg, service)
@@ -55,7 +55,7 @@ function Circo.onmessage(me::HttpTestCaller, msg::StartMsg, service)
                 , readtimeout = 1
             )
         request = HttpRequest(;
-            id = me.reqidsent
+            token = me.reqtokensent
             , respondto = addr(me)
             , method = msg.method
             , target = msg.url
@@ -64,7 +64,7 @@ function Circo.onmessage(me::HttpTestCaller, msg::StartMsg, service)
             , keywordargs = keywordargs)
     else
         request = HttpRequest(
-            id = me.reqidsent
+            token = me.reqtokensent
             , respondto = addr(me)
             , method = msg.method
             , target = msg.url
@@ -73,7 +73,7 @@ function Circo.onmessage(me::HttpTestCaller, msg::StartMsg, service)
     end
     
     address = addr(me)
-    println("Actor with address $address sending httpRequest with httpRequestId :  $(request.id) message to $httpactor")
+    @debug "Actor with address $address sending httpRequest with httpRequestToken :  $(request.token) message to $httpactor"
     me.requestsent = true
     send(service, me, httpactor, request)
 end
@@ -81,10 +81,10 @@ end
 function Circo.onmessage(me::HttpTestCaller, msg::HttpResponse, service)
     address = addr(me)
     responsebody = String(msg.body)
-    println("HttpTestCaller with address $address got httpResponse message with httpRequestId : $(msg.reqid)")
-    println("Message : $(responsebody)")
+    @debug "HttpTestCaller with address $address got httpResponse message with token : $(msg.token)"
+    @debug "Message : $(responsebody)"
     me.responsearrived = true
-    me.reqidarrived = msg.reqid
+    me.reqtokenarrived = msg.token
 
     send(service, me, me.orchestrator, VerificationMsg(responsebody))
     die(service, me; exit=true)
@@ -101,7 +101,7 @@ end
 # Register route to HttpRequestProcessor
 function Circo.onspawn(me::HttpRequestProcessor, service)
     httpserveraddr = getname(service, "httpserver")
-    println("Sending route information from $me to dispatcher : $(httpserveraddr)")
+    @debug "Sending route information from $me to dispatcher : $(httpserveraddr)"
 
     route = PrefixRoute("/" , addr(me))
     send(service, me, httpserveraddr, route)
@@ -111,10 +111,10 @@ end
 # Process incoming message 
 function Circo.onmessage(me::HttpRequestProcessor, msg::HttpRequest, service)
     msgbody = String(msg.body)
-    response = Http.HttpResponse(msg.id, 200, [], Vector{UInt8}("\"$(msgbody)\" " * RESPONSE_BODY_MSG * "$me"))
+    response = Http.HttpResponse(msg.token, 200, [], Vector{UInt8}("\"$(msgbody)\" " * RESPONSE_BODY_MSG * "$me"))
 
     me.requestProcessed = true
-    println("Sending http response to $(msg.respondto) with reqid : $(msg.id) ")
+    @debug "Sending http response to $(msg.respondto) with token : $(msg.token) "
     send(service, me, msg.respondto, response)
 
     die(service, me; exit=true)
@@ -147,7 +147,7 @@ function Circo.onmessage(me::TestOrchestrator, msg::VerificationMsg, service)
 
     @test me.httpcalleractor.requestsent == true
     @test me.httpcalleractor.responsearrived == true
-    @test me.httpcalleractor.reqidsent == me.httpcalleractor.reqidarrived
+    @test me.httpcalleractor.reqtokensent == me.httpcalleractor.reqtokenarrived
     @test me.processoractor.requestProcessed == me.requestprocessedbyactor
     @test startswith(msg.responsebody, me.expectedresponsebody)  
 
@@ -164,7 +164,7 @@ end
         processor = HttpRequestProcessor(emptycore(ctx))
         orchestrator = TestOrchestrator(emptycore(ctx), "\"$REQUEST_BODY_MSG\" $RESPONSE_BODY_MSG")
 
-        scheduler = Scheduler(ctx, [orchestrator, processor,caller])
+        scheduler = Scheduler(ctx, [orchestrator, processor, caller])
         scheduler(;remote=false) # to spawn the zygote
 
         orchestrator.processoractor = processor
