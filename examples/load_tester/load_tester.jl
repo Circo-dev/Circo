@@ -43,14 +43,14 @@ end
 
 Base.show(io::IO, me::TestSuite) = print(io, "TestSuite with test cases [" * join(me.cases, ", ") * "]")
 
-function Circo.onspawn(me::TestSuite, service)
+function Circo.onmessage(me::TestSuite, ::OnSpawn, service)
     @info "$me scheduled and starting."
     for case in me.cases
         push!(me.runs, spawn(service, TestCaseRun(case)))
     end
 end
 
-function Circo.onspawn(me::TestCaseRun, service)
+function Circo.onmessage(me::TestCaseRun, ::OnSpawn, service)
     @info "$me starting."
     for i=1:me.case.count
         bhv = me.case.behavior
@@ -80,7 +80,7 @@ end
 
 abstract type TaskedWorker{TCore} <: Worker{TCore} end
 
-function Circo.onspawn(me::TaskedWorker, service)
+function Circo.onmessage(me::TaskedWorker, ::OnSpawn, service)
     start_a_task(me, service)
 end
 

@@ -6,11 +6,12 @@ const REQ_COUNT = 5
 
 mutable struct DistIdForRefTest <: Actor{Any}
     @distid_field
-    eventdispatcher
+    eventdispatcher::Addr
     core
     DistIdForRefTest() = new()
     DistIdForRefTest(distid) = new(distid)
 end
+Circo.traits(::Type{DistIdForRefTest}) = (EventSource,)
 DistributedIdentities.identity_style(::Type{DistIdForRefTest}) = DenseDistributedIdentity()
 
 struct TestReq
@@ -34,7 +35,7 @@ mutable struct ReferenceTester <: Actor{Any} # TODO <: Puppet
     ReferenceTester(refaddr) = new(refaddr, [])
 end
 
-Circo.onspawn(me::ReferenceTester, service) = begin
+Circo.onmessage(me::ReferenceTester, ::OnSpawn, service) = begin
     resize!(me.responses_from, REQ_COUNT)
     for i=1:REQ_COUNT
         send(service, me, me.refaddr, TestReq(i, addr(me)))

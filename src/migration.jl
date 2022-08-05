@@ -101,7 +101,7 @@ Circo.Cluster.cluster_initialized(migration::MigrationServiceImpl, sdl, cluster)
     spawn(sdl.service, migration.helperactor)
 end
 
-function Circo.onspawn(me::MigrationHelper, service)
+function Circo.onmessage(me::MigrationHelper, ::OnSpawn, service)
     cluster = getname(service, "cluster")
     isnothing(cluster) && error("Migration depends on cluster, but the name 'cluster' is not registered.")
     registername(service, "migration", me)

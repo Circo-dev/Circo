@@ -161,7 +161,7 @@ end
 genvalue() = rand(UInt32)
 nearpos(pos::Pos=nullpos, maxdistance=10.0) = pos + Pos(rand() * maxdistance, rand() * maxdistance, rand() * maxdistance)
 
-function Circo.onspawn(me::Coordinator, service)
+function Circo.onmessage(me::Coordinator, ::OnSpawn, service)
     @debug "onspawn: $me"
     me.core.pos = nearpos(nullpos, 100.0)
     me.root = createnode(Array{UInt32}(undef, 0), service, nearpos(me.core.pos))

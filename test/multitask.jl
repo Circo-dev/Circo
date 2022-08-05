@@ -64,7 +64,7 @@ mutable struct TestOrchestrator <: Actor{Any}
     TestOrchestrator(numberofclient) = new(numberofclient, Vector{Addr}(), 0)
 end
 
-Circo.onspawn(me::TestOrchestrator, srv) = begin
+Circo.onmessage(me::TestOrchestrator, ::OnSpawn, srv) = begin
     for i = 1:me.numberofclient
         multitaskclient = spawn(srv, MultiTaskClient(addr(me)))
         insert!(me.multitaskclients, i, multitaskclient)
@@ -81,7 +81,7 @@ Circo.onmessage(me::TestOrchestrator, msg::ValidationOK, srv) = begin
     end
 end
 
-Circo.onspawn(me::MultiTaskClient, srv) = begin
+Circo.onmessage(me::MultiTaskClient, ::OnSpawn, srv) = begin
     me.bgservice = spawn(srv, BgService())
     me.server = spawn(srv, SerializedServer(me.bgservice))
     me.receivedResponses = Vector{ClientResp}()

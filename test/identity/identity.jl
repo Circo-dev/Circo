@@ -4,11 +4,12 @@ using Circo, Circo.CircoCore, Circo.DistributedIdentities, Circo.Debug
 
 mutable struct DistIdTester <: Actor{Any}
     @distid_field
-    eventdispatcher
+    eventdispatcher::Addr
     core
     DistIdTester() = new()
     DistIdTester(distid) = new(distid)
 end
+Circo.traits(::Type{DistIdTester}) = (EventSource,)
 DistributedIdentities.identity_style(::Type{DistIdTester}) = DenseDistributedIdentity()
 
 

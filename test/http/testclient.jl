@@ -1,7 +1,9 @@
-using Test
-using Circo, Circo.Http
+import Circo: onmessage
 import Sockets
-import Circo:onmessage, onspawn
+
+using Circo
+using Circo.Http
+using Test
 
 
 const RESPONSE_BODY_MSG = "Message arrived. Processing succesfull by "
@@ -37,7 +39,7 @@ struct StartHttpTest <: CircoCore.AbstractMsg{Any}
     body::StartMsg
 end
 
-function Circo.onspawn(me::HttpTestCaller, service)
+function Circo.onmessage(me::HttpTestCaller, ::OnSpawn, service)
     me.requestsent = false
     me.responsearrived = false
     me.reqidsent = 12
@@ -99,7 +101,7 @@ mutable struct HttpRequestProcessor <: Actor{Any}
 end
 
 # Register route to HttpRequestProcessor
-function Circo.onspawn(me::HttpRequestProcessor, service)
+function Circo.onmessage(me::HttpRequestProcessor, ::OnSpawn, service)
     httpserveraddr = getname(service, "httpserver")
     println("Sending route information from $me to dispatcher : $(httpserveraddr)")
 

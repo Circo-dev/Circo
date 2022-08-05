@@ -88,6 +88,7 @@ Will be called to create a new peer by `prototype` for its distributed identity.
 function create_peer(prototype::Actor, service)
     retval = deepcopy(prototype)
     retval.core = emptycore(service)
+    retval.eventdispatcher = Addr()
     return retval
 end
 
@@ -185,7 +186,9 @@ onidspawn(::DenseDistributedIdentity, me, service) = begin
         me.distid = DistributedIdentity()
     end
     # TODO This will clash with non-id events. Lazy init of eventdispatcher?
-    me.eventdispatcher = spawn(service, EventDispatcher(emptycore(service)))
+    # TODO test if safe to remove after EventSource trait
+    # me.eventdispatcher = spawn(service, EventDispatcher(emptycore(service)))
+
     spawnpeer_ifneeded(me, service)
     sendtopeers(service, me, Hello(addr(me)))
     for peer in values(me.distid.peers)

@@ -44,13 +44,14 @@ end
 mutable struct IdRegistryPeer <: Actor{Any}
     registered_ids::Dict{String, DistributedIdentities.DistIdId} # Synchronized
     refs::Dict{DistributedIdentities.DistIdId, Addr} # Each registry actor has its own ref. # TODO migrate together with the refs
-    eventdispatcher
+    eventdispatcher::Addr
     @distid_field
     core
     IdRegistryPeer() = new(Dict(), Dict())
 end
 DistributedIdentities.identity_style(::Type{IdRegistryPeer}) = DenseDistributedIdentity()
 Transactions.consistency_style(::Type{IdRegistryPeer}) = Inconsistency() # TODO implement multi-stage commit
+Circo.traits(::Type{IdRegistryPeer}) = (EventSource,)
 Circo.monitorprojection(::Type{IdRegistryPeer}) = Circo.Monitor.JS("projections.nonimportant")
 
 struct RegisterIdentity
@@ -160,7 +161,7 @@ mutable struct RegistryRefAcquirer <: Actor{Any}
 end
 Circo.monitorprojection(::Type{RegistryRefAcquirer}) = Circo.Monitor.JS("projections.nonimportant")
 
-Circo.onspawn(me::RegistryRefAcquirer, service) = begin
+Circo.onmessage(me::RegistryRefAcquirer, ::OnSpawn, service) = begin
     send_namequery(me, service)
     registername(service, REGISTRY_NAME, me)
 end
