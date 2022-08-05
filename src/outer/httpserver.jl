@@ -41,7 +41,7 @@ end
 abstract type HttpDispatcher{TCore} <: Actor{TCore} end
 
 mutable struct _HttpDispatcher{TCore} <: HttpDispatcher{TCore}
-    reqs::Dict{HttpReqId, TaskedRequest}
+    reqs::Dict{Token, TaskedRequest}
     router::Router
     core::TCore
     _HttpDispatcher(core) = new{typeof(core)}(Dict(), Router(), core)
@@ -127,11 +127,11 @@ function Circo.schedule_stop(service::HttpServerImpl, scheduler)
 end
 
 function Circo.onmessage(me::HttpDispatcher, msg::TaskedRequest, service)
-    me.reqs[msg.req.id] = msg
+    me.reqs[msg.req.token] = msg
     routeresult = route(me.router, msg.req)
     @debug "Circo.routeresult $routeresult"
     if isnothing(routeresult)
-        send(service, me, addr(me), HttpResponse(msg.req.id, 404, [], Vector{UInt8}("No route found for $(msg.req.raw.target)") ))
+        send(service, me, addr(me), HttpResponse(msg.req.token, 404, [], Vector{UInt8}("No route found for $(msg.req.raw.target)") ))
         return nothing
     end
     send(service, me, routeresult.handler, msg.req)
@@ -140,9 +140,9 @@ end
 
 function Circo.onmessage(me::HttpDispatcher, msg::HttpResponse, service)
     println("Circo.onmessage(me::HttpDispatcher, msg::HttpResponse, service)")
-    tasked = get(me.reqs, msg.reqid, nothing)
+    tasked = get(me.reqs, msg.token, nothing)
     isnothing(tasked) && return nothing
-    delete!(me.reqs, msg.reqid)
+    delete!(me.reqs, msg.token)
     put!(tasked.response_chn, msg)
     return nothing
 end

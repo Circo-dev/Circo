@@ -10,8 +10,8 @@ import HTTP, Sockets
 using Logging
 
 HttpReqId = UInt64
-Base.@kwdef struct HttpRequest
-    id::HttpReqId = rand(HttpReqId)
+Base.@kwdef struct HttpRequest <: Request
+    token::Token = Token()
     respondto::Addr
     target::String
     method::String = "GET"
@@ -20,12 +20,13 @@ Base.@kwdef struct HttpRequest
     keywordargs::NamedTuple = NamedTuple()   # used by HTTP.request() function. This isn't used server side. 
 end
 
-struct HttpResponse
-    reqid::HttpReqId
+struct HttpResponse <: Response
+    token::Token
     status::Int16
     headers::Vector{Pair{String,String}}
     body::Vector{UInt8}
 end
+@response HttpRequest HttpResponse
 
 include("httpclient.jl")
 include("httpserver.jl")
