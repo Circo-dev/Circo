@@ -8,12 +8,13 @@ using Circo, Circo.DistributedIdentities, Circo.LeadGroup
 
 mutable struct LeadGroupTestPeer <: LeadGroupPeer{Any}
     arr::Vector{Float64}
-    eventdispatcher
+    eventdispatcher::Addr
     @distid_field
     @leadgroup_field
     core
     LeadGroupTestPeer() = new([])
 end
+Circo.traits(::Type{LeadGroupTestPeer}) = (EventSource,)
 
 electedpeers = LeadGroupTestPeer[]
 

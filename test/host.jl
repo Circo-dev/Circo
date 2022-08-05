@@ -3,7 +3,7 @@ module HostTest
 
 using Test, Printf
 using Circo, Circo.Migration
-import Circo:onspawn, onmessage, onmigrate
+import Circo: onmessage, onmigrate
 
 mutable struct PingPonger{TCore} <: Actor{TCore}
     peer::Union{Addr, Nothing}
@@ -22,7 +22,7 @@ struct CreatePeer
     target_postcode::Union{PostCode, Nothing}
 end
 
-function onspawn(me::PingPonger, service)
+function onmessage(me::PingPonger, ::OnSpawn, service)
     if !isnothing(me.target_postcode)
         if isnothing(plugin(service, :migration))
             error("Migration plugin not installed")

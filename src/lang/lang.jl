@@ -19,7 +19,7 @@ end
 macro onspawn(metype, body)
     @assert metype isa Symbol
     return quote
-        Circo.onspawn(me::$(metype), service) = begin
+        Circo.onmessage(me::$(metype), msg::OnSpawn, service) = begin
             $(body)
         end
     end |> esc

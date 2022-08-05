@@ -14,7 +14,7 @@ struct SampleMsg
     text::String
 end
 
-function Circo.onspawn(me::SampleActor, service)
+function Circo.onmessage(me::SampleActor, ::OnSpawn, service)
     println("SampleActor scheduled. Sending a message to myself.")
     send(service, me, addr(me), SampleMsg("This is a message from $(addr(me))"))
 end

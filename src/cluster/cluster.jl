@@ -85,14 +85,15 @@ end
 ClusterActor(myinfo::NodeInfo, core) = ClusterActor(myinfo, [], core)
 ClusterActor(core;roots=[]) = ClusterActor(NodeInfo("unnamed"), roots, core)
 
+Circo.traits(::Type{<:ClusterActor}) = (EventSource,)
+
 Circo.monitorprojection(::Type{<:ClusterActor}) = JS("projections.nonimportant")
 
 struct RequestJoin end
 
-function Circo.onspawn(me::ClusterActor, service)
+function Circo.onmessage(me::ClusterActor, ::OnSpawn, service)
     me.myinfo.addr = addr(me)
     me.myinfo.pos = pos(service)
-    me.eventdispatcher = spawn(service, EventDispatcher(emptycore(service)))
     try
         registername(service, NAME, me)
     catch e
