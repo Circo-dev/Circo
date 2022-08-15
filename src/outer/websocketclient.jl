@@ -91,7 +91,7 @@ end
 
 function Circo.onmessage(me::WebSocketCallerActor, openmsg::WebSocketOpen, service)    
 
-    @async WebSockets.open("ws://$(openmsg.url)"; verbose=false) do ws
+    @async WebSockets.open("$(openmsg.url)"; verbose=false) do ws
         websocket_id = rand(UInt32)
         get!(me.messageChannels, websocket_id, ws)
         
