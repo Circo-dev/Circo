@@ -36,15 +36,22 @@ struct WebSocketClose <: WebSocketMessage
 end
 
 struct WebSocketOpen <: WebSocketMessage
+    requestid::Token
     source              #sender Actor Addr
-    url
+    url                 #should contain protocol and port if needed
+
+    WebSocketOpen(source, url) = new(Token(), source, url)
 end
 
 abstract type WebSocketEvent end
 struct CloseEvent <: WebSocketEvent end
 struct MessageEvent <: WebSocketEvent end
 struct ErrorEvent <: WebSocketEvent end
-struct OpenEvent <: WebSocketEvent end
+struct OpenEvent <: WebSocketEvent 
+    requestid::Token
+
+    OpenEvent(token) = new(token)
+end
 
 struct WebSocketReceive
     type::WebSocketEvent
@@ -96,7 +103,7 @@ function Circo.onmessage(me::WebSocketCallerActor, openmsg::WebSocketOpen, servi
         get!(me.messageChannels, websocket_id, ws)
         
         @debug "Client Websocket connection established!"
-        Circo.send(service, me, openmsg.source, WebSocketReceive(OpenEvent(), websocket_id, "Websocket connection established!"))
+        Circo.send(service, me, openmsg.source, WebSocketReceive(OpenEvent(openmsg.requestid), websocket_id, "Websocket connection established!"))
 
         try 
             for raw_message in ws
