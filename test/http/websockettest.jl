@@ -30,13 +30,10 @@ function Circo.onmessage(me::WebSocketTestActor, msg::StartTestMsg, service)
     send(service, me, me.websocketcaller, openmsg)
 end
 
-function Circo.onmessage(me::WebSocketTestActor, msg::WebSocketReceive, service)
-    @debug "Circo.onmessage(me::WebSocketTestActor, msg::WebSocketReceive, service)" msg.response
-    push!(me.receivedmessages, msg)
-    processmessage(me, msg, msg.type, service)
-end
+function Circo.onmessage(me::WebSocketTestActor, response::OpenEvent, service)
+    @info "Circo.onmessage openEvent" response
+    push!(me.receivedmessages, response)
 
-function processmessage(me::WebSocketTestActor, response::WebSocketReceive, ::OpenEvent, service)
     me.websocketid = UInt64(response.websocketid)
 
     sendmsg = WebSocketSend(me.message, addr(me), missing, me.websocketid)
@@ -44,13 +41,18 @@ function processmessage(me::WebSocketTestActor, response::WebSocketReceive, ::Op
     # NOTE Sending close messsage right after sending WebSocketSend may cause scheduling problem. It caused the WebSocketCallerActor read messages full of "/0" 
 end
 
-function processmessage(me::WebSocketTestActor, ::WebSocketReceive, ::MessageEvent, service)
+function Circo.onmessage(me::WebSocketTestActor, response::MessageEvent, service)
     @debug "Cliens sending close"
+    push!(me.receivedmessages, response)
+
     closeMsg = WebSocketClose(addr(me), me.websocketid)
     send(service, me, me.websocketcaller, closeMsg)
 end
 
-function processmessage(me::WebSocketTestActor, ::WebSocketReceive, ::CloseEvent, service)
+function Circo.onmessage(me::WebSocketTestActor, response::CloseEvent, service)
+    @info "Circo.onmessage(me::WebSocketTestActor, ::CloseEvent, service)"
+    push!(me.receivedmessages, response)
+
     @test size(me.receivedmessages) == size(me.expectedmessages)
 
     @debug "Client received messages" me.receivedmessages

@@ -2,8 +2,9 @@
 module WebsocketClient
 
 export WebSocketClient
-export WebSocketEvent, CloseEvent, MessageEvent, ErrorEvent, OpenEvent
-export WebSocketCallerActor, WebSocketMessage, WebSocketClose, WebSocketOpen, WebSocketSend, WebSocketReceive
+export WebSocketCallerActor
+export WebSocketMessage, WebSocketClose, WebSocketOpen, WebSocketSend
+export CloseEvent, MessageEvent, ErrorEvent, OpenEvent
 
 using HTTP, HTTP.WebSockets
 using Sockets
@@ -36,31 +37,47 @@ struct WebSocketClose <: WebSocketMessage
 end
 
 struct WebSocketOpen <: WebSocketMessage
-    requestid::Token
+    token::Token
     source              #sender Actor Addr
     url                 #should contain protocol and port if needed
 
     WebSocketOpen(source, url) = new(Token(), source, url)
 end
 
-abstract type WebSocketEvent end
-struct CloseEvent <: WebSocketEvent end
-struct MessageEvent <: WebSocketEvent end
-struct ErrorEvent <: WebSocketEvent end
-struct OpenEvent <: WebSocketEvent 
-    requestid::Token
-
-    OpenEvent(token) = new(token)
-end
-
-struct WebSocketReceive
-    type::WebSocketEvent
+struct CloseEvent
     websocketid::UInt32
     response::AbstractVector{UInt8}
 
-    WebSocketReceive(type, websocketId, response) = new(type, websocketId, response)
-    WebSocketReceive(type, websocketId, response::String) = new(type, websocketId, Vector{UInt8}(response))
+    CloseEvent(websocketId, response) = new(websocketId, response)
+    CloseEvent(websocketId, response::String) = new(websocketId, Vector{UInt8}(response))
 end
+
+struct MessageEvent
+    websocketid::UInt32
+    response::AbstractVector{UInt8}
+
+    MessageEvent(websocketId, response) = new(websocketId, response)
+    MessageEvent(websocketId, response::String) = new(websocketId, Vector{UInt8}(response))
+end
+
+struct ErrorEvent
+    websocketid::UInt32
+    response::AbstractVector{UInt8}
+
+    ErrorEvent(websocketId, response) = new(websocketId, response)
+    ErrorEvent(websocketId, response::String) = new(websocketId, Vector{UInt8}(response))
+end
+
+struct OpenEvent
+    token::Token
+    websocketid::UInt32
+    response::AbstractVector{UInt8}
+
+    OpenEvent(token, websocketId, response) = new(token, websocketId, response)
+    OpenEvent(token, websocketId, response::String) = new(token, websocketId, Vector{UInt8}(response))
+end
+responsetype(::Type{<:WebSocketOpen}) = OpenEvent
+
 
 websocket_id(msg::WebSocketOpen) = missing
 websocket_id(msg::WebSocketSend) = UInt64(msg.websocketid)
@@ -103,19 +120,19 @@ function Circo.onmessage(me::WebSocketCallerActor, openmsg::WebSocketOpen, servi
         get!(me.messageChannels, websocket_id, ws)
         
         @debug "Client Websocket connection established!"
-        Circo.send(service, me, openmsg.source, WebSocketReceive(OpenEvent(openmsg.requestid), websocket_id, "Websocket connection established!"))
+        Circo.send(service, me, openmsg.source, OpenEvent(openmsg.token, websocket_id, "Websocket connection established!"))
 
         try 
             for raw_message in ws
                 @debug "Client got from server rawMessage" String(raw_message)
-                Circo.send(service, me, openmsg.source, WebSocketReceive(MessageEvent(), websocket_id, raw_message))
+                Circo.send(service, me, openmsg.source, MessageEvent(websocket_id, raw_message))
             end
         catch e
             if !(e isa EOFError)
                 @info "Exception in arrivals", e
             end
         finally
-            Circo.send(service, me, openmsg.source, WebSocketReceive(CloseEvent(), websocket_id, "Websocket connection closed"))
+            Circo.send(service, me, openmsg.source, CloseEvent(websocket_id, "Websocket connection closed"))
             delete!(me.messageChannels, websocket_id)
         end
         # unnecessary
