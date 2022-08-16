@@ -3,7 +3,6 @@ module HostTest
 
 using Test, Printf
 using Circo, Circo.Migration
-import Circo:onspawn, onmessage
 
 mutable struct PingPonger{TCore} <: Actor{TCore}
     peer::Union{Addr, Nothing}
@@ -22,7 +21,7 @@ struct CreatePeer
     target_postcode::Union{PostCode, Nothing}
 end
 
-function onspawn(me::PingPonger, service)
+Circo.onmessage(me::PingPonger, ::OnSpawn, service) = begin
     if !isnothing(me.target_postcode)
         if isnothing(plugin(service, :migration))
             error("Migration plugin not installed")
@@ -41,27 +40,27 @@ function sendpong(service, me::PingPonger)
     send(service, me, me.peer, Pong())
 end
 
-function onmessage(me::PingPonger, message::CreatePeer, service)
+Circo.onmessage(me::PingPonger, message::CreatePeer, service) = begin
     peer = PingPonger(addr(me), message.target_postcode, emptycore(service))
     me.peer =  spawn(service, peer)
     sendping(service, me)
 end
 
-function onmessage(me::PingPonger, ::Ping, service)
+Circo.onmessage(me::PingPonger, ::Ping, service) = begin
     sendpong(service, me)
 end
 
-function onmessage(me::PingPonger, ::Pong, service)
+Circo.onmessage(me::PingPonger, ::Pong, service) = begin
     me.pongs_got += 1
     sendping(service, me)
 end
 
-function onmessage(me::PingPonger, ::Debug.Stop, service)
+Circo.onmessage(me::PingPonger, ::Debug.Stop, service) = begin
     send(service, me, me.peer, Debug.Stop(42))
     die(service, me)
 end
 
-function onmessage(me::PingPonger, message::RecipientMoved, service)
+Circo.onmessage(me::PingPonger, message::RecipientMoved, service) = begin
     @debug "Peer moved"
     if me.peer == message.oldaddress
         me.peer = message.newaddress

@@ -124,7 +124,7 @@ Circo.Cluster.cluster_initialized(migration::MigrationServiceImpl, sdl, cluster)
     spawn(sdl.service, migration.helperactor)
 end
 
-function Circo.onspawn(me::MigrationHelper, service)
+function Circo.onmessage(me::MigrationHelper, ::OnSpawn, service)
     cluster = getname(service, "cluster")
     isnothing(cluster) && error("Migration depends on cluster, but the name 'cluster' is not registered.")
     registername(service, "migration", me)
@@ -184,11 +184,11 @@ Circo.specialmsg(migration::MigrationServiceImpl, scheduler, msg::AbstractMsg{Mi
     end
     delete!(migration.movedactors, actorbox)
 
-    helper = immigration_helper(actor, msg.token)
+    helper = immigration_helper(actor, msg.body.token)
     if isnothing(helper) # "Single-shot" migration
         spawn(scheduler, actor)
         onmigrate(actor, scheduler.service)
-        send(scheduler.service, actor, Addr(postcode(fromaddress), 0), MigrationResponse(msg.token, fromaddress, addr(actor), true))
+        send(scheduler.service, actor, Addr(postcode(fromaddress), 0), MigrationResponse(msg.body.token, fromaddress, addr(actor), true))
     else
         spawn(scheduler.service, helper)
     end
@@ -280,7 +280,6 @@ end
 """
     emigration_helper(me::Actor) = Nothing
     immigration_helper(me::Actor, migration_token::Token) = Nothing
-
     
 Create helper actor types for actors that use non-serializable resources,
 thus cannot be fully auto-migrated.
@@ -295,6 +294,7 @@ thus cannot be fully auto-migrated.
 - source: The emigration helper receives the `MigrationDone` and will be unscheduled afterwards
 - source: Messages arrived during the migration are forwarded to the migrated actor
 """
-migration_helpers(::Type{<:Actor}) = (Nothing, Nothing)
+emigration_helper(me::Actor) = nothing
+immigration_helper(me::Actor, migration_token::Token) = nothing
 
 end # module

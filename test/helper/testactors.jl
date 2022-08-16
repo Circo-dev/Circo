@@ -12,7 +12,7 @@ mutable struct Puppet <: Actor{Any}
     Puppet(handlerpairs...) = new(IdDict(), IdDict(handlerpairs...))
 end
 
-Circo.onspawn(me::Puppet, service) = begin
+Circo.onmessage(me::Puppet, ::OnSpawn, service) = begin
     me.service = service # For simpler API. We know what we are doing. Are we?
     callhandler(me, :spawn, service)
 end

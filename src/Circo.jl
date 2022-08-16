@@ -14,14 +14,10 @@ export Debug, Host, JS, registermsg,
     @identity, @response, @fire
 
 const call_lifecycle_hook = CircoCore.call_lifecycle_hook
-
 const deliver! = CircoCore.deliver!
-
-# Actor lifecycle callbacks
-const onspawn = CircoCore.onspawn
 const onmessage = CircoCore.onmessage
-const onbecome = CircoCore.onbecome
-const ondeath = CircoCore.ondeath
+const ontraitmessage = CircoCore.ontraitmessage
+const traits = CircoCore.traits
 
 
 # Plugin Hooks

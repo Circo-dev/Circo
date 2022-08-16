@@ -223,7 +223,7 @@ struct AddWatcher
     watcher::Addr
 end
 
-function Circo.onspawn(me::Feed, service)
+function Circo.onmessage(me::Feed, ::OnSpawn, service)
     for source in me.sources
         send(service, me, source, AddWatcher(addr(me)))
     end

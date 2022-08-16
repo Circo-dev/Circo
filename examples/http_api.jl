@@ -8,7 +8,7 @@ mutable struct API{TCore} <: Actor{TCore}
     API(core) = new{typeof(core)}(0, time_ns(), core)
 end
 
-function Circo.onspawn(me::API, service)
+function Circo.onmessage(me::API, ::OnSpawn, service)
     http = getname(service, "httpserver")
     isnothing(http) && error("No http service found")
     send(service, me, http, PrefixRoute("/api", addr(me)))

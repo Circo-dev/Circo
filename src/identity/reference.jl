@@ -19,7 +19,7 @@ Circo.DistributedIdentities.peers(me::IdRef) = me.peer_addrs
 Circo.DistributedIdentities.distid(me::IdRef) = me.id
 Circo.monitorprojection(::Type{<:IdRef}) = Circo.Monitor.JS("projections.nonimportant")
 
-Circo.onspawn(me::IdRef, service) = begin
+Circo.onmessage(me::IdRef, ::OnSpawn, service) = begin
     for peer_addr in me.peer_addrs # TODO: only connect to a subset
         connect_peer(me, peer_addr, service)
     end

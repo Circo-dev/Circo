@@ -2,7 +2,7 @@ module BlockTest
 
 using Test
 using Circo, Circo.Block
-import Circo:onmessage, onspawn
+import Circo:onmessage
 
 mutable struct Blocker <: Actor{Any}
     tester::Addr
@@ -25,7 +25,7 @@ end
 abstract type Read end
 struct ReadVal <: Read end
 
-function Circo.onspawn(me::BlockTester, service)
+function Circo.onmessage(me::BlockTester, ::OnSpawn, service)
     me.blocker = spawn(service, Blocker(addr(me)))
     send(service, me, me.blocker, ReadVal())
 end

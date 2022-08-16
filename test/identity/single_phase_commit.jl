@@ -4,11 +4,12 @@ using Circo, Circo.DistributedIdentities, Circo.Transactions
 
 mutable struct SPCTester <: Actor{Any}
     arr::Vector{Float64}
-    eventdispatcher
+    eventdispatcher::Addr
     @distid_field
     core
     SPCTester() = new([])
 end
+Circo.traits(::Type{SPCTester}) = (EventSource,)
 DistributedIdentities.identity_style(::Type{SPCTester}) = DenseDistributedIdentity()
 Transactions.consistency_style(::Type{SPCTester}) = Inconsistency()
 

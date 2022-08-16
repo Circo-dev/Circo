@@ -7,17 +7,14 @@ struct TestEvent <: Event
 end
 
 mutable struct SubTester <: Actor{Any}
-    eventdispatcher
+    eventdispatcher::Addr
     children
     attrs
     core
     SubTester() = new()
 end
+Circo.traits(::Type{SubTester}) = (EventSource,)
 define("sub-tester", SubTester)
-
-Circo.onspawn(me::SubTester, srv) = begin
-    me.eventdispatcher = spawn(srv, EventDispatcher(emptycore(srv)))
-end
 
 Circo.COM.onvitalize(me::SubTester, srv) = begin
     if haskey(me.attrs, "subto")

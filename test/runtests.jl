@@ -6,4 +6,9 @@ include("migrate/migrate-base.jl") # TODO: Remove Migrant from Main
 # To run specific tests:
 # julia --project=. -e 'using Pkg; Pkg.test(;test_args=["identity"])'
 
-runtests(@__DIR__, skip=["coverage/", "cluster/clusterdebug.jl", "filesystem.jl"])
+runtests(@__DIR__, skip=[
+    "coverage/",
+    "helper/",
+    "cluster/clusterdebug.jl",
+    "filesystem.jl",
+])

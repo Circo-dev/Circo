@@ -10,11 +10,12 @@ import .TestActors: Puppet, msgcount, msgs
 
 mutable struct DistIdForRegistryTest <: Actor{Any}
     @distid_field
-    eventdispatcher
+    eventdispatcher::Addr
     core
     DistIdForRegistryTest() = new()
     DistIdForRegistryTest(distid) = new(distid)
 end
+Circo.traits(::Type{DistIdForRegistryTest}) = (EventSource,)
 DistributedIdentities.identity_style(::Type{DistIdForRegistryTest}) = DenseDistributedIdentity()
 
 const IDREG_TEST_KEY = "key.sub"
