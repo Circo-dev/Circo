@@ -64,7 +64,7 @@ then the message will also be delivered normally.
 The blocked actor will not receive messages while blocked,
 except if they are from the optional `process_readonly` type.
 
-The `waketest` predicate function is called with the message of type `wapeon`
+The `waketest` predicate function is called with the message of type `wakeon`
 to determine if the actor should really wake up.
 
 Note: You probably want to use the higher level functions from `Circo.MultiTask`.

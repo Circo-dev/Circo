@@ -16,9 +16,12 @@ struct Resp <: Response
     data
     token::Token
 end
+@response Req Resp
 
-Circo.MultiTask.responsetype(::Type{Req}) = Resp
-# @resp Req => Resp
+struct Fail <: Failure
+    data
+    token::Token
+end
 
 struct ClientReq
     data
@@ -88,14 +91,12 @@ Circo.onmessage(me::MultiTaskClient, ::OnSpawn, srv) = begin
 end
 
 Circo.onmessage(me::MultiTaskClient, msg::StartMsg, srv) = begin
-    @debug "MultiTaskClient start"
     for i = 1:TASK_COUNT
         send(srv, me, me.server, ClientReq(i, me))
     end
 end
 
 Circo.onmessage(me::MultiTaskClient, msg::ClientResp, srv) = begin
-    @debug "ClientResp arrived to MultiTaskClientnek" addr(me) msg
     push!(me.receivedResponses, msg)
 
     if length(me.receivedResponses) == TASK_COUNT
@@ -114,21 +115,23 @@ end
 Circo.onmessage(me::SerializedServer, msg::ClientReq, srv) = begin
     srv.scheduler.msgqueue
     requestObject = Req(msg.data, me)
-    @debug "SerializedServer $(addr(me)) sending request" requestObject me.bgservice
-    response = awaitresponse(srv, me, me.bgservice, requestObject)
-    @debug "SerializedServer $(addr(me)) got response" requestObject me.bgservice response
-    @test response.data == msg.data
-
-    send(srv, me, msg.respondto, ClientResp(response.data))
+    try
+        response = awaitresponse(srv, me, me.bgservice, requestObject)
+        @test response.data == msg.data
+        @test response.data % 2 == 1
+        send(srv, me, msg.respondto, ClientResp(response.data))
+    catch e
+        @test e isa Fail
+        @test e.data == msg.data
+        @test e.data % 2 == 0
+        send(srv, me, msg.respondto, ClientResp(msg.data))
+    end
 end
 
 Circo.onmessage(me::BgService, req::Req, srv) = begin
-    @debug "sleep + send BgService $(addr(me))"
-
     @async begin
         sleep(rand() / 100)
-        send(srv, me, req.respondto, Resp(req.data, req.token))
-        @debug "BgService send $(addr(me))" req
+        send(srv, me, req.respondto, req.data % 2 == 1 ? Resp(req.data, req.token) : Fail(req.data, req.token))
     end
 end
 
