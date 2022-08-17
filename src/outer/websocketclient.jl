@@ -46,10 +46,11 @@ end
 
 struct CloseEvent
     websocketid::UInt32
-    response::AbstractVector{UInt8}
+    status::Int
+    response::AbstractVector{UInt8}         # message
 
-    CloseEvent(websocketId, response) = new(websocketId, response)
-    CloseEvent(websocketId, response::String) = new(websocketId, Vector{UInt8}(response))
+    CloseEvent(websocketId, status, response) = new(websocketId, 1000, response)
+    CloseEvent(websocketId, status, response::String) = new(websocketId, status,  Vector{UInt8}(response))
 end
 
 struct MessageEvent
@@ -115,13 +116,14 @@ end
 
 function Circo.onmessage(me::WebSocketCallerActor, openmsg::WebSocketOpen, service)    
 
-    @async WebSockets.open("$(openmsg.url)"; verbose=false) do ws
+    connectiontask = @async WebSockets.open("$(openmsg.url)"; verbose=false) do ws
         websocket_id = rand(UInt32)
         get!(me.messageChannels, websocket_id, ws)
         
         @debug "Client Websocket connection established!"
         Circo.send(service, me, openmsg.source, OpenEvent(openmsg.token, websocket_id, "Websocket connection established!"))
 
+        closeeventsent = false
         try 
             for raw_message in ws
                 @debug "Client got from server rawMessage" String(raw_message)
@@ -131,12 +133,30 @@ function Circo.onmessage(me::WebSocketCallerActor, openmsg::WebSocketOpen, servi
             if !(e isa EOFError)
                 @info "Exception in arrivals", e
             end
+
+            @warn "Exception" e
+            if typeof(e) == HTTP.WebSockets.WebSocketError
+                if typeof(e.message) == HTTP.WebSockets.CloseFrameBody
+                    Circo.send(service, me, openmsg.source, CloseEvent(websocket_id, e.message.status, e.message.message))
+                    closeeventsent = true
+                else
+                    Circo.send(service, me, openmsg.source, ErrorEvent(websocket_id, e.message))
+                end
+            end
         finally
-            Circo.send(service, me, openmsg.source, CloseEvent(websocket_id, "Websocket connection closed"))
+            if !closeeventsent
+                Circo.send(service, me, openmsg.source, CloseEvent(websocket_id, 1000, "Websocket connection closed"))
+            end
             delete!(me.messageChannels, websocket_id)
         end
         # unnecessary
         # close(ws)
+    end
+
+    if istaskfailed(connectiontask)
+        websocket_errorcode = connectiontask.result.error.message.status
+        @warn "Error occured when establishing websocket connection! Errorcode : $(websocket_errorcode)"
+        Circo.send(service, me, openmsg.source, ErrorEvent(websocket_id, websocket_errorcode))
     end
 end 
 
@@ -147,8 +167,11 @@ sending_websocket_message(ws, wsmessage::WebSocketSend) = HTTP.send(ws, wsmessag
 
 function Circo.onmessage(me::WebSocketCallerActor, wsmessage::WebSocketMessage, service)
     ws = get(me.messageChannels, websocket_id(wsmessage), missing)
-    # TODO handle missing
+    if ws === missing
+        Circo.send(service, me, openmsg.source, ErrorEvent(websocket_id, "Got unknown websocket id"))
+    else 
     sending_websocket_message(ws, wsmessage)
+    end
 end
 
 

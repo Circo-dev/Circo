@@ -4,6 +4,9 @@ using Sockets
 using Circo, Circo.WebsocketClient
 using Logging
 
+include("../helper/testactors.jl");
+import .TestActors: Puppet, msgcount, msgs
+
 import Circo.send
 
 struct StartTestMsg
@@ -15,11 +18,12 @@ mutable struct WebSocketTestActor <: Actor{Any}
     core
     receivedmessages::AbstractArray
     expectedmessages::AbstractArray
+    errorevent::Vector
     websocketcaller
     websocketid::UInt32
     message
 
-    WebSocketTestActor(core, expectedmessages) = new(core, [], expectedmessages)
+    WebSocketTestActor(core, expectedmessages) = new(core, [], expectedmessages, [])
 end
 
 function Circo.onmessage(me::WebSocketTestActor, msg::StartTestMsg, service)
@@ -66,6 +70,11 @@ function Circo.onmessage(me::WebSocketTestActor, response::CloseEvent, service)
     die(service, me; exit = true)
 end
 
+function Circo.onmessage(me::WebSocketTestActor, response::ErrorEvent, service)
+    @info "we got ErrorEvent" response
+    push!(me.errorevent, response)
+end
+
 mutable struct VerificationData
     messagereceived::Bool
     websocketservercloses::Bool
@@ -94,18 +103,27 @@ end
 function create_websocket_server(testserver::TestServer, url, port)
     @async WebSockets.listen(url, port; server=testserver.tcpserver, verbose=true) do ws
         @test ws.request isa HTTP.Request
+        try
         for msg in ws
             data = String(msg)
+                
             responsemessage = "Server send this : $data"
             @debug responsemessage
-            HTTP.send(ws, responsemessage)
-
             testserver.server_verification_data.messagereceived = true
             push!(testserver.server_verification_data.receivedmessages, data)
+
+                if data == "Send error"
+                    @info "Sending \"Unexpected\" error"
+                    error(responsemessage)
+                else 
+                    HTTP.send(ws, responsemessage)
         end
+            end
+        finally
         @debug "Server start to close"
         testserver.server_verification_data.websocketservercloses = true
         testserver.wait_for_server_close = true
+        end
     end
 end
 
@@ -193,12 +211,13 @@ end
             )
 
             scheduler = Scheduler(ctx, [testactor])
-            @info "remote = false scheduler"
             scheduler(;remote=false)
 
             send(scheduler, testactor, StartTestMsg(msgdata, "$(protocol)$(url):$(port)"))
-            @info "remote = true scheduler"
             scheduler(;remote=true)
+
+            @test findfirst(x -> typeof(x) == CloseEvent && x.status == 1000, testactor.receivedmessages) !== nothing
+            @test isempty(testactor.errorevent)
 
             serverside_verification(testserver, [
                 msgdata
@@ -240,6 +259,13 @@ end
 
             scheduler(;remote=true)
 
+            @test findfirst(x -> typeof(x) == CloseEvent && x.status == 1000, testActorOne.receivedmessages) !== nothing
+            @test isempty(testActorOne.errorevent)
+
+            @test findfirst(x -> typeof(x) == CloseEvent && x.status == 1000, testActorTwo.receivedmessages) !== nothing
+            @test isempty(testActorTwo.errorevent)
+
+
             serverside_verification(testServerOne, [
                 msgdata
             ])
@@ -253,5 +279,66 @@ end
           close_with_test(testServerOne)
           close_with_test(testServerTwo)
         end
+    end
+
+    @testset "Testing simple error() ErrorEvent" begin
+        @info "Testing simple error() ErrorEvent"
+        port = UInt16(8086)
+        errormsg = "Send error"
+        testserver = create_websocket_server(url, port)
+        try
+            ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [WebSocketClient])
+            testactor = WebSocketTestActor(emptycore(ctx), [
+                "Websocket connection established!",
+                "Unexpected server websocket error"
+                ])
+
+            scheduler = Scheduler(ctx, [testactor])
+            scheduler(;remote=false)
+
+            send(scheduler, testactor, StartTestMsg(errormsg, "$(protocol)$(url):$(port)"))
+            scheduler(;remote=true)
+
+            @test findfirst(x -> typeof(x) == CloseEvent && x.status > 1000, testactor.receivedmessages) !== nothing
+            @test isempty(testactor.errorevent)
+
+            serverside_verification(testserver, [errormsg])
+
+            verify_websocket_clientactor(scheduler)
+            Circo.shutdown!(scheduler)
+        finally
+            close_with_test(testserver)
+        end
+        
+    end
+
+    @testset "Testing with Circo actor" begin
+        @info "Testing with Circo actor"
+        port = UInt16(8086)
+
+        testserver = create_websocket_server(url, port)
+        try
+            ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [WebSocketClient])
+            puppet = TestActors.Puppet()
+            scheduler = Scheduler(ctx, [puppet])
+            scheduler(;remote=false)
+
+            send(scheduler, puppet, StartTestMsg(msgdata, "$(protocol)$(url):$(port)"))
+            @async scheduler(;remote=true)
+
+            websocketcalleraddr = getname(scheduler.service, "websocketclient")
+            websocketcaller = getactorbyid(scheduler, websocketcalleraddr.box)
+
+            send(scheduler, puppet, WebSocketSend("Something unrelevant", addr(puppet), missing, rand(UInt32)))
+            
+            errorevent = get(puppet.msgs, ErrorEvent, missing)
+            @test errorevent === missing
+
+
+            Circo.shutdown!(scheduler)
+        finally
+            close_with_test(testserver)
+        end
+
     end
 end
