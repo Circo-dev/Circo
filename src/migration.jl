@@ -150,7 +150,7 @@ end
     migrate(service, actor::Actor, topostcode::PostCode)
 
 """
-@inline function migrate(service::CircoCore.AbstractService, actor::Actor, topostcode::PostCode)
+@inline function migrate(service, actor::Actor, topostcode)
     return migrate!(service.scheduler, actor, topostcode)
 end
 
@@ -165,10 +165,6 @@ function migrate!(scheduler, actor::Actor, topostcode::PostCode)
     end
     unschedule!(scheduler, actor)
     migration.movingactors[box(actor)] = MovingActor(actor)
-    helper = emigration_helper(actor)
-    if !isnothing(helper)
-        spawn(scheduler.service, helper)
-    end
     send(scheduler.service, migration.helperactor, Addr(topostcode, 0), MigrationRequest(actor))
     return true
 end
@@ -184,14 +180,9 @@ Circo.specialmsg(migration::MigrationServiceImpl, scheduler, msg::AbstractMsg{Mi
     end
     delete!(migration.movedactors, actorbox)
 
-    helper = immigration_helper(actor, msg.body.token)
-    if isnothing(helper) # "Single-shot" migration
-        spawn(scheduler, actor)
-        onmigrate(actor, scheduler.service)
-        send(scheduler.service, actor, Addr(postcode(fromaddress), 0), MigrationResponse(msg.body.token, fromaddress, addr(actor), true))
-    else
-        spawn(scheduler.service, helper)
-    end
+    spawn(scheduler, actor)
+    onmigrate(actor, scheduler.service)
+    send(scheduler.service, actor, Addr(postcode(fromaddress), 0), MigrationResponse(msg.body.token, fromaddress, addr(actor), true))
     return true
 end
 
@@ -276,25 +267,5 @@ end
     end
     return nothing
 end
-
-"""
-    emigration_helper(me::Actor) = Nothing
-    immigration_helper(me::Actor, migration_token::Token) = Nothing
-    
-Create helper actor types for actors that use non-serializable resources,
-thus cannot be fully auto-migrated.
-
-- source: The migrating actor is unscheduled
-- source: The emigration helper is created and spawned
-- source: The migrating actor is serialized and sent to the target scheduler
-- target: The immigration helper is created and spawned
-- source and target: The helpers communicate to move the needed resources between the schedulers
-- target: The immigration helper sends an `MigrationDone` with the migration token to the emigration helper
-- target: The immigration helper is unscheduled and the migrated actor is scheduled
-- source: The emigration helper receives the `MigrationDone` and will be unscheduled afterwards
-- source: Messages arrived during the migration are forwarded to the migrated actor
-"""
-emigration_helper(me::Actor) = nothing
-immigration_helper(me::Actor, migration_token::Token) = nothing
 
 end # module

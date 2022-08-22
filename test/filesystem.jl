@@ -38,10 +38,12 @@ ctx = CircoContext(target_module=@__MODULE__,
     profile = Circo.Profiles.ClusterProfile(),
     userpluginsfn = () -> [NativeFS, MultiTaskService])
 tester = FSTester(1)
-sdl = Scheduler(ctx, [])
-sdl(;remote=false)
-spawn(sdl, tester)
-sdl(;remote=true)
-Circo.shutdown!(sdl)
+host = Host(ctx, 5)
+#sdl = Scheduler(ctx, [])
+#sdl(;remote=false)
+host(;remote=false)
+spawn(host.schedulers[1], tester)
+host(;remote=true)
+Circo.shutdown!(host)
 
 end # module

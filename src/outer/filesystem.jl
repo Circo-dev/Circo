@@ -3,9 +3,10 @@ module fs
 export NativeFS, FileSystem, FileDescriptor, @open, @read, @write, @seek, @close
 
 using ..Circo
-using Circo.MultiTask
+using Circo.MultiTask, Circo.Block
 using Circo.DistributedIdentities, Circo.DistributedIdentities.Reference, Circo.IdRegistry
 using Circo.Transactions
+using Circo.Migration
 using Plugins
 
 const FS_REGISTRY_PREFIX = "_fs."
@@ -64,12 +65,14 @@ end
 mutable struct File <: Actor{Any}
     path::String
     io::Union{IOStream, Nothing}
+    emigrationhelper::Union{Addr, Nothing}
     @distid_field
     eventdispatcher
     core
-    File(path) = new(path, nothing)
+    File(path) = new(path, nothing, nothing)
 end
 DistributedIdentities.identity_style(::Type{File}) = DenseDistributedIdentity()
+Circo.traits(::Type{File}) = (EventSource,)
 
 @onspawn NativeFSActor begin
     me.registry = getname(service, IdRegistry.REGISTRY_NAME)
@@ -259,10 +262,65 @@ Circo.monitorprojection(::Type{<:File}) = JS("{
 }")
 
 
-#Circo.check_migration
-@actor struct FileMover
+Circo.Migration.check_migration(me::File, alternatives::MigrationAlternatives, service) = begin
+    @show migrate_to_nearest(me, alternatives, service, 0.01)
+end
+
+Circo.Migration.migrate(service, me::File, topostcode) = begin
+    me.emigrationhelper = @show @spawn FileEmigrationHelper(addr(me), me.path, me.io, emptycore(service))
+    me.io = nothing
+    return Circo.Migration.migrate!(service.scheduler, me, topostcode)
+end
+
+struct FileMoved end
+
+Circo.Migration.onmigrate(me::File, service) = begin
+    @show @spawn FileImmigrationHelper(me, me.emigrationhelper, me.path, nothing, emptycore(service))
+    block(service, me, FileMoved) do wakemsg
+        @show me.emigrationhelper = nothing
+    end
+end
+
+@actor struct FileEmigrationHelper
+    origfile::Addr
     path::String
     io::Union{IOStream, Nothing}
+end
+
+@actor struct FileImmigrationHelper
+    file::Addr
+    emigrationhelper::Addr
+    path::String
+    io::Union{IOStream, Nothing}
+end
+
+struct StartCopy
+    target::Addr
+end
+
+@onmessage OnSpawn => FileImmigrationHelper begin
+    @send StartCopy(me) => me.emigrationhelper
+end
+
+struct CopyData
+    data::Vector{UInt8}
+end
+
+@onmessage StartCopy => FileEmigrationHelper begin
+    open_local_file(me)
+    Base.seek(me.io, 0)
+    buf = Vector{UInt8}()
+    Base.readbytes!(me.io, buf)
+    @send CopyData(buf) => msg.target
+end
+
+@onmessage CopyData => FileImmigrationHelper begin
+    open_local_file(me)
+    Base.seek(me.io, 0)
+    Base.write(me.io, msg.data)
+    Base.close(me.io)
+    @send FileMoved() => me.file
+    @send SigTerm(FileMoved()) => me.emigrationhelper
 end
 
 end #module
