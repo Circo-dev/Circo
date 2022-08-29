@@ -22,28 +22,20 @@ function Circo.schedule_start(http::HttpClientImpl, scheduler)
     @debug "HttpClientActor.addr : $address"
 end
 
+const nobody = UInt8[]
+
 function Circo.onmessage(me::HttpClientActor, msg::HttpRequest, service)
     @debug "HttpClientActor Actor with address : $(addr(me)) got message!"
 
     @async begin
         response = nothing
         try 
-            if length(msg.keywordargs) > 0
-                response = HTTP.request(msg.method, msg.target, msg.headers, msg.body; 
-                    msg.keywordargs... ,
-                    connection_limit = 30 
-                    , retry = false
-                    , status_exception = false
-                )
-
-            else
-                response = HTTP.request(msg.method, msg.target, msg.headers, msg.body; 
-                    connection_limit=30 
-                    , retry = false
-                    , status_exception = false
-                )
-
-            end
+            response = HTTP.request(msg.method, msg.target, msg.headers, isnothing(msg.body) ? nobody : msg.body;
+                msg.keywordargs... ,
+                connection_limit = 30,
+                retry = false,
+                status_exception = false,
+            )
         catch e
             @error "Error when initiating HTTP request!" e
         end
