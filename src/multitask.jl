@@ -65,7 +65,17 @@ end
 responsetype(::Type{<:Request}) = Response
 
 # TODO The name of this function may be more specific. requestInNewTask? requestinBlockingTask ? sendBlockerMessage?
-# TODO missing docs 
+"""
+    function awaitresponse(srv, me::Actor, to::Addr, msg::Request)
+
+Send out `msg`, block the current Julia task and the `me` actor until a response is received, then return the response.
+
+When a `Failure` is received, it will be thrown as exception.
+This can be used to simplify code layout when the response is needed to continue operation.
+
+The scheduler will continue to run using other Julia tasks while waiting for a response.
+`me` will also be "blocked" (See [`block`](@ref)), meaning that messages arriving while waiting will be queued.
+"""
 function awaitresponse(srv, me::Actor, to::Addr, msg::Request)
     mts = plugin(srv, :multitask)
     if isnothing(mts)
@@ -77,14 +87,18 @@ function awaitresponse(srv, me::Actor, to::Addr, msg::Request)
     
     thistask = current_task()
     waketoken = msg.token
-    block(srv, me, responsetype(typeof(msg)); 
+    block(srv, me, Union{Failure, responsetype(typeof(msg))};
         waketest = resp -> resp.body.token == waketoken
     ) do response
         @debug "Wake $(addr(me)) on $(current_task()) with $(response)"
         releasetask(mts.pool, current_task())
         yieldto(thistask, response)
     end
-    return yieldto(gettask(mts.pool))
+    response = yieldto(gettask(mts.pool))
+    if response isa Failure
+        throw(response)
+    end
+    return response
 end
 
 end # module
