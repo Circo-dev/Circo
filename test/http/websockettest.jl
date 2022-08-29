@@ -104,25 +104,25 @@ function create_websocket_server(testserver::TestServer, url, port)
     @async WebSockets.listen(url, port; server=testserver.tcpserver, verbose=true) do ws
         @test ws.request isa HTTP.Request
         try
-        for msg in ws
-            data = String(msg)
+            for msg in ws
+                data = String(msg)
                 
-            responsemessage = "Server send this : $data"
-            @debug responsemessage
-            testserver.server_verification_data.messagereceived = true
-            push!(testserver.server_verification_data.receivedmessages, data)
+                responsemessage = "Server send this : $data"
+                @debug responsemessage
+                testserver.server_verification_data.messagereceived = true
+                push!(testserver.server_verification_data.receivedmessages, data)
 
                 if data == "Send error"
                     @info "Sending \"Unexpected\" error"
                     error(responsemessage)
                 else 
                     HTTP.send(ws, responsemessage)
-        end
+                end
             end
         finally
-        @debug "Server start to close"
-        testserver.server_verification_data.websocketservercloses = true
-        testserver.wait_for_server_close = true
+            @debug "Server start to close"
+            testserver.server_verification_data.websocketservercloses = true
+            testserver.wait_for_server_close = true
         end
     end
 end
@@ -166,8 +166,8 @@ end
 
         testserver = create_websocket_server(url, port)
         try 
-        messagechannel = Channel{}(2)
-        closingsignal = Channel{}(2)
+            messagechannel = Channel{}(2)
+            closingsignal = Channel{}(2)
 
             @async WebSockets.open("$(protocol)$(url):$(port)"; verbose=true) do ws
             HTTP.send(ws, "Client send message!")
