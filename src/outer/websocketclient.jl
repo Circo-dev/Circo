@@ -130,10 +130,6 @@ function Circo.onmessage(me::WebSocketCallerActor, openmsg::WebSocketOpen, servi
                 Circo.send(service, me, openmsg.source, MessageEvent(websocket_id, raw_message))
             end
         catch e
-            if !(e isa EOFError)
-                @info "Exception in arrivals", e
-            end
-
             @warn "Exception" e
             if typeof(e) == HTTP.WebSockets.WebSocketError
                 if typeof(e.message) == HTTP.WebSockets.CloseFrameBody
