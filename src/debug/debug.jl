@@ -26,6 +26,7 @@ for command in (Run, Step, Stop)
 end
 
 include("msgstats.jl")
+include("tape.jl")
 
 function __init__()
     Plugins.register(MsgStats)

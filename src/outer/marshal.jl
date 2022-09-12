@@ -50,6 +50,4 @@ function unmarshal(buf, typeregistry, msg_type_name)
     return nothing
 end
 
-
-
 end # module
