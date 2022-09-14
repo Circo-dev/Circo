@@ -1,3 +1,11 @@
+# Ref cheatsheet
+# Refs are relative to the component receiving a Sub or FindRef command
+# They are evaluated incrementally (splitted at slashes)
+# Refs may optionally describe a topic to filter events
+#
+# ../name1/                 sibling with name=name1 (go to parent then select by name), no topic specified
+# [exchange1]/@btcusdt      btcusdt topic of the component with address stored (as string) in the exchange1 attr
+# |/                        previous sibling
 
 struct Sub <: Request
     subscriber::Addr
@@ -5,8 +13,6 @@ struct Sub <: Request
     eventtype::Type
     token::Token
 end
-
-gensubid() = rand(UInt64)
 
 """
     sub(srv, me, ref::String, eventtype::Type)
@@ -28,7 +34,7 @@ end
     The result will be sent back as RefFound or RefNotFound
     Return the token of the request.
 """
-function findref(srv, me, ref::String)
+function evalref(srv, me, ref::String)
     token = Token()
     send(srv, me, addr(me), FindRef(me, ref, token))
     return token
@@ -52,14 +58,14 @@ end
 
 struct RefNotFound
     token::Token
-    remainingref::String
+    remainingref::Union{String, Nothing}
     sender::Addr
 end
 
 Circo.onmessage(me::Actor, msg::FindRef, srv) = begin
-    foundaddr, remainingref = findref(me, msg.ref)
+    foundaddr, remainingref = evalref(me, msg.ref)
     if isnothing(foundaddr)
-        if remainingref == ""
+        if remainingref == "" || (!isnothing(remainingref) && startswith(remainingref, "@")) # TODO check topic validity
             return send(srv, me, me, RefFound(msg.token, addr(me)))
         else
             return send(srv, me, me, RefNotFound(msg.token, remainingref, addr(me)))
@@ -71,10 +77,12 @@ end
 
 
 Circo.onmessage(me::Actor, msg::Sub, srv) = begin
-    foundaddr, remainingref = findref(me, msg.ref)
+    foundaddr, remainingref = evalref(me, msg.ref)
     if isnothing(foundaddr)
         if remainingref == ""
-            return send(srv, me, me, Subscribe(msg.eventtype, msg.subscriber))
+            return send(srv, me, me, Subscribe(msg.eventtype, msg.subscriber)) # No topic
+        elseif !isnothing(remainingref) && startswith(remainingref, "@")
+            return send(srv, me, me, Subscribe(msg.eventtype, msg.subscriber, remainingref[2:end])) # topic specified TODO check validity
         else
             return send(srv, me, me, RefNotFound(msg.token, msg.subscriber, addr(me)), remainingref)
         end 
@@ -83,11 +91,15 @@ Circo.onmessage(me::Actor, msg::Sub, srv) = begin
     end
 end
 
-findref(me::Actor, ref::String) = begin
+# return (nextaddr, remainingref) where nextaddr is the address to forward remainingref.
+# nextaddr will be nothing if me is the target of this ref (no slash in it)
+# In that case remainingref may contain the topic name (starting with @) or be the empty string if no topic specified
+# return (nothing, nothing) if ref cannot be understood
+evalref(me::Actor, ref::String) = begin
     slash = findfirst("/", ref)
     if isnothing(slash)
-        if ref == ""
-            return (nothing, "") # it's me
+        if ref == "" || startswith(ref, "@")
+            return (nothing, ref) # it's me
         else
             virtidx = length(ref) + 1
             slash = virtidx:virtidx
@@ -97,7 +109,7 @@ findref(me::Actor, ref::String) = begin
     evaled = evalrefpart(me, currentpart)
     if isnothing(evaled)
         @warn "Could not eval '$(currentpart)' in $(ref)"
-        return (nothing, ref)
+        return (nothing, nothing)
     end
     remainingref = ref[slash.stop+1:end]
     return (evaled, remainingref)

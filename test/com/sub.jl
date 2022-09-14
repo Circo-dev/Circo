@@ -3,7 +3,10 @@ using Test
 using Circo, Circo.COM
 
 struct TestEvent <: Event
+    topic
     value
+    TestEvent(value) = new(nothing, value)
+    TestEvent(topic, value) = new(topic, value)
 end
 
 mutable struct SubTester <: Actor{Any}
@@ -40,7 +43,7 @@ end
     prog = fromasml("""
         <sub-tester name="root">
             <sub-tester name="t1" subto="../"></sub-tester>
-            <sub-tester name="t2" subto="../t3/"></sub-tester>
+            <sub-tester name="t2" subto="../t3/@test-topic"></sub-tester>
             <sub-tester name="t3" subto="..">
                 <sub-tester name="t31" subto="../.."></sub-tester>
                 <sub-tester name="t32" subto="../t31"></sub-tester>
@@ -64,21 +67,25 @@ end
 
     send(sdl, prog.childnodes[3].instance, Fire(TestEvent(2)))
     sdl(;remote=false)
-    @test length(log) == 6
+    @test length(log) == 5
     @test log[5] == (TestEvent(2), prog.childnodes[3].childnodes[3].instance)
-    @test log[6] == (TestEvent(2), prog.childnodes[2].instance)
 
+    send(sdl, prog.childnodes[3].instance, Fire(TestEvent("test-topic", 2)))
+    sdl(;remote=false)
+    @test length(log) == 7
+    @test log[6] == (TestEvent("test-topic", 2), prog.childnodes[3].childnodes[3].instance)
+    @test log[7] == (TestEvent("test-topic", 2), prog.childnodes[2].instance)
 
     # findref basics
     empty!(log)
-    token1 = findref(sdl.service, root, "t1")
+    token1 = evalref(sdl.service, root, "t1")
     sdl(;remote=false)
     @test log[1][1] == RefFound(token1, addr(prog.childnodes[1].instance))
-    token2 = findref(sdl.service, root, "t31")
+    token2 = evalref(sdl.service, root, "t31")
     sdl(;remote=false)
     @test typeof(log[2][1]) == RefNotFound
     @test log[2][1].token == token2
-    token3 = findref(sdl.service, root, "t3/t31")
+    token3 = evalref(sdl.service, root, "t3/t31")
     sdl(;remote=false)
     @test log[3][1] == RefFound(token3, addr(prog.childnodes[3].childnodes[1].instance))
 

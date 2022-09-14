@@ -11,7 +11,7 @@ using ..Circo
 export define,
     instantiate, vitalize,
     Child,
-    sub, findref,
+    sub, evalref,
     RefFound, RefNotFound,
     fromasml, Node
 
