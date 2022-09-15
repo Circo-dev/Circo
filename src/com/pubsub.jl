@@ -75,7 +75,6 @@ Circo.onmessage(me::Actor, msg::FindRef, srv) = begin
     end
 end
 
-
 Circo.onmessage(me::Actor, msg::Sub, srv) = begin
     foundaddr, remainingref = evalref(me, msg.ref)
     if isnothing(foundaddr)

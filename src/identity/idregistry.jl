@@ -6,7 +6,7 @@ module IdRegistry
 using Plugins
 using CircoCore, Circo, Circo.Cluster, Circo.DistributedIdentities, Circo.Transactions, Circo.DistributedIdentities.Reference
 
-export IdRegistryService, RegisterIdentity, IdentityRegistered, AlreadyRegistered, RegistryQuery, RegistryResponse
+export IdRegistryService, RegisterIdentity, IdentityRegistered, AlreadyRegistered, RegistryQuery, RegistryResponse, NotFound
 
 const REGISTRY_NAME = "global_registry"
 
@@ -54,23 +54,32 @@ Transactions.consistency_style(::Type{IdRegistryPeer}) = Inconsistency() # TODO 
 Circo.traits(::Type{IdRegistryPeer}) = (EventSource,)
 Circo.monitorprojection(::Type{IdRegistryPeer}) = Circo.Monitor.JS("projections.nonimportant")
 
-struct RegisterIdentity
+
+struct RegisterIdentity <: Request
     respondto::Addr
     key::String
     id::DistributedIdentities.DistIdId
     peers::Vector{Addr}
-    RegisterIdentity(respondto, key, id, peers) = new(respondto, key, id, peers)
-    RegisterIdentity(respondto, key, ref::IdRef) = new(respondto, key, distid(ref), peers(ref))
+    token::Token
+    RegisterIdentity(respondto, key, id, peers) = new(respondto, key, id, peers, Token())
+    RegisterIdentity(respondto, key, ref::IdRef) = new(respondto, key, distid(ref), peers(ref), Token())
 end
-struct IdentityRegistered
+
+struct IdentityRegistered <: Response
     key::String
     id::DistributedIdentities.DistIdId
     peers::Vector{Addr}
+    token::Token
 end
-struct AlreadyRegistered
+
+@response RegisterIdentity IdentityRegistered
+
+struct AlreadyRegistered <: Failure
     id::DistributedIdentities.DistIdId
     key::String
+    token::Token
 end
+
 
 struct RegistryWrite <: Write # TODO subtyping allows write recursion, but do we really need it?
     key::String
@@ -80,7 +89,7 @@ end
 
 function Transactions.apply!(me::IdRegistryPeer, write::RegistryWrite, service)
     if isregistered(me, write.key)
-        throw(AlreadyRegistered(write.id, write.key))
+        throw(AlreadyRegistered(write.id, write.key, Token(0)))
     end
     ref = spawn(service, IdRef(write.id, deepcopy(write.peers), emptycore(service)))
     me.registered_ids[write.key] = write.id
@@ -89,11 +98,11 @@ end
 
 Circo.onmessage(me::IdRegistryPeer, msg::RegisterIdentity, service) = begin
     if msg.key == REGISTRY_NAME
-        return send(service, me, msg.respondto, AlreadyRegistered(msg.id, msg.key))
+        return send(service, me, msg.respondto, AlreadyRegistered(msg.id, msg.key, msg.token))
     end
     try
         commit!(me, RegistryWrite(msg.key, msg.id, msg.peers), service)
-        send(service, me, msg.respondto, IdentityRegistered(msg.key, msg.id, msg.peers))
+        send(service, me, msg.respondto, IdentityRegistered(msg.key, msg.id, msg.peers, msg.token))
     catch e
         e isa AlreadyRegistered || rethrow(e)
         send(service, me, msg.respondto, e)
@@ -115,9 +124,11 @@ struct RegistryResponse <: Response
     ref::IdRef
     token::Token
 end
-struct NotFound
+struct NotFound <: Failure
     key::String
+    token::Token
 end
+@response RegistryQuery RegistryResponse
 
 # @msg RegistryQuery => IdRegistryPeer begin
 #     id = get(me.registered_ids, msg.key, nothing)
@@ -130,7 +141,7 @@ Circo.onmessage(me::IdRegistryPeer, msg::RegistryQuery, service) = begin
         if msg.key == REGISTRY_NAME # Send a ref to ourself
             send(service, me, msg.respondto, RegistryResponse(msg.key, IdRef(distid(me), deepcopy(peers(me)), emptycore(service)), msg.token))
         end
-        return send(service, me, msg.respondto, NotFound(msg.key))
+        return send(service, me, msg.respondto, NotFound(msg.key, msg.token))
     end
     myref = get(me.refs, id, nothing)
     if isnothing(myref)
@@ -176,6 +187,7 @@ end
 
 Circo.onmessage(me::RegistryRefAcquirer, msg::NameResponse, service) = begin
     if isnothing(msg.handler)
+        @warn "Global identity registry not (yet) available."
         @async begin
             sleep(1.0)
             send_namequery(me, service)
@@ -186,11 +198,15 @@ Circo.onmessage(me::RegistryRefAcquirer, msg::NameResponse, service) = begin
 end
 
 Circo.onmessage(me::RegistryRefAcquirer, msg::RegistryResponse, service) = begin
+    if getname(service, REGISTRY_NAME) != addr(me)
+        return
+    end
     ref = spawn(service, msg.ref)
     registername(service, REGISTRY_NAME, ref)
     for req in me.postponed_queries
         send(service, me, ref, req)
     end
+    @info "Connected to global identity registry"
 end
 
 Circo.onmessage(me::RegistryRefAcquirer, msg::Timeout, service) = begin
