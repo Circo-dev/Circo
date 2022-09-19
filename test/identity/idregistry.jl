@@ -3,10 +3,8 @@ module IdRegistryTest
 
 using Test
 using Circo, Circo.CircoCore, Circo.DistributedIdentities, Circo.Debug, Circo.DistributedIdentities.Reference
+using Circo.TestActors
 using Circo.IdRegistry
-
-include("../helper/testactors.jl");
-import .TestActors: Puppet, msgcount, msgs
 
 mutable struct DistIdForRegistryTest <: Actor{Any}
     @distid_field

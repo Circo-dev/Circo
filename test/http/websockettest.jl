@@ -1,11 +1,8 @@
 using Test
 using HTTP, HTTP.WebSockets
 using Sockets
-using Circo, Circo.WebsocketClient
+using Circo, Circo.WebsocketClient, Circo.TestActors
 using Logging
-
-include("../helper/testactors.jl");
-import .TestActors: Puppet, msgcount, msgs
 
 import Circo.send
 

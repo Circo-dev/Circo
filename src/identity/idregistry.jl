@@ -89,7 +89,7 @@ end
 
 function Transactions.apply!(me::IdRegistryPeer, write::RegistryWrite, service)
     if isregistered(me, write.key)
-        throw(AlreadyRegistered(write.id, write.key, Token(0x0)))
+        throw(AlreadyRegistered(write.id, write.key, Token(TokenId(0))))
     end
     ref = spawn(service, IdRef(write.id, deepcopy(write.peers), emptycore(service)))
     me.registered_ids[write.key] = write.id

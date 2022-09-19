@@ -81,6 +81,7 @@ include("identity/idregistry.jl")
 include("identity/leadgroup.jl")
 include("com/com.jl")
 include("persistence.jl")
+include("testactors.jl")
 include("profiles.jl")
 include("cli/circonode.jl")
 
