@@ -164,7 +164,7 @@ sending_websocket_message(ws, wsmessage::WebSocketSend) = HTTP.send(ws, wsmessag
 function Circo.onmessage(me::WebSocketCallerActor, wsmessage::WebSocketMessage, service)
     ws = get(me.messageChannels, websocket_id(wsmessage), missing)
     if ws === missing
-        Circo.send(service, me, openmsg.source, ErrorEvent(websocket_id, "Got unknown websocket id"))
+        Circo.send(service, me, wsmessage.source, ErrorEvent(websocket_id, "Got unknown websocket id"))
     else 
         sending_websocket_message(ws, wsmessage)
     end
