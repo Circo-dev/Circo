@@ -1,19 +1,37 @@
 module TestActors
 
-export Puppet, msgcount, msgs
+export Puppet, EventPuppet, msgcount, msgs
 
 using Circo
 
 mutable struct Puppet <: Actor{Any}
     msgs::IdDict{DataType, Vector{Any}}
     handlers::IdDict{Any, Any}
+    registeredname::Union{String, Nothing}
+
     service
     core
-    Puppet(handlerpairs...) = new(IdDict(), IdDict(handlerpairs...))
+    Puppet(handlerpairs...; registeredname = nothing) = new(IdDict(), IdDict(handlerpairs...), registeredname)
 end
 
-Circo.onmessage(me::Puppet, ::OnSpawn, service) = begin
+mutable struct EventPuppet <: Actor{Any}
+    msgs::IdDict{DataType, Vector{Any}}
+    handlers::IdDict{Any, Any}
+    registeredname::Union{String, Nothing}
+
+    service
+    eventdispatcher
+    core
+
+    EventPuppet(handlerpairs...; registeredname = nothing) = new(IdDict(), IdDict(handlerpairs...), registeredname)
+end
+Circo.traits(::Type{EventPuppet}) = (EventSource,)
+
+Circo.onmessage(me::Union{Puppet, EventPuppet}, ::OnSpawn, service) = begin
     me.service = service # For simpler API. We know what we are doing. Are we?
+    if !isnothing(me.registeredname)
+        registername(me.service, me.registeredname, me)
+    end
     callhandler(me, :spawn, service)
 end
 
@@ -24,7 +42,7 @@ function callhandler(me, key, args...)
     end
 end
 
-Circo.onmessage(me::Puppet, msg, service) = begin
+Circo.onmessage(me::Union{Puppet, EventPuppet}, msg, service) = begin
     msgvect = get!(me.msgs, typeof(msg)) do
         return []
     end
@@ -32,15 +50,13 @@ Circo.onmessage(me::Puppet, msg, service) = begin
     callhandler(me, typeof(msg), msg, service)
 end
 
-msgs(me::Puppet, msgtype::DataType) = get(me.msgs, msgtype, [])
+msgs(me::Union{Puppet, EventPuppet}, msgtype::DataType) = get(me.msgs, msgtype, [])
 
-function msgcount(me::Puppet, msgtype::DataType)
+function msgcount(me::Union{Puppet, EventPuppet}, msgtype::DataType)
     return length(msgs(me, msgtype))
 end
 
-Circo.send(me::Puppet, target::Addr, msg) = begin
-    send(me.service, me, target, msg)
-end
-Circo.send(me::Puppet, target::Actor, msg) = send(me, addr(target), msg)
+Circo.send(me::Union{Puppet, EventPuppet}, target::Addr, msg) = send(me.service, me, target, msg)
+Circo.send(me::Union{Puppet, EventPuppet}, target::Actor, msg) = send(me, addr(target), msg)
 
 end # module
