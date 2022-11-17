@@ -5,7 +5,7 @@ using ..Circo
 using Circo.Block
 
 
-export awaitresponse, MultiTaskService
+export await, awaitresponse, MultiTaskService
 
 struct TaskPool
     tasks::Vector{Task}
@@ -77,17 +77,26 @@ The scheduler will continue to run using other Julia tasks while waiting for a r
 `me` will also be "blocked" (See [`block`](@ref)), meaning that messages arriving while waiting will be queued.
 """
 function awaitresponse(srv, me::Actor, to::Addr, msg::Request)
+    send(srv, me, to, msg)
+    return await(srv, me, responsetype(typeof(msg)), msg.token)
+end
+
+"""
+    function await(srv, me, waketype, waketoken)
+
+Wait for a message of type waketype with token `waketoken` to arrive, the return the message.
+
+The scheduler will continue to run using other Julia tasks while waiting for a response.
+`me` will also be "blocked" (See [`block`](@ref)), meaning that messages arriving while waiting will be queued.
+"""
+function await(srv, me, waketype, waketoken)
     mts = plugin(srv, :multitask)
     if isnothing(mts)
          error("MultiTask plugin not loaded!") # TODO allow it for debugging (with blocking the only scheduler task)
     end 
     mts::MultiTaskService # TODO this breaks extensibility, check if performance gain is worth it (same as in Block)
-
-    send(srv, me, to, msg)
-    
     thistask = current_task()
-    waketoken = msg.token
-    block(srv, me, Union{Failure, responsetype(typeof(msg))};
+    block(srv, me, Union{Failure, waketype};
         waketest = resp -> resp.body.token == waketoken
     ) do response
         @debug "Wake $(addr(me)) on $(current_task()) with $(response)"
