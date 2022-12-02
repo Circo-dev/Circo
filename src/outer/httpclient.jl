@@ -29,6 +29,7 @@ function Circo.onmessage(me::HttpClientActor, msg::HttpRequest, service)
 
     @async begin
         response = nothing
+        address = msg.respondto
         try 
             response = HTTP.request(msg.method, msg.target, msg.headers, isnothing(msg.body) ? nobody : msg.body;
                 msg.keywordargs... ,
@@ -38,11 +39,11 @@ function Circo.onmessage(me::HttpClientActor, msg::HttpRequest, service)
             )
         catch e
             @error "Error when initiating HTTP request!" e
+            send(service, me, address , HttpError(msg.token, e))
+            return
         end
 
         @debug "HTTP.request returned to HttpClientActor" response
-        address = msg.respondto
-        @debug "Sending HttpResponse message to $address"
         
         ownresponse = HttpResponse(msg.token, response.status, response.headers, response.body)
         send(service, me, address , ownresponse)

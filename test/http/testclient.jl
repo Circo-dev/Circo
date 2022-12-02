@@ -13,6 +13,7 @@ mutable struct HttpTestCaller <: Actor{Any}
     core::Any
     requestsent::Bool
     responsearrived::Bool
+    errorarrived::Bool
     reqtokensent::Token
     reqtokenarrived::Token
     orchestrator::Addr
@@ -27,10 +28,14 @@ mutable struct StartMsg
     url::AbstractString
 
     StartMsg(method, body, withkeywordparams) = new(method, body, withkeywordparams)
+    StartMsg(method, body, withkeywordparams, url) = new(method, body, withkeywordparams, url)
 end
 
 struct VerificationMsg
     responsebody
+    iserror::Bool
+    VerificationMsg(body) = new(body, false)
+    VerificationMsg(body, iserror) = new(body, iserror)
 end
 
 struct StartHttpTest <: CircoCore.AbstractMsg{Any}
@@ -42,13 +47,14 @@ end
 function Circo.onmessage(me::HttpTestCaller, ::OnSpawn, service)
     me.requestsent = false
     me.responsearrived = false
+    me.errorarrived = false
     me.reqtokensent = Token(UInt64(12))
     me.reqtokenarrived = Token(UInt64(0))
 end
 
 function Circo.onmessage(me::HttpTestCaller, msg::StartMsg, service)
     httpactor = getname(service, "httpclient")
-    println("Prepare message to $(msg.url)")
+    @debug "Prepare message to $(msg.url)"
     
     request = nothing
     if msg.withkeywordparams == true 
@@ -92,6 +98,12 @@ function Circo.onmessage(me::HttpTestCaller, msg::HttpResponse, service)
     die(service, me; exit=true)
 end
 
+function Circo.onmessage(me::HttpTestCaller, msg::HttpError, service)
+    me.errorarrived = true
+    me.reqtokenarrived = msg.token
+    send(service, me, me.orchestrator, VerificationMsg(nothing, true))
+    die(service, me; exit=true)
+end
 
 mutable struct HttpRequestProcessor <: Actor{Any}
     requestProcessed::Bool
@@ -126,21 +138,24 @@ mutable struct TestOrchestrator <: Actor{Any}
     core::Any
     expectedresponsebody
     requestprocessedbyactor::Bool
+    expecterror::Bool
     processoractor::HttpRequestProcessor
     httpcalleractor::HttpTestCaller
 
-    TestOrchestrator(core, expectedbody) = new(core, expectedbody, true)
-    TestOrchestrator(core, expectedbody, requestprocessed) = new(core, expectedbody, requestprocessed)
+    TestOrchestrator(core, expectedbody) = new(core, expectedbody, true, false)
+    TestOrchestrator(core, expectedbody, requestprocessed, expecterror) = new(core, expectedbody, requestprocessed, expecterror)
 end
 
 function Circo.onmessage(me::TestOrchestrator, msg::StartMsg, service)
     # code duplication. Copied from httpserver Circo.schedule_start 
     # TODO Get url from HttpServer plugin.
-    listenport = 8080 + port(postcode(service.scheduler)) - CircoCore.PORT_RANGE[1]
+    if !isdefined(msg, :url)
+        listenport = 8080 + port(postcode(service.scheduler)) - CircoCore.PORT_RANGE[1]
+        ipaddr = Sockets.IPv4(0)
     ipaddr = Sockets.IPv4(0) 
-    url = "http://$(ipaddr):$(listenport)"
-
-    msg.url = url
+        ipaddr = Sockets.IPv4(0)
+        msg.url = "http://$(ipaddr):$(listenport)"
+    end
     send(service, me, me.httpcalleractor, msg)
 end
 
@@ -148,17 +163,22 @@ end
 function Circo.onmessage(me::TestOrchestrator, msg::VerificationMsg, service)
 
     @test me.httpcalleractor.requestsent == true
-    @test me.httpcalleractor.responsearrived == true
-    @test me.httpcalleractor.reqtokensent == me.httpcalleractor.reqtokenarrived
-    @test me.processoractor.requestProcessed == me.requestprocessedbyactor
+    @test me.expecterror == msg.iserror
+    if !me.expecterror
+        @test me.httpcalleractor.responsearrived == true
+        @test me.httpcalleractor.reqtokensent == me.httpcalleractor.reqtokenarrived
+        @test me.processoractor.requestProcessed == me.requestprocessedbyactor
+        @test startswith(msg.responsebody, me.expectedresponsebody)
     @test startswith(msg.responsebody, me.expectedresponsebody)  
+        @test startswith(msg.responsebody, me.expectedresponsebody)
+    end
 
     die(service, me; exit=true)
 
     Circo.shutdown!(service.scheduler)
 end
 
-@testset "Http modul tests" begin
+@testset "Http module tests" begin
     @testset "Http client and server test" begin
         ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [HttpServer, HttpClient])
 
@@ -188,7 +208,7 @@ end
 
             caller = HttpTestCaller(emptycore(ctx))
             processor = HttpRequestProcessor(emptycore(ctx))
-            orchestrator = TestOrchestrator(emptycore(ctx), "Payload size is too big! Accepted maximum", false)
+            orchestrator = TestOrchestrator(emptycore(ctx), "Payload size is too big! Accepted maximum", false, false)
 
             scheduler = Scheduler(ctx, [orchestrator, processor,caller])
             scheduler(;remote=false) # to spawn the zygote
@@ -229,4 +249,23 @@ end
             StartHttpTest(orchestrator, orchestrator, msg)
             ] ;remote = true)  # with remote,exit flags the scheduler won't stop.   
     end
+
+    @testset "Http client error handling" begin
+        ctx = CircoContext(target_module=@__MODULE__, userpluginsfn=() -> [HttpServer, HttpClient])
+
+        caller = HttpTestCaller(emptycore(ctx))
+        orchestrator = TestOrchestrator(emptycore(ctx), "\"$REQUEST_BODY_MSG\" $RESPONSE_BODY_MSG", false, true)
+
+        scheduler = Scheduler(ctx, [orchestrator, caller])
+        scheduler(;remote=false) # to spawn the zygote
+        orchestrator.httpcalleractor = caller
+        caller.orchestrator = orchestrator
+
+        msg = StartMsg("GET", REQUEST_BODY_MSG, true, "http://nonexisting12345678.domain")
+
+        scheduler([
+            StartHttpTest(orchestrator, orchestrator, msg)
+            ] ;remote = true)  # with remote,exit flags the scheduler won't stop.   
+    end
+
 end

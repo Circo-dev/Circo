@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MPL-2.0
 module Http
 
-export HttpRequest, HttpResponse, PrefixRoute, HttpServer, HttpClient
+export HttpRequest, HttpResponse, HttpError, PrefixRoute, HttpServer, HttpClient
 
 using ..Circo
 using Plugins
@@ -27,6 +27,11 @@ struct HttpResponse <: Response
     body::Vector{UInt8}
 end
 @response HttpRequest HttpResponse
+
+struct HttpError <: Failure
+    token::Token
+    cause::Exception
+end
 
 include("httpclient.jl")
 include("httpserver.jl")
