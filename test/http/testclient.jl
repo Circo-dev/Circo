@@ -169,12 +169,11 @@ function Circo.onmessage(me::TestOrchestrator, msg::VerificationMsg, service)
         @test me.httpcalleractor.reqtokensent == me.httpcalleractor.reqtokenarrived
         @test me.processoractor.requestProcessed == me.requestprocessedbyactor
         @test startswith(msg.responsebody, me.expectedresponsebody)
-    @test startswith(msg.responsebody, me.expectedresponsebody)  
+        @test startswith(msg.responsebody, me.expectedresponsebody)
         @test startswith(msg.responsebody, me.expectedresponsebody)
     end
 
     die(service, me; exit=true)
-
     Circo.shutdown!(service.scheduler)
 end
 
